@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 240" width="100%" height="100%">
+  <defs>
+    <linearGradient id="goldGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#FEF08A" />
+      <stop offset="40%" stopColor="#F59E0B" />
+      <stop offset="80%" stopColor="#D97706" />
+      <stop offset="100%" stopColor="#92400E" />
+    </linearGradient>
+    <filter id="shadow4" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" floodColor="#78350F" floodOpacity="0.2" />
+    </filter>
+  </defs>
+  <rect width="100%" height="100%" fill="#FAF7F5" />
+  <!-- Golden Pendant Chain -->
+  <path d="M 60 40 C 90 140, 210 140, 240 40" fill="none" stroke="url(#goldGrad4)" stroke-width="3" stroke-linecap="round" />
+  <!-- Pendant -->
+  <circle cx="150" cy="148" r="14" fill="url(#goldGrad4)" filter="url(#shadow4)" />
+  <circle cx="150" cy="148" r="10" fill="#FFFBEB" stroke="#D97706" stroke-width="1.5" />
+  <circle cx="150" cy="148" r="4" fill="#9333EA" />
+</svg>

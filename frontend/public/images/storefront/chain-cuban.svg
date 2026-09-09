@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 240" width="100%" height="100%">
+  <defs>
+    <linearGradient id="goldGrad5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#FEF08A" />
+      <stop offset="30%" stopColor="#F59E0B" />
+      <stop offset="70%" stopColor="#D97706" />
+      <stop offset="100%" stopColor="#78350F" />
+    </linearGradient>
+    <filter id="shadow5" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#78350F" floodOpacity="0.22" />
+    </filter>
+  </defs>
+  <rect width="100%" height="100%" fill="#FAF7F5" />
+  <!-- Golden Cuban Chain -->
+  <path d="M 45 40 C 70 160, 230 160, 255 40" fill="none" stroke="url(#goldGrad5)" stroke-width="9" stroke-linecap="round" stroke-dasharray="10,4" filter="url(#shadow5)" />
+</svg>

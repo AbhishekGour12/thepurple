@@ -1,0 +1,132 @@
+import { ADMIN_ROLES } from '../../models/Admin.js';
+
+export const PERMISSIONS = {
+  // Dashboard
+  DASHBOARD_VIEW: 'DASHBOARD_VIEW',
+
+  // Product Management
+  PRODUCT_VIEW: 'PRODUCT_VIEW',
+  PRODUCT_CREATE: 'PRODUCT_CREATE',
+  PRODUCT_EDIT: 'PRODUCT_EDIT',
+  PRODUCT_DELETE: 'PRODUCT_DELETE',
+  PRODUCT_PUBLISH: 'PRODUCT_PUBLISH',
+  PRODUCT_BULK_UPLOAD: 'PRODUCT_BULK_UPLOAD',
+
+  // Category & Taxonomy Management
+  CATEGORY_VIEW: 'CATEGORY_VIEW',
+  CATEGORY_MANAGE: 'CATEGORY_MANAGE',
+
+  // Orders
+  ORDER_VIEW: 'ORDER_VIEW',
+  ORDER_UPDATE: 'ORDER_UPDATE',
+
+  // Payments
+  PAYMENT_VIEW: 'PAYMENT_VIEW',
+  PAYMENT_EXPORT: 'PAYMENT_EXPORT',
+
+  // Users / Customers
+  USER_VIEW: 'USER_VIEW',
+  USER_MANAGE: 'USER_MANAGE',
+
+  // Banners
+  BANNER_VIEW: 'BANNER_VIEW',
+  BANNER_MANAGE: 'BANNER_MANAGE',
+
+  // Settings
+  SETTINGS_VIEW: 'SETTINGS_VIEW',
+  SETTINGS_MANAGE: 'SETTINGS_MANAGE',
+
+  // Admin User Management
+  ADMIN_VIEW: 'ADMIN_VIEW',
+  ADMIN_CREATE: 'ADMIN_CREATE',
+  ADMIN_EDIT: 'ADMIN_EDIT',
+  ADMIN_STATUS: 'ADMIN_STATUS',
+  ADMIN_RESET_ACCESS: 'ADMIN_RESET_ACCESS',
+  ADMIN_DELETE: 'ADMIN_DELETE',
+};
+
+/**
+ * Role to Permissions mapping
+ */
+export const ROLE_PERMISSIONS = {
+  [ADMIN_ROLES.SUPER_ADMIN]: Object.values(PERMISSIONS),
+
+  [ADMIN_ROLES.MANAGER]: [
+    PERMISSIONS.DASHBOARD_VIEW,
+    // Products full
+    PERMISSIONS.PRODUCT_VIEW,
+    PERMISSIONS.PRODUCT_CREATE,
+    PERMISSIONS.PRODUCT_EDIT,
+    PERMISSIONS.PRODUCT_DELETE,
+    PERMISSIONS.PRODUCT_PUBLISH,
+    PERMISSIONS.PRODUCT_BULK_UPLOAD,
+    // Categories full
+    PERMISSIONS.CATEGORY_VIEW,
+    PERMISSIONS.CATEGORY_MANAGE,
+    // Orders full
+    PERMISSIONS.ORDER_VIEW,
+    PERMISSIONS.ORDER_UPDATE,
+    // Payments full
+    PERMISSIONS.PAYMENT_VIEW,
+    PERMISSIONS.PAYMENT_EXPORT,
+    // Users full
+    PERMISSIONS.USER_VIEW,
+    PERMISSIONS.USER_MANAGE,
+    // Banners full
+    PERMISSIONS.BANNER_VIEW,
+    PERMISSIONS.BANNER_MANAGE,
+    // NO SETTINGS, NO ADMIN MANAGEMENT
+  ],
+
+  [ADMIN_ROLES.EXECUTIVE]: [
+    PERMISSIONS.DASHBOARD_VIEW,
+    // Products: Upload / Edit / View only
+    PERMISSIONS.PRODUCT_VIEW,
+    PERMISSIONS.PRODUCT_CREATE,
+    PERMISSIONS.PRODUCT_EDIT,
+    PERMISSIONS.PRODUCT_BULK_UPLOAD,
+    // Categories view only
+    PERMISSIONS.CATEGORY_VIEW,
+    // Orders view only
+    PERMISSIONS.ORDER_VIEW,
+    // Users view only
+    PERMISSIONS.USER_VIEW,
+    // NO PRODUCT_DELETE, NO PRODUCT_PUBLISH
+    // NO PAYMENTS, NO BANNERS, NO SETTINGS, NO ADMIN MANAGEMENT
+  ],
+
+  // Backward compatibility alias
+  WORKER: [
+    PERMISSIONS.DASHBOARD_VIEW,
+    PERMISSIONS.PRODUCT_VIEW,
+    PERMISSIONS.PRODUCT_CREATE,
+    PERMISSIONS.PRODUCT_EDIT,
+    PERMISSIONS.PRODUCT_BULK_UPLOAD,
+    PERMISSIONS.CATEGORY_VIEW,
+    PERMISSIONS.ORDER_VIEW,
+    PERMISSIONS.USER_VIEW,
+  ],
+};
+
+/**
+ * Check if a role has a given permission
+ */
+export function hasPermission(role, permission) {
+  if (!role || !permission) return false;
+  const permissions = ROLE_PERMISSIONS[role] || [];
+  return permissions.includes(permission);
+}
+
+/**
+ * Get all permissions granted to a role
+ */
+export function getRolePermissions(role) {
+  return ROLE_PERMISSIONS[role] || [];
+}
+
+export default {
+  PERMISSIONS,
+  ROLE_PERMISSIONS,
+  hasPermission,
+  getRolePermissions,
+};
