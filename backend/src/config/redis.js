@@ -5,9 +5,41 @@ import logger from './logger.js';
 let redisClient = null;
 
 export const getRedisOptions = () => {
+  if (env.REDIS_URL && (env.REDIS_URL.startsWith('redis://') || env.REDIS_URL.startsWith('rediss://'))) {
+    try {
+      const parsed = new URL(env.REDIS_URL);
+      const isTls = parsed.protocol === 'rediss:';
+      return {
+        host: parsed.hostname,
+        port: parseInt(parsed.port || '6379', 10),
+        username: parsed.username || undefined,
+        password: parsed.password || undefined,
+        tls: isTls ? { rejectUnauthorized: false } : undefined,
+        maxRetriesPerRequest: null, // Required by BullMQ
+        enableReadyCheck: false,
+        retryStrategy(times) {
+          if (times > 3) {
+            return null; // Stop reconnecting after 3 attempts
+          }
+          return Math.min(times * 200, 1000);
+        },
+        reconnectOnError(err) {
+          const targetError = 'READONLY';
+          if (err.message.includes(targetError)) {
+            return true;
+          }
+          return false;
+        },
+        lazyConnect: true,
+      };
+    } catch {
+      // Fall through to standard options
+    }
+  }
+
   return {
-    host: env.REDIS_HOST,
-    port: env.REDIS_PORT,
+    host: env.REDIS_HOST || 'localhost',
+    port: env.REDIS_PORT || 6379,
     password: env.REDIS_PASSWORD || undefined,
     maxRetriesPerRequest: null, // Required by BullMQ
     enableReadyCheck: false,
@@ -30,13 +62,17 @@ export const getRedisOptions = () => {
 
 export const getRedisClient = () => {
   if (!redisClient) {
-    const options = getRedisOptions();
-    redisClient = env.REDIS_URL.startsWith('redis://')
-      ? new Redis(env.REDIS_URL, {
-          maxRetriesPerRequest: null,
-          lazyConnect: true,
-        })
-      : new Redis(options);
+    if (env.REDIS_URL && (env.REDIS_URL.startsWith('redis://') || env.REDIS_URL.startsWith('rediss://'))) {
+      const isTls = env.REDIS_URL.startsWith('rediss://');
+      redisClient = new Redis(env.REDIS_URL, {
+        tls: isTls ? { rejectUnauthorized: false } : undefined,
+        maxRetriesPerRequest: null,
+        lazyConnect: true,
+      });
+    } else {
+      const options = getRedisOptions();
+      redisClient = new Redis(options);
+    }
 
     redisClient.on('connect', () => {
       logger.info('Connected to Redis server');

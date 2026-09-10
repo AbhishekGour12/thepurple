@@ -286,7 +286,7 @@ export default function HomeAboutSection() {
             {/* Action Buttons */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
               <Link
-                href="/about-us"
+                href="/about"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
