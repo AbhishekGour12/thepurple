@@ -30,6 +30,50 @@ const startServer = async () => {
   if (db.status === 'healthy') {
     try {
       await sequelize.sync({ alter: false });
+      // Ensure isFeatured column exists in categories table safely
+      try {
+        const qi = sequelize.getQueryInterface();
+        const catDesc = await qi.describeTable('categories');
+        if (!catDesc.isFeatured) {
+          await qi.addColumn('categories', 'isFeatured', {
+            type: sequelize.Sequelize.BOOLEAN,
+            defaultValue: false,
+          });
+          logger.info('Added isFeatured column to categories table.');
+        }
+
+        // Ensure banners table has all rich slide columns
+        const bannerDesc = await qi.describeTable('banners');
+        const newCols = [
+          { name: 'placement', type: sequelize.Sequelize.STRING(50), defaultValue: 'HOME_HERO' },
+          { name: 'highlight', type: sequelize.Sequelize.STRING(150), defaultValue: null },
+          { name: 'badge', type: sequelize.Sequelize.STRING(100), defaultValue: null },
+          { name: 'description', type: sequelize.Sequelize.TEXT, defaultValue: null },
+          { name: 'primaryBtnText', type: sequelize.Sequelize.STRING(100), defaultValue: null },
+          { name: 'primaryBtnUrl', type: sequelize.Sequelize.STRING(500), defaultValue: null },
+          { name: 'secondaryBtnText', type: sequelize.Sequelize.STRING(100), defaultValue: null },
+          { name: 'secondaryBtnUrl', type: sequelize.Sequelize.STRING(500), defaultValue: null },
+          { name: 'accentColor', type: sequelize.Sequelize.STRING(50), defaultValue: '#7E22CE' },
+          { name: 'bgGradient', type: sequelize.Sequelize.STRING(255), defaultValue: null },
+          { name: 'couponCode', type: sequelize.Sequelize.STRING(50), defaultValue: null },
+          { name: 'discountTag', type: sequelize.Sequelize.STRING(100), defaultValue: null },
+          { name: 'isFullImage', type: sequelize.Sequelize.BOOLEAN, defaultValue: false },
+        ];
+
+        for (const col of newCols) {
+          if (!bannerDesc[col.name]) {
+            await qi.addColumn('banners', col.name, {
+              type: col.type,
+              defaultValue: col.defaultValue,
+              allowNull: true,
+            });
+            logger.info(`Added ${col.name} column to banners table.`);
+          }
+        }
+      } catch (colErr) {
+        logger.debug?.(`Column check note: ${colErr.message}`);
+      }
+
       logger.info('Database schema synchronized successfully.');
       await bootstrapSuperAdmin();
     } catch (bootErr) {

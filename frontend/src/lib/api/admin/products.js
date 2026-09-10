@@ -10,8 +10,19 @@ export const adminProductApi = {
     if (params.subcategoryId) query.set('subcategoryId', params.subcategoryId);
     if (params.status) query.set('status', params.status);
     if (params.stockStatus) query.set('stockStatus', params.stockStatus);
-    if (params.minPrice) query.set('minPrice', params.minPrice);
-    if (params.maxPrice) query.set('maxPrice', params.maxPrice);
+    if (params.minPrice !== undefined && params.minPrice !== '') query.set('minPrice', params.minPrice);
+    if (params.maxPrice !== undefined && params.maxPrice !== '') query.set('maxPrice', params.maxPrice);
+    if (params.minStock !== undefined && params.minStock !== '') query.set('minStock', params.minStock);
+    if (params.maxStock !== undefined && params.maxStock !== '') query.set('maxStock', params.maxStock);
+    if (params.minDiscount !== undefined && params.minDiscount !== '') query.set('minDiscount', params.minDiscount);
+    if (params.maxDiscount !== undefined && params.maxDiscount !== '') query.set('maxDiscount', params.maxDiscount);
+    if (params.brand) query.set('brand', params.brand);
+    if (params.isFeatured !== undefined && params.isFeatured !== '') query.set('isFeatured', params.isFeatured);
+    if (params.isBestSeller !== undefined && params.isBestSeller !== '') query.set('isBestSeller', params.isBestSeller);
+    if (params.isBulk !== undefined && params.isBulk !== '') query.set('isBulk', params.isBulk);
+    if (params.tags) query.set('tags', params.tags);
+    if (params.startDate) query.set('startDate', params.startDate);
+    if (params.endDate) query.set('endDate', params.endDate);
     if (params.sort) query.set('sort', params.sort);
 
     const qs = query.toString() ? `?${query.toString()}` : '';
@@ -90,6 +101,21 @@ export const adminProductApi = {
       method: 'POST',
       formData,
       silent: false,
+    });
+  },
+
+  async deleteProductImage(productId, imageId, silent = false) {
+    return await request(`/admin/products/${productId}/images/${imageId}`, {
+      method: 'DELETE',
+      silent,
+    });
+  },
+
+  async deleteStorageImage(keyOrUrl, silent = true) {
+    return await request('/admin/upload/image', {
+      method: 'DELETE',
+      body: { key: keyOrUrl, imageUrl: keyOrUrl },
+      silent,
     });
   },
 };

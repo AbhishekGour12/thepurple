@@ -4,22 +4,34 @@ import asyncHandler from '../../utils/asyncHandler.js';
 import r2Service from '../../services/r2Service.js';
 import AppError from '../../utils/customError.js';
 
-// Multer memory storage configuration for images (max 10MB)
+// Multer memory storage configuration for images (max 25MB raw upload before compression)
 const imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
   fileFilter: (req, file, cb) => {
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
-    if (allowedMimeTypes.includes(file.mimetype)) {
+    const mime = (file.mimetype || '').toLowerCase();
+    const ext = (file.originalname || '').toLowerCase();
+
+    const isImageMime =
+      mime.startsWith('image/') ||
+      mime === 'application/octet-stream';
+
+    const isImageExt = /\.(jpe?g|png|webp|gif|svg|heic|heif|avif|bmp|tiff)$/i.test(ext);
+
+    if (isImageMime || isImageExt) {
       cb(null, true);
     } else {
-      cb(AppError.badRequest('Invalid file format. Only JPEG, PNG, WEBP, and GIF images are allowed.'));
+      cb(
+        AppError.badRequest(
+          'Invalid file format. Please upload an image file (JPEG, PNG, WebP, GIF, SVG, HEIC, AVIF, etc.).'
+        )
+      );
     }
   },
 });
 
 export const uploadSingleImageMiddleware = imageUpload.single('image');
-export const uploadMultipleImagesMiddleware = imageUpload.array('images', 10);
+export const uploadMultipleImagesMiddleware = imageUpload.array('images', 15);
 
 export const uploadImage = asyncHandler(async (req, res) => {
   if (!req.file) {
@@ -34,7 +46,7 @@ export const uploadImage = asyncHandler(async (req, res) => {
     folder
   );
 
-  return ApiResponse.created(res, result, 'Image uploaded successfully');
+  return ApiResponse.created(res, result, 'Image optimized and uploaded successfully as WebP');
 });
 
 export const uploadMultipleImages = asyncHandler(async (req, res) => {
@@ -60,7 +72,18 @@ export const uploadMultipleImages = asyncHandler(async (req, res) => {
     });
   }
 
-  return ApiResponse.created(res, { images: uploads }, `${uploads.length} images uploaded successfully`);
+  return ApiResponse.created(res, { images: uploads }, `${uploads.length} images optimized and uploaded successfully`);
+});
+
+export const deleteImage = asyncHandler(async (req, res) => {
+  const { key, imageUrl } = req.body;
+  const target = key || imageUrl || req.query.key || req.query.imageUrl;
+  if (!target) {
+    throw AppError.badRequest('Must provide image key or imageUrl to delete from storage');
+  }
+
+  await r2Service.deleteImage(target);
+  return ApiResponse.success(res, { deleted: true, target }, 'Image deleted from Cloudflare R2 storage');
 });
 
 export default {
@@ -68,4 +91,5 @@ export default {
   uploadMultipleImagesMiddleware,
   uploadImage,
   uploadMultipleImages,
+  deleteImage,
 };

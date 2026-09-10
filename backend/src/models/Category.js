@@ -31,6 +31,10 @@ export const Category = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: true,
     },
+    isFeatured: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
     displayOrder: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
@@ -42,6 +46,7 @@ export const Category = sequelize.define(
     indexes: [
       { fields: ['slug'], unique: true },
       { fields: ['isActive'] },
+      { fields: ['isFeatured'] },
       { fields: ['displayOrder'] },
     ],
   }

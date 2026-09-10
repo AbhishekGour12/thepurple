@@ -42,6 +42,17 @@ export const productService = {
     stockStatus,
     minPrice,
     maxPrice,
+    minStock,
+    maxStock,
+    minDiscount,
+    maxDiscount,
+    brand,
+    isFeatured,
+    isBestSeller,
+    isBulk,
+    tags,
+    startDate,
+    endDate,
     sort = 'newest',
   }) {
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -51,12 +62,13 @@ export const productService = {
     const where = {};
     const subcategoryWhere = {};
 
-    // Search by Name or SKU
+    // Search by Name or SKU or Brand
     if (search && search.trim()) {
       const q = `%${search.trim().toLowerCase()}%`;
       where[Op.or] = [
         { name: { [Op.iLike]: q } },
         { sku: { [Op.iLike]: q } },
+        { brand: { [Op.iLike]: q } },
       ];
     }
 
@@ -86,6 +98,14 @@ export const productService = {
       }
     }
 
+    // Custom Min / Max Stock Range
+    if (minStock !== undefined && minStock !== '') {
+      where.stock = { ...(where.stock || {}), [Op.gte]: parseInt(minStock, 10) || 0 };
+    }
+    if (maxStock !== undefined && maxStock !== '') {
+      where.stock = { ...(where.stock || {}), [Op.lte]: parseInt(maxStock, 10) || 0 };
+    }
+
     // Filter by Price Range
     if (minPrice !== undefined && minPrice !== '') {
       where.salePrice = { ...(where.salePrice || {}), [Op.gte]: parseFloat(minPrice) };
@@ -94,14 +114,63 @@ export const productService = {
       where.salePrice = { ...(where.salePrice || {}), [Op.lte]: parseFloat(maxPrice) };
     }
 
+    // Filter by Discount %
+    if (minDiscount !== undefined && minDiscount !== '') {
+      where.discountPercent = { ...(where.discountPercent || {}), [Op.gte]: parseInt(minDiscount, 10) || 0 };
+    }
+    if (maxDiscount !== undefined && maxDiscount !== '') {
+      where.discountPercent = { ...(where.discountPercent || {}), [Op.lte]: parseInt(maxDiscount, 10) || 100 };
+    }
+
+    // Filter by Brand
+    if (brand && brand.trim()) {
+      where.brand = { [Op.iLike]: `%${brand.trim()}%` };
+    }
+
+    // Filter by Badges / Flags
+    if (isFeatured !== undefined && isFeatured !== '') {
+      where.isFeatured = String(isFeatured) === 'true';
+    }
+    if (isBestSeller !== undefined && isBestSeller !== '') {
+      where.isBestSeller = String(isBestSeller) === 'true';
+    }
+    if (isBulk !== undefined && isBulk !== '') {
+      where.isBulk = String(isBulk) === 'true';
+    }
+
+    // Filter by Tags (JSON column)
+    if (tags && tags.trim()) {
+      where.tags = {
+        [Op.or]: [
+          sequelize.literal(`"Product"."tags"::text ILIKE '%${tags.trim()}%'`),
+        ],
+      };
+    }
+
+    // Filter by Date Range (createdAt)
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) {
+        where.createdAt[Op.gte] = new Date(startDate);
+      }
+      if (endDate) {
+        const endD = new Date(endDate);
+        endD.setHours(23, 59, 59, 999);
+        where.createdAt[Op.lte] = endD;
+      }
+    }
+
     // Sort order
     let order = [['createdAt', 'DESC']];
     if (sort === 'oldest') order = [['createdAt', 'ASC']];
     if (sort === 'price_asc') order = [['salePrice', 'ASC']];
     if (sort === 'price_desc') order = [['salePrice', 'DESC']];
     if (sort === 'name_asc') order = [['name', 'ASC']];
+    if (sort === 'name_desc') order = [['name', 'DESC']];
     if (sort === 'stock_desc') order = [['stock', 'DESC']];
     if (sort === 'stock_asc') order = [['stock', 'ASC']];
+    if (sort === 'discount_desc') order = [['discountPercent', 'DESC']];
+    if (sort === 'rating_desc') order = [['rating', 'DESC']];
 
     const subInclude = {
       model: Subcategory,
@@ -581,6 +650,21 @@ export const productService = {
 
       // Update Images if provided
       if (Array.isArray(images)) {
+        // 1. Fetch existing images to clean up removed images from Cloudflare R2
+        const existingImgs = await ProductImage.findAll({ where: { productId: id } });
+        const newImgUrls = new Set(
+          images.map((img) => (typeof img === 'string' ? img : img.imageUrl)).filter(Boolean)
+        );
+
+        const removedImgs = existingImgs.filter((img) => !newImgUrls.has(img.imageUrl));
+        for (const rem of removedImgs) {
+          if (rem.r2Key || rem.imageUrl) {
+            r2Service.deleteImage(rem.r2Key || rem.imageUrl).catch((e) =>
+              logger.warn(`R2 image cleanup notice: ${e.message}`)
+            );
+          }
+        }
+
         await ProductImage.destroy({ where: { productId: id }, transaction });
         for (let i = 0; i < images.length; i++) {
           const img = images[i];
@@ -661,6 +745,31 @@ export const productService = {
   },
 
   /**
+   * Delete single product image from database and Cloudflare R2
+   */
+  async deleteProductImage(productId, imageId, { adminId, ipAddress } = {}) {
+    const image = await ProductImage.findOne({ where: { id: imageId, productId } });
+    if (!image) throw AppError.notFound('Product image not found');
+
+    if (image.r2Key || image.imageUrl) {
+      await r2Service.deleteImage(image.r2Key || image.imageUrl);
+    }
+
+    await image.destroy();
+
+    await AuditLog.create({
+      adminId,
+      action: 'PRODUCT_IMAGE_DELETED',
+      entity: 'ProductImage',
+      entityId: imageId,
+      metadata: { productId, imageUrl: image.imageUrl, r2Key: image.r2Key },
+      ipAddress: ipAddress || null,
+    });
+
+    return { message: 'Product image deleted from database and Cloudflare R2 storage' };
+  },
+
+  /**
    * Quick status toggle (Publish / Unpublish / Draft)
    */
   async updateProductStatus(id, { status, adminId, ipAddress }) {
@@ -698,11 +807,20 @@ export const productService = {
   },
 
   /**
-   * Soft delete / Archive product
+   * Soft delete / Archive product & remove images from Cloudflare R2
    */
   async deleteProduct(id, { adminId, ipAddress }) {
     const product = await Product.findByPk(id);
     if (!product) throw AppError.notFound('Product not found');
+
+    // Fetch and remove product images from Cloudflare R2
+    const productImages = await ProductImage.findAll({ where: { productId: id } });
+    if (productImages.length > 0) {
+      r2Service
+        .deleteMultipleImages(productImages.map((img) => img.r2Key || img.imageUrl))
+        .catch((e) => logger.warn(`R2 product image deletion notice: ${e.message}`));
+      await ProductImage.destroy({ where: { productId: id } });
+    }
 
     // Paranoid soft delete (sets deletedAt timestamp)
     await product.destroy();
@@ -731,7 +849,7 @@ export const productService = {
   },
 
   /**
-   * Bulk soft-delete products or delete all products
+   * Bulk soft-delete products or delete all products & clean up R2 images
    */
   async bulkDeleteProducts({ ids = [], all = false, adminId, ipAddress }) {
     let targetIds = [];
@@ -746,6 +864,17 @@ export const productService = {
 
     if (targetIds.length === 0) {
       return { message: 'No products to delete', count: 0 };
+    }
+
+    // Clean up images from Cloudflare R2
+    const allImages = await ProductImage.findAll({
+      where: { productId: { [Op.in]: targetIds } },
+    });
+    if (allImages.length > 0) {
+      r2Service
+        .deleteMultipleImages(allImages.map((img) => img.r2Key || img.imageUrl))
+        .catch((e) => logger.warn(`R2 bulk product image deletion notice: ${e.message}`));
+      await ProductImage.destroy({ where: { productId: { [Op.in]: targetIds } } });
     }
 
     const count = await Product.destroy({

@@ -6,6 +6,7 @@ export const adminCategoryApi = {
     const query = new URLSearchParams();
     if (params.search) query.set('search', params.search);
     if (params.isActive !== undefined) query.set('isActive', params.isActive);
+    if (params.isFeatured !== undefined) query.set('isFeatured', params.isFeatured);
     const qs = query.toString() ? `?${query.toString()}` : '';
     return await request(`/admin/categories${qs}`, { method: 'GET', silent: true });
   },

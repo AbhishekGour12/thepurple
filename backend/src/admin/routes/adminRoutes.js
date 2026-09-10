@@ -12,6 +12,9 @@ import attributeController from '../controller/attributeController.js';
 import productController from '../controller/productController.js';
 import bulkUploadController from '../controller/bulkUploadController.js';
 import uploadController from '../controller/uploadController.js';
+import bannerController from '../controller/bannerController.js';
+import dashboardController from '../controller/dashboardController.js';
+import userController from '../controller/userController.js';
 
 const router = Router();
 
@@ -209,16 +212,22 @@ router.get(
 router.post(
   '/upload/image',
   authenticateAdmin,
-  authorize(PERMISSIONS.PRODUCT_CREATE),
+  authorize([PERMISSIONS.PRODUCT_CREATE, PERMISSIONS.BANNER_MANAGE, PERMISSIONS.CATEGORY_MANAGE], false),
   uploadController.uploadSingleImageMiddleware,
   uploadController.uploadImage
 );
 router.post(
   '/upload/images',
   authenticateAdmin,
-  authorize(PERMISSIONS.PRODUCT_CREATE),
+  authorize([PERMISSIONS.PRODUCT_CREATE, PERMISSIONS.BANNER_MANAGE, PERMISSIONS.CATEGORY_MANAGE], false),
   uploadController.uploadMultipleImagesMiddleware,
   uploadController.uploadMultipleImages
+);
+router.delete(
+  '/upload/image',
+  authenticateAdmin,
+  authorize([PERMISSIONS.PRODUCT_DELETE, PERMISSIONS.BANNER_MANAGE, PERMISSIONS.CATEGORY_MANAGE], false),
+  uploadController.deleteImage
 );
 
 // ─── 8. Product CRUD Endpoints ───────────────────────────────────────
@@ -263,6 +272,84 @@ router.delete(
   authenticateAdmin,
   authorize(PERMISSIONS.PRODUCT_DELETE),
   productController.deleteProduct
+);
+router.delete(
+  '/products/:id/images/:imageId',
+  authenticateAdmin,
+  authorize(PERMISSIONS.PRODUCT_EDIT),
+  productController.deleteProductImage
+);
+
+// ─── 9. Banner Management Endpoints ─────────────────────────────────
+router.get(
+  '/banners',
+  authenticateAdmin,
+  authorize(PERMISSIONS.BANNER_VIEW),
+  bannerController.listBanners
+);
+router.post(
+  '/banners',
+  authenticateAdmin,
+  authorize(PERMISSIONS.BANNER_MANAGE),
+  bannerController.createBanner
+);
+router.patch(
+  '/banners/reorder',
+  authenticateAdmin,
+  authorize(PERMISSIONS.BANNER_MANAGE),
+  bannerController.reorderBanners
+);
+router.get(
+  '/banners/:id',
+  authenticateAdmin,
+  authorize(PERMISSIONS.BANNER_VIEW),
+  bannerController.getBanner
+);
+router.patch(
+  '/banners/:id',
+  authenticateAdmin,
+  authorize(PERMISSIONS.BANNER_MANAGE),
+  bannerController.updateBanner
+);
+router.patch(
+  '/banners/:id/status',
+  authenticateAdmin,
+  authorize(PERMISSIONS.BANNER_MANAGE),
+  bannerController.updateBannerStatus
+);
+router.delete(
+  '/banners/:id',
+  authenticateAdmin,
+  authorize(PERMISSIONS.BANNER_MANAGE),
+  bannerController.deleteBanner
+);
+
+// ─── 10. Dashboard Analytics Endpoints ──────────────────────────────
+router.get(
+  '/dashboard',
+  authenticateAdmin,
+  authorize(PERMISSIONS.DASHBOARD_VIEW),
+  dashboardController.getDashboardAnalytics
+);
+
+// ─── 11. Customer / User Management Endpoints ───────────────────────
+router.get(
+  '/users',
+  authenticateAdmin,
+  authorize(PERMISSIONS.USER_VIEW),
+  userController.listUsers
+);
+router.get(
+  '/users/:id',
+  authenticateAdmin,
+  authorize(PERMISSIONS.USER_VIEW),
+  userController.getUser
+);
+router.patch(
+  '/users/:id/status',
+  authenticateAdmin,
+  authorize(PERMISSIONS.USER_MANAGE),
+  userController.updateUserStatus
 );
 
 export default router;

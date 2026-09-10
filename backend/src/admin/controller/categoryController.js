@@ -5,8 +5,8 @@ import subcategoryService from '../services/subcategoryService.js';
 
 // Category Controllers
 export const listCategories = asyncHandler(async (req, res) => {
-  const { search, isActive } = req.query;
-  const categories = await categoryService.listCategories({ search, isActive });
+  const { search, isActive, isFeatured } = req.query;
+  const categories = await categoryService.listCategories({ search, isActive, isFeatured });
   return ApiResponse.success(res, { categories }, 'Categories retrieved successfully');
 });
 
@@ -17,7 +17,7 @@ export const getCategory = asyncHandler(async (req, res) => {
 });
 
 export const createCategory = asyncHandler(async (req, res) => {
-  const { name, slug, description, imageUrl, isActive, displayOrder } = req.body;
+  const { name, slug, description, imageUrl, isActive, isFeatured, displayOrder } = req.body;
   const ipAddress = req.ip || req.connection.remoteAddress;
 
   const category = await categoryService.createCategory({
@@ -26,6 +26,7 @@ export const createCategory = asyncHandler(async (req, res) => {
     description,
     imageUrl,
     isActive,
+    isFeatured,
     displayOrder,
     adminId: req.admin.id,
     ipAddress,
@@ -49,7 +50,7 @@ export const bulkCreateCategories = asyncHandler(async (req, res) => {
 
 export const updateCategory = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, slug, description, imageUrl, isActive, displayOrder } = req.body;
+  const { name, slug, description, imageUrl, isActive, isFeatured, displayOrder } = req.body;
   const ipAddress = req.ip || req.connection.remoteAddress;
 
   const category = await categoryService.updateCategory(id, {
@@ -58,6 +59,7 @@ export const updateCategory = asyncHandler(async (req, res) => {
     description,
     imageUrl,
     isActive,
+    isFeatured,
     displayOrder,
     adminId: req.admin.id,
     ipAddress,
