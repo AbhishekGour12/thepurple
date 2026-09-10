@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   X,
   Plus,
@@ -17,8 +17,12 @@ import {
   Zap,
   CheckSquare,
   Square,
+  Upload,
+  Image as ImageIcon,
+  Loader2,
 } from 'lucide-react';
 import { adminCategoryApi } from '@/lib/api/admin/categories';
+import { adminProductApi } from '@/lib/api/admin/products';
 import { BusyOverlay, BusyButtonLabel } from '@/components/admin/BusyUI';
 
 const THE_PURPLE_PRESETS = [
@@ -96,7 +100,12 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
   const [singleSlug, setSingleSlug] = useState('');
   const [singleParentId, setSingleParentId] = useState('');
   const [singleDescription, setSingleDescription] = useState('');
+  const [singleImageUrl, setSingleImageUrl] = useState('');
+  const [singleIsFeatured, setSingleIsFeatured] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const fileInputRef = useRef(null);
 
   // Bulk form
   const [bulkCategoryName, setBulkCategoryName] = useState('');
@@ -147,6 +156,25 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
+  const handleUploadSingleImage = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError('');
+    setUploadingImage(true);
+    try {
+      const res = await adminProductApi.uploadImage(file, 'categories');
+      const url = res?.imageUrl || res?.url || (typeof res === 'string' ? res : '');
+      if (url) {
+        setSingleImageUrl(url);
+      }
+    } catch (err) {
+      setError(err?.message || 'Failed to upload image to R2');
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleSingleSave = async (e) => {
     e.preventDefault();
     setError('');
@@ -160,12 +188,16 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
             name: singleName,
             slug: singleSlug || undefined,
             description: singleDescription || undefined,
+            imageUrl: singleImageUrl || undefined,
+            isFeatured: singleIsFeatured,
           });
         } else {
           await adminCategoryApi.createCategory({
             name: singleName,
             slug: singleSlug || undefined,
             description: singleDescription || undefined,
+            imageUrl: singleImageUrl || undefined,
+            isFeatured: singleIsFeatured,
           });
         }
       } else {
@@ -180,6 +212,7 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
             name: singleName,
             slug: singleSlug || undefined,
             description: singleDescription || undefined,
+            imageUrl: singleImageUrl || undefined,
           });
         } else {
           await adminCategoryApi.createSubcategory({
@@ -187,6 +220,7 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
             name: singleName,
             slug: singleSlug || undefined,
             description: singleDescription || undefined,
+            imageUrl: singleImageUrl || undefined,
           });
         }
       }
@@ -194,6 +228,7 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
       setSingleName('');
       setSingleSlug('');
       setSingleDescription('');
+      setSingleImageUrl('');
       setEditingItem(null);
       await loadCategories();
       if (onCategoriesUpdated) onCategoriesUpdated();
@@ -589,6 +624,8 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
                                 setSingleName(cat.name);
                                 setSingleSlug(cat.slug || '');
                                 setSingleDescription(cat.description || '');
+                                setSingleImageUrl(cat.imageUrl || '');
+                                setSingleIsFeatured(Boolean(cat.isFeatured));
                                 setActiveTab('single');
                               }}
                               style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#7E22CE', padding: '4px' }}
@@ -625,6 +662,13 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
                                   color: '#374151',
                                 }}
                               >
+                                {sub.imageUrl && (
+                                  <img
+                                    src={sub.imageUrl}
+                                    alt={sub.name}
+                                    style={{ width: '18px', height: '18px', borderRadius: '4px', objectFit: 'cover' }}
+                                  />
+                                )}
                                 <span>{sub.name}</span>
                                 <button
                                   type="button"
@@ -711,6 +755,123 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
                 />
               </div>
 
+              {/* Cloudflare R2 Category/Subcategory Image Upload */}
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+                  Image (R2 Cloud Storage)
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUploadSingleImage}
+                  style={{ display: 'none' }}
+                />
+
+                {singleImageUrl ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 14px',
+                      backgroundColor: '#FAF5FF',
+                      border: '1.5px solid #E9D5FF',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <img
+                      src={singleImageUrl}
+                      alt="Category Preview"
+                      style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '8px',
+                        objectFit: 'cover',
+                        border: '1px solid #D8B4FE',
+                      }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#581C87' }}>Uploaded Image</div>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          color: '#7E22CE',
+                          fontFamily: 'monospace',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {singleImageUrl}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingImage}
+                        style={{
+                          padding: '5px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: '#7E22CE',
+                          color: '#ffffff',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {uploadingImage ? '...' : 'Replace'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSingleImageUrl('')}
+                        style={{
+                          padding: '5px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: '#FEE2E2',
+                          color: '#DC2626',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => !uploadingImage && fileInputRef.current?.click()}
+                    style={{
+                      border: '2px dashed #C084FC',
+                      borderRadius: '10px',
+                      padding: '14px',
+                      textAlign: 'center',
+                      backgroundColor: '#FAF5FF',
+                      cursor: uploadingImage ? 'wait' : 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {uploadingImage ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#7E22CE' }}>
+                        <Loader2 size={18} className="animate-spin" />
+                        <span style={{ fontSize: '12px', fontWeight: 600 }}>Uploading image to R2...</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <Upload size={20} color="#7E22CE" style={{ margin: '0 auto 4px' }} />
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#581C87' }}>
+                          Upload image (R2 Cloud)
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
                   Description (Optional)
@@ -723,6 +884,39 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E5E7EB', backgroundColor: '#FAF5FF', fontSize: '13px', outline: 'none' }}
                 />
               </div>
+
+              {singleType === 'CATEGORY' && (
+                <div
+                  onClick={() => setSingleIsFeatured((prev) => !prev)}
+                  style={{
+                    padding: '10px 12px',
+                    backgroundColor: singleIsFeatured ? '#FAF5FF' : '#F9FAFB',
+                    border: singleIsFeatured ? '1.5px solid #C084FC' : '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E1B4B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Sparkles size={14} color={singleIsFeatured ? '#7E22CE' : '#9CA3AF'} />
+                      <span>Show in Home Navigation Bar</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '2px' }}>
+                      Feature this category in the top navigation tabs.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={singleIsFeatured}
+                    onChange={(e) => setSingleIsFeatured(e.target.checked)}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ accentColor: '#7E22CE', width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                </div>
+              )}
 
               <button
                 type="submit"

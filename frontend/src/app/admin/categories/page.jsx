@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import {
   FolderTree,
@@ -16,8 +16,12 @@ import {
   Zap,
   CheckSquare,
   Square,
+  Upload,
+  Image as ImageIcon,
+  Loader2,
 } from 'lucide-react';
 import { adminCategoryApi } from '@/lib/api/admin/categories';
+import { adminProductApi } from '@/lib/api/admin/products';
 import CategoryManagerModal from '@/components/admin/products/CategoryManagerModal';
 import { BusyOverlay, BusyButtonLabel } from '@/components/admin/BusyUI';
 
@@ -29,6 +33,10 @@ export default function CategoryManagementPage() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const catFileInputRef = useRef(null);
+  const subFileInputRef = useRef(null);
 
   // Category Modal State
   const [categoryModal, setCategoryModal] = useState({
@@ -41,6 +49,7 @@ export default function CategoryManagementPage() {
     imageUrl: '',
     displayOrder: 0,
     isActive: true,
+    isFeatured: false,
   });
 
   // Subcategory Modal State
@@ -91,6 +100,64 @@ export default function CategoryManagementPage() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
+  // Quick toggle featured status
+  const handleToggleFeatured = async (cat) => {
+    const updatedStatus = !cat.isFeatured;
+    // Optimistic update
+    setCategories((prev) =>
+      prev.map((c) => (c.id === cat.id ? { ...c, isFeatured: updatedStatus } : c))
+    );
+    try {
+      await adminCategoryApi.updateCategory(cat.id, {
+        isFeatured: updatedStatus,
+      });
+    } catch {
+      // Revert if error
+      setCategories((prev) =>
+        prev.map((c) => (c.id === cat.id ? { ...c, isFeatured: !updatedStatus } : c))
+      );
+    }
+  };
+
+  // Image Upload Handlers for R2
+  const handleUploadCategoryImage = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErrorMsg('');
+    setUploadingImage(true);
+    try {
+      const res = await adminProductApi.uploadImage(file, 'categories');
+      const url = res?.imageUrl || res?.url || (typeof res === 'string' ? res : '');
+      if (url) {
+        setCategoryModal((prev) => ({ ...prev, imageUrl: url }));
+      }
+    } catch (err) {
+      setErrorMsg(err?.message || 'Failed to upload category image to cloud storage');
+    } finally {
+      setUploadingImage(false);
+      if (catFileInputRef.current) catFileInputRef.current.value = '';
+    }
+  };
+
+  const handleUploadSubcategoryImage = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErrorMsg('');
+    setUploadingImage(true);
+    try {
+      const res = await adminProductApi.uploadImage(file, 'categories');
+      const url = res?.imageUrl || res?.url || (typeof res === 'string' ? res : '');
+      if (url) {
+        setSubModal((prev) => ({ ...prev, imageUrl: url }));
+      }
+    } catch (err) {
+      setErrorMsg(err?.message || 'Failed to upload subcategory image to cloud storage');
+    } finally {
+      setUploadingImage(false);
+      if (subFileInputRef.current) subFileInputRef.current.value = '';
+    }
+  };
+
   // Handle Category Save
   const handleSaveCategory = async (e) => {
     e.preventDefault();
@@ -107,6 +174,7 @@ export default function CategoryManagementPage() {
           imageUrl: categoryModal.imageUrl,
           displayOrder: categoryModal.displayOrder,
           isActive: categoryModal.isActive,
+          isFeatured: categoryModal.isFeatured,
         });
       } else {
         await adminCategoryApi.createCategory({
@@ -116,6 +184,7 @@ export default function CategoryManagementPage() {
           imageUrl: categoryModal.imageUrl,
           displayOrder: categoryModal.displayOrder,
           isActive: categoryModal.isActive,
+          isFeatured: categoryModal.isFeatured,
         });
       }
       setCategoryModal((prev) => ({ ...prev, isOpen: false }));
@@ -291,6 +360,7 @@ export default function CategoryManagementPage() {
                   imageUrl: '',
                   displayOrder: categories.length + 1,
                   isActive: true,
+                  isFeatured: false,
                 });
               }}
               style={{
@@ -464,17 +534,51 @@ export default function CategoryManagementPage() {
                     marginBottom: '14px',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                     {canManage && (
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => handleToggleSelect(cat.id)}
-                        style={{ accentColor: '#7E22CE', width: '16px', height: '16px', marginTop: '2px', cursor: 'pointer' }}
+                        style={{ accentColor: '#7E22CE', width: '16px', height: '16px', marginTop: '12px', cursor: 'pointer' }}
                       />
                     )}
+                    
+                    {/* Category Image Thumbnail */}
+                    {cat.imageUrl ? (
+                      <img
+                        src={cat.imageUrl}
+                        alt={cat.name}
+                        style={{
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '10px',
+                          objectFit: 'cover',
+                          border: '1.5px solid #E9D5FF',
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '10px',
+                          backgroundColor: '#FAF5FF',
+                          border: '1.5px solid #E9D5FF',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#A855F7',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <FolderTree size={20} />
+                      </div>
+                    )}
+
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E1B4B', margin: 0 }}>{cat.name}</h3>
                         <span
                           style={{
@@ -488,6 +592,25 @@ export default function CategoryManagementPage() {
                         >
                           {cat.isActive ? 'Active' : 'Hidden'}
                         </span>
+                        {cat.isFeatured && (
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '10px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              backgroundColor: '#FAF5FF',
+                              color: '#7E22CE',
+                              border: '1px solid #E9D5FF',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                            }}
+                          >
+                            <Sparkles size={10} color="#7E22CE" />
+                            Nav Tab
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: '12px', color: '#7E22CE', fontFamily: 'monospace', marginTop: '2px' }}>
                         /{cat.slug}
@@ -497,6 +620,28 @@ export default function CategoryManagementPage() {
 
                   {canManage && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleFeatured(cat)}
+                        title={cat.isFeatured ? 'Remove from Home Navigation Tabs' : 'Feature in Home Navigation Tabs'}
+                        style={{
+                          padding: '5px 9px',
+                          borderRadius: '6px',
+                          backgroundColor: cat.isFeatured ? '#FAF5FF' : '#F9FAFB',
+                          border: cat.isFeatured ? '1px solid #C084FC' : '1px solid #E5E7EB',
+                          color: cat.isFeatured ? '#7E22CE' : '#6B7280',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <Sparkles size={12} color={cat.isFeatured ? '#7E22CE' : '#9CA3AF'} />
+                        <span>{cat.isFeatured ? 'In Nav' : '+ Nav'}</span>
+                      </button>
                       <button
                         onClick={() => {
                           setErrorMsg('');
@@ -510,6 +655,7 @@ export default function CategoryManagementPage() {
                             imageUrl: cat.imageUrl || '',
                             displayOrder: cat.displayOrder || 0,
                             isActive: cat.isActive,
+                            isFeatured: Boolean(cat.isFeatured),
                           });
                         }}
                         title="Edit Category"
@@ -624,9 +770,18 @@ export default function CategoryManagementPage() {
                             border: '1px solid #F3E8FF',
                           }}
                         >
-                          <div>
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#2E1065' }}>{sub.name}</span>
-                            <span style={{ fontSize: '11px', color: '#9CA3AF', marginLeft: '6px' }}>/{sub.slug}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {sub.imageUrl ? (
+                              <img
+                                src={sub.imageUrl}
+                                alt={sub.name}
+                                style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover' }}
+                              />
+                            ) : null}
+                            <div>
+                              <span style={{ fontSize: '13px', fontWeight: 600, color: '#2E1065' }}>{sub.name}</span>
+                              <span style={{ fontSize: '11px', color: '#9CA3AF', marginLeft: '6px' }}>/{sub.slug}</span>
+                            </div>
                           </div>
 
                           {canManage && (
@@ -692,7 +847,9 @@ export default function CategoryManagementPage() {
           <div
             style={{
               width: '100%',
-              maxWidth: '460px',
+              maxWidth: '490px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
               backgroundColor: '#ffffff',
               borderRadius: '16px',
               padding: '28px',
@@ -731,12 +888,132 @@ export default function CategoryManagementPage() {
                 />
               </div>
 
+              {/* Cloudflare R2 Category Image Upload */}
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>
+                  Category Image (Uploaded to R2 Cloud Storage)
+                </label>
+                <input
+                  ref={catFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUploadCategoryImage}
+                  style={{ display: 'none' }}
+                />
+
+                {categoryModal.imageUrl ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 14px',
+                      backgroundColor: '#FAF5FF',
+                      border: '1.5px solid #E9D5FF',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <img
+                      src={categoryModal.imageUrl}
+                      alt="Category Preview"
+                      style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '8px',
+                        objectFit: 'cover',
+                        border: '1px solid #D8B4FE',
+                      }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#581C87' }}>Image Uploaded (R2)</div>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          color: '#7E22CE',
+                          fontFamily: 'monospace',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {categoryModal.imageUrl}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => catFileInputRef.current?.click()}
+                        disabled={uploadingImage}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          backgroundColor: '#7E22CE',
+                          color: '#ffffff',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {uploadingImage ? 'Uploading...' : 'Replace'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCategoryModal((prev) => ({ ...prev, imageUrl: '' }))}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          backgroundColor: '#FEE2E2',
+                          color: '#DC2626',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => !uploadingImage && catFileInputRef.current?.click()}
+                    style={{
+                      border: '2px dashed #C084FC',
+                      borderRadius: '10px',
+                      padding: '18px',
+                      textAlign: 'center',
+                      backgroundColor: '#FAF5FF',
+                      cursor: uploadingImage ? 'wait' : 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {uploadingImage ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#7E22CE' }}>
+                        <Loader2 size={20} className="animate-spin" />
+                        <span style={{ fontSize: '13px', fontWeight: 600 }}>Uploading & optimizing to R2 storage...</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <Upload size={24} color="#7E22CE" style={{ margin: '0 auto 6px' }} />
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#581C87' }}>
+                          Click to upload category image
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px' }}>
+                          PNG, JPG, WebP up to 25MB (Auto WebP compression & R2 Cloud CDN)
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>
                   Description
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={categoryModal.description}
                   onChange={(e) => setCategoryModal({ ...categoryModal, description: e.target.value })}
                   placeholder="Brief summary..."
@@ -744,9 +1021,69 @@ export default function CategoryManagementPage() {
                 />
               </div>
 
+              {/* Show in Home Navigation Tab Option */}
+              <div
+                onClick={() => setCategoryModal((prev) => ({ ...prev, isFeatured: !prev.isFeatured }))}
+                style={{
+                  padding: '12px 14px',
+                  backgroundColor: categoryModal.isFeatured ? '#FAF5FF' : '#F9FAFB',
+                  border: categoryModal.isFeatured ? '1.5px solid #C084FC' : '1px solid #E5E7EB',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div style={{ paddingRight: '12px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E1B4B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Sparkles size={15} color={categoryModal.isFeatured ? '#7E22CE' : '#9CA3AF'} />
+                    <span>Show in Home Navigation Bar</span>
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: '#6B7280', marginTop: '2px', lineHeight: 1.3 }}>
+                    Display this category in the top navigation tabs between "Best Sellers" and "Offers".
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={categoryModal.isFeatured}
+                  onChange={(e) => setCategoryModal((prev) => ({ ...prev, isFeatured: e.target.checked }))}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ accentColor: '#7E22CE', width: '18px', height: '18px', cursor: 'pointer', flexShrink: 0 }}
+                />
+              </div>
+
+              {/* Category Active Visibility Option */}
+              <div
+                onClick={() => setCategoryModal((prev) => ({ ...prev, isActive: !prev.isActive }))}
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Category Active / Published</div>
+                  <div style={{ fontSize: '11px', color: '#9CA3AF' }}>When unchecked, category and subcategories are hidden from store.</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={categoryModal.isActive}
+                  onChange={(e) => setCategoryModal((prev) => ({ ...prev, isActive: e.target.checked }))}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ accentColor: '#7E22CE', width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0 }}
+                />
+              </div>
+
               <button
                 type="submit"
-                disabled={formLoading}
+                disabled={formLoading || uploadingImage}
                 style={{
                   padding: '12px',
                   borderRadius: '10px',
@@ -755,7 +1092,7 @@ export default function CategoryManagementPage() {
                   fontWeight: 700,
                   fontSize: '13px',
                   border: 'none',
-                  cursor: formLoading ? 'not-allowed' : 'pointer',
+                  cursor: (formLoading || uploadingImage) ? 'not-allowed' : 'pointer',
                 }}
               >
                 {formLoading ? (
@@ -788,7 +1125,9 @@ export default function CategoryManagementPage() {
           <div
             style={{
               width: '100%',
-              maxWidth: '460px',
+              maxWidth: '490px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
               backgroundColor: '#ffffff',
               borderRadius: '16px',
               padding: '28px',
@@ -845,12 +1184,129 @@ export default function CategoryManagementPage() {
                 />
               </div>
 
+              {/* Cloudflare R2 Subcategory Image Upload */}
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>
+                  Subcategory Image (R2 Cloud Storage)
+                </label>
+                <input
+                  ref={subFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUploadSubcategoryImage}
+                  style={{ display: 'none' }}
+                />
+
+                {subModal.imageUrl ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 14px',
+                      backgroundColor: '#FAF5FF',
+                      border: '1.5px solid #E9D5FF',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <img
+                      src={subModal.imageUrl}
+                      alt="Subcategory Preview"
+                      style={{
+                        width: '50px',
+                        height: '50px',
+                        borderRadius: '8px',
+                        objectFit: 'cover',
+                        border: '1px solid #D8B4FE',
+                      }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#581C87' }}>Image Uploaded (R2)</div>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          color: '#7E22CE',
+                          fontFamily: 'monospace',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {subModal.imageUrl}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => subFileInputRef.current?.click()}
+                        disabled={uploadingImage}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          backgroundColor: '#7E22CE',
+                          color: '#ffffff',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {uploadingImage ? 'Uploading...' : 'Replace'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSubModal((prev) => ({ ...prev, imageUrl: '' }))}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          backgroundColor: '#FEE2E2',
+                          color: '#DC2626',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => !uploadingImage && subFileInputRef.current?.click()}
+                    style={{
+                      border: '2px dashed #C084FC',
+                      borderRadius: '10px',
+                      padding: '14px',
+                      textAlign: 'center',
+                      backgroundColor: '#FAF5FF',
+                      cursor: uploadingImage ? 'wait' : 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {uploadingImage ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#7E22CE' }}>
+                        <Loader2 size={18} className="animate-spin" />
+                        <span style={{ fontSize: '12px', fontWeight: 600 }}>Uploading to R2...</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <Upload size={20} color="#7E22CE" style={{ margin: '0 auto 4px' }} />
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#581C87' }}>
+                          Upload subcategory image
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>
                   Description
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={subModal.description}
                   onChange={(e) => setSubModal({ ...subModal, description: e.target.value })}
                   placeholder="Brief summary..."
@@ -860,7 +1316,7 @@ export default function CategoryManagementPage() {
 
               <button
                 type="submit"
-                disabled={formLoading}
+                disabled={formLoading || uploadingImage}
                 style={{
                   padding: '12px',
                   borderRadius: '10px',
@@ -869,7 +1325,7 @@ export default function CategoryManagementPage() {
                   fontWeight: 700,
                   fontSize: '13px',
                   border: 'none',
-                  cursor: formLoading ? 'not-allowed' : 'pointer',
+                  cursor: (formLoading || uploadingImage) ? 'not-allowed' : 'pointer',
                 }}
               >
                 {formLoading ? (

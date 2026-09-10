@@ -38,4 +38,17 @@ export const catalogApi = {
       return null;
     }
   },
+
+  /**
+   * Fetch active banners grouped by placement.
+   */
+  getBanners: async (params = {}) => {
+    try {
+      const query = new URLSearchParams(params).toString();
+      const data = await request(`/banners${query ? `?${query}` : ''}`, { silent: true });
+      return data || { banners: [], homeHero: [], productsHero: [], homeOffer: [] };
+    } catch {
+      return { banners: [], homeHero: [], productsHero: [], homeOffer: [] };
+    }
+  },
 };

@@ -19,6 +19,8 @@ import {
   Zap,
   RefreshCw,
   Sparkles,
+  Award,
+  Box,
   TrendingUp,
   AlertTriangle,
   CheckSquare,
@@ -27,6 +29,11 @@ import {
   Layers,
   ArrowUpDown,
   Filter,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import { adminProductApi } from '@/lib/api/admin/products';
 import { adminCategoryApi } from '@/lib/api/admin/categories';
@@ -38,6 +45,7 @@ import SizeManagerModal from '@/components/admin/products/SizeManagerModal';
 import AttributeManagerModal from '@/components/admin/products/AttributeManagerModal';
 import BulkProductGridModal from '@/components/admin/products/BulkProductGridModal';
 import BulkExcelImportModal from '@/components/admin/products/BulkExcelImportModal';
+import ProductFilterDrawer from '@/components/admin/products/ProductFilterDrawer';
 
 const money = (val) =>
   new Intl.NumberFormat('en-IN', {
@@ -45,6 +53,28 @@ const money = (val) =>
     currency: 'INR',
     maximumFractionDigits: 0,
   }).format(val || 0);
+
+const INITIAL_FILTERS = {
+  search: '',
+  categoryId: '',
+  subcategoryId: '',
+  status: '',
+  stockStatus: '',
+  minPrice: '',
+  maxPrice: '',
+  minStock: '',
+  maxStock: '',
+  minDiscount: '',
+  maxDiscount: '',
+  brand: '',
+  isFeatured: '',
+  isBestSeller: '',
+  isBulk: '',
+  tags: '',
+  startDate: '',
+  endDate: '',
+  sort: 'newest',
+};
 
 export default function ProductListPage() {
   const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
@@ -64,16 +94,14 @@ export default function ProductListPage() {
   const [attributeModalOpen, setAttributeModalOpen] = useState(false);
   const [bulkGridOpen, setBulkGridOpen] = useState(false);
   const [excelImportOpen, setExcelImportOpen] = useState(false);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   // Filters & Search State
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedSubcategory, setSelectedSubcategory] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [stockFilter, setStockFilter] = useState('');
-  const [sort, setSort] = useState('newest');
-  const [pagination, setPagination] = useState({ page: 1, limit: 15, total: 0, totalPages: 1 });
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const [searchInput, setSearchInput] = useState('');
+  const [perPage, setPerPage] = useState(20);
+  const [jumpPageInput, setJumpPageInput] = useState('');
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
 
   // Loading states for actions
   const [deletingId, setDeletingId] = useState(null);
@@ -81,13 +109,16 @@ export default function ProductListPage() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
 
-  // Debounce search term by 350ms to prevent duplicate API hits
+  // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearch(search.trim());
+      setFilters((prev) => {
+        if (prev.search === searchInput.trim()) return prev;
+        return { ...prev, search: searchInput.trim() };
+      });
     }, 350);
     return () => clearTimeout(handler);
-  }, [search]);
+  }, [searchInput]);
 
   // Load Categories
   const loadCategories = useCallback(async () => {
@@ -103,41 +134,61 @@ export default function ProductListPage() {
     loadCategories();
   }, [loadCategories]);
 
-  // Update subcategories when category changes
-  useEffect(() => {
-    if (selectedCategory) {
-      adminCategoryApi.listSubcategories({ categoryId: selectedCategory }).then((res) => {
+  // Update subcategories when category filter changes
+  const loadSubcategories = useCallback(async (categoryId) => {
+    if (categoryId) {
+      try {
+        const res = await adminCategoryApi.listSubcategories({ categoryId });
         setSubcategories(res?.subcategories || []);
-      });
+      } catch {
+        setSubcategories([]);
+      }
     } else {
       setSubcategories([]);
-      setSelectedSubcategory('');
     }
-  }, [selectedCategory]);
+  }, []);
 
+  useEffect(() => {
+    loadSubcategories(filters.categoryId);
+  }, [filters.categoryId, loadSubcategories]);
+
+  // Fetch Products with active filters and pagination
   const fetchProducts = useCallback(
     async (page = 1) => {
       setLoading(true);
       try {
         const data = await adminProductApi.listProducts({
           page,
-          limit: 15,
-          search: debouncedSearch,
-          categoryId: selectedCategory || undefined,
-          subcategoryId: selectedSubcategory || undefined,
-          status: statusFilter || undefined,
-          stockStatus: stockFilter || undefined,
-          sort,
+          limit: perPage,
+          search: filters.search || undefined,
+          categoryId: filters.categoryId || undefined,
+          subcategoryId: filters.subcategoryId || undefined,
+          status: filters.status || undefined,
+          stockStatus: filters.stockStatus || undefined,
+          minPrice: filters.minPrice || undefined,
+          maxPrice: filters.maxPrice || undefined,
+          minStock: filters.minStock || undefined,
+          maxStock: filters.maxStock || undefined,
+          minDiscount: filters.minDiscount || undefined,
+          maxDiscount: filters.maxDiscount || undefined,
+          brand: filters.brand || undefined,
+          isFeatured: filters.isFeatured || undefined,
+          isBestSeller: filters.isBestSeller || undefined,
+          isBulk: filters.isBulk || undefined,
+          tags: filters.tags || undefined,
+          startDate: filters.startDate || undefined,
+          endDate: filters.endDate || undefined,
+          sort: filters.sort || 'newest',
         });
         setProducts(data?.products || []);
-        setPagination(data?.pagination || { page: 1, limit: 15, total: 0, totalPages: 1 });
+        setPagination(data?.pagination || { page: 1, limit: perPage, total: 0, totalPages: 1 });
       } catch {
         // Handled
       } finally {
         setLoading(false);
       }
     },
-    [debouncedSearch, selectedCategory, selectedSubcategory, statusFilter, stockFilter, sort]
+    [filters, perPage]
   );
 
   useEffect(() => {
@@ -158,13 +209,12 @@ export default function ProductListPage() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
-  // Instant optimistic publish/draft status toggle with loader
+  // Status toggle
   const handleTogglePublish = async (product) => {
     if (!canPublish || togglingStatusId === product.id) return;
     const nextStatus = product.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
     setTogglingStatusId(product.id);
 
-    // Optimistic UI update
     setProducts((prev) =>
       prev.map((p) => (p.id === product.id ? { ...p, status: nextStatus, isActive: nextStatus === 'PUBLISHED' } : p))
     );
@@ -178,12 +228,11 @@ export default function ProductListPage() {
     }
   };
 
-  // Instant optimistic single product deletion with loader
+  // Delete handlers
   const handleDeleteProduct = async (product) => {
     if (!canDelete || deletingId === product.id) return;
     setDeletingId(product.id);
 
-    // Instant removal from React state
     setProducts((prev) => prev.filter((p) => p.id !== product.id));
     setSelectedIds((prev) => prev.filter((id) => id !== product.id));
     setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
@@ -197,13 +246,11 @@ export default function ProductListPage() {
     }
   };
 
-  // Instant optimistic bulk delete selected products with loader
   const handleDeleteSelected = async () => {
     if (!canDelete || selectedIds.length === 0 || isBulkDeleting) return;
     const idsToDelete = [...selectedIds];
     setIsBulkDeleting(true);
 
-    // Optimistic removal from React state
     setProducts((prev) => prev.filter((p) => !idsToDelete.includes(p.id)));
     setSelectedIds([]);
     setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - idsToDelete.length) }));
@@ -217,13 +264,11 @@ export default function ProductListPage() {
     }
   };
 
-  // Instant optimistic delete all products with loader
   const handleDeleteAll = async () => {
     if (!canDelete || products.length === 0 || isDeletingAll) return;
     if (!window.confirm('Are you sure you want to delete ALL products in your catalog? This cannot be undone.')) return;
     setIsDeletingAll(true);
 
-    // Optimistic clear
     setProducts([]);
     setSelectedIds([]);
     setPagination((prev) => ({ ...prev, total: 0, totalPages: 1 }));
@@ -237,15 +282,39 @@ export default function ProductListPage() {
     }
   };
 
-  // Quick reset filters
-  const handleResetFilters = () => {
-    setSearch('');
-    setSelectedCategory('');
-    setSelectedSubcategory('');
-    setStatusFilter('');
-    setStockFilter('');
-    setSort('newest');
+  // Filter Drawer & quick reset
+  const handleApplyDrawerFilters = (updatedFilters) => {
+    setFilters(updatedFilters);
+    if (updatedFilters.search !== undefined) {
+      setSearchInput(updatedFilters.search);
+    }
   };
+
+  const handleResetFilters = () => {
+    setFilters(INITIAL_FILTERS);
+    setSearchInput('');
+  };
+
+  const handleRemoveSingleFilter = (key) => {
+    setFilters((prev) => {
+      const next = { ...prev, [key]: '' };
+      if (key === 'categoryId') next.subcategoryId = '';
+      return next;
+    });
+    if (key === 'search') setSearchInput('');
+  };
+
+  // Active filter count for badge
+  const activeFilterCount = useMemo(() => {
+    return Object.entries(filters).filter(([k, v]) => {
+      if (k === 'search' || k === 'sort') return false;
+      return v !== '' && v !== undefined && v !== null;
+    }).length;
+  }, [filters]);
+
+  // Selected Category name helper
+  const selectedCategoryName = categories.find((c) => c.id === filters.categoryId)?.name;
+  const selectedSubcategoryName = subcategories.find((s) => s.id === filters.subcategoryId)?.name;
 
   return (
     <div>
@@ -289,19 +358,7 @@ export default function ProductListPage() {
           <button
             type="button"
             onClick={() => setCategoryModalOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              backgroundColor: '#FAF5FF',
-              border: '1px solid #E9D5FF',
-              color: '#7E22CE',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            style={topToolBtnStyle}
           >
             <FolderTree size={14} />
             <span>Categories</span>
@@ -310,19 +367,7 @@ export default function ProductListPage() {
           <button
             type="button"
             onClick={() => setColorModalOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              backgroundColor: '#FAF5FF',
-              border: '1px solid #E9D5FF',
-              color: '#7E22CE',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            style={topToolBtnStyle}
           >
             <Palette size={14} />
             <span>Colors</span>
@@ -331,19 +376,7 @@ export default function ProductListPage() {
           <button
             type="button"
             onClick={() => setSizeModalOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              backgroundColor: '#FAF5FF',
-              border: '1px solid #E9D5FF',
-              color: '#7E22CE',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            style={topToolBtnStyle}
           >
             <Ruler size={14} />
             <span>Sizes</span>
@@ -352,19 +385,7 @@ export default function ProductListPage() {
           <button
             type="button"
             onClick={() => setAttributeModalOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              backgroundColor: '#FAF5FF',
-              border: '1px solid #E9D5FF',
-              color: '#7E22CE',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            style={topToolBtnStyle}
           >
             <Sliders size={14} />
             <span>Attributes</span>
@@ -374,17 +395,9 @@ export default function ProductListPage() {
             type="button"
             onClick={() => setBulkGridOpen(true)}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              backgroundColor: '#FAF5FF',
+              ...topToolBtnStyle,
               border: '1px solid #C084FC',
-              color: '#7E22CE',
-              fontSize: '12px',
               fontWeight: 700,
-              cursor: 'pointer',
             }}
           >
             <Zap size={14} color="#D97706" />
@@ -395,17 +408,9 @@ export default function ProductListPage() {
             type="button"
             onClick={() => setExcelImportOpen(true)}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              backgroundColor: '#FAF5FF',
+              ...topToolBtnStyle,
               border: '1px solid #C084FC',
-              color: '#7E22CE',
-              fontSize: '12px',
               fontWeight: 700,
-              cursor: 'pointer',
             }}
           >
             <Upload size={14} color="#059669" />
@@ -450,11 +455,11 @@ export default function ProductListPage() {
           { id: 'DRAFT', label: 'Drafts (Hidden)', icon: Edit2 },
         ].map((tab) => {
           const Icon = tab.icon;
-          const isActive = statusFilter === tab.id;
+          const isActive = filters.status === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setStatusFilter(tab.id)}
+              onClick={() => setFilters((prev) => ({ ...prev, status: tab.id }))}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -477,14 +482,19 @@ export default function ProductListPage() {
         })}
 
         {[
-          { id: 'low_stock', label: '⚠️ Low Stock', filterKey: 'stock' },
-          { id: 'out_of_stock', label: '❌ Out of Stock', filterKey: 'stock' },
+          { id: 'low_stock', label: '⚠️ Low Stock' },
+          { id: 'out_of_stock', label: '❌ Out of Stock' },
         ].map((tab) => {
-          const isActive = stockFilter === tab.id;
+          const isActive = filters.stockStatus === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setStockFilter(stockFilter === tab.id ? '' : tab.id)}
+              onClick={() =>
+                setFilters((prev) => ({
+                  ...prev,
+                  stockStatus: prev.stockStatus === tab.id ? '' : tab.id,
+                }))
+              }
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -506,14 +516,14 @@ export default function ProductListPage() {
         })}
       </div>
 
-      {/* Filter & Search Toolbar */}
+      {/* Main Filter & Search Bar with Side-Drawer Trigger */}
       <div
         style={{
           backgroundColor: '#ffffff',
           border: '1px solid #E9D5FF',
           borderRadius: '14px',
           padding: '14px 18px',
-          marginBottom: '16px',
+          marginBottom: '12px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -528,9 +538,9 @@ export default function ProductListPage() {
             <Search size={15} style={{ position: 'absolute', left: '12px', top: '10px', color: '#9CA3AF' }} />
             <input
               type="text"
-              placeholder="Search product name, SKU..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search product name, SKU, brand..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               style={{
                 width: '100%',
                 padding: '8px 12px 8px 34px',
@@ -543,19 +553,17 @@ export default function ProductListPage() {
             />
           </div>
 
-          {/* Category dropdown */}
+          {/* Quick Category select */}
           <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '1px solid #E5E7EB',
-              fontSize: '13px',
-              outline: 'none',
-              backgroundColor: '#FAF5FF',
-              color: '#374151',
-            }}
+            value={filters.categoryId || ''}
+            onChange={(e) =>
+              setFilters((prev) => ({
+                ...prev,
+                categoryId: e.target.value,
+                subcategoryId: '',
+              }))
+            }
+            style={filterSelectStyle}
           >
             <option value="">All Categories</option>
             {categories.map((c) => (
@@ -565,20 +573,12 @@ export default function ProductListPage() {
             ))}
           </select>
 
-          {/* Subcategory dropdown */}
+          {/* Quick Subcategory select */}
           {subcategories.length > 0 && (
             <select
-              value={selectedSubcategory}
-              onChange={(e) => setSelectedSubcategory(e.target.value)}
-              style={{
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #E5E7EB',
-                fontSize: '13px',
-                outline: 'none',
-                backgroundColor: '#FAF5FF',
-                color: '#374151',
-              }}
+              value={filters.subcategoryId || ''}
+              onChange={(e) => setFilters((prev) => ({ ...prev, subcategoryId: e.target.value }))}
+              style={filterSelectStyle}
             >
               <option value="">All Subcategories</option>
               {subcategories.map((s) => (
@@ -589,30 +589,63 @@ export default function ProductListPage() {
             </select>
           )}
 
-          {/* Sort dropdown */}
+          {/* Sort order select */}
           <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '1px solid #E5E7EB',
-              fontSize: '13px',
-              outline: 'none',
-              backgroundColor: '#FAF5FF',
-              color: '#374151',
-            }}
+            value={filters.sort || 'newest'}
+            onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value }))}
+            style={filterSelectStyle}
           >
             <option value="newest">Newest First</option>
             <option value="oldest">Oldest First</option>
             <option value="price_asc">Price: Low to High</option>
             <option value="price_desc">Price: High to Low</option>
             <option value="name_asc">Name: A to Z</option>
+            <option value="name_desc">Name: Z to A</option>
             <option value="stock_desc">Highest Stock</option>
             <option value="stock_asc">Lowest Stock</option>
+            <option value="discount_desc">Highest Discount</option>
           </select>
 
-          {(search || selectedCategory || selectedSubcategory || statusFilter || stockFilter || sort !== 'newest') && (
+          {/* 🌟 FILTER DRAWER BUTTON WITH BADGE */}
+          <button
+            type="button"
+            onClick={() => setFilterDrawerOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              backgroundColor: activeFilterCount > 0 ? '#7C3AED' : '#FAF5FF',
+              border: activeFilterCount > 0 ? '1.5px solid #6D28D9' : '1px solid #E9D5FF',
+              color: activeFilterCount > 0 ? '#FFFFFF' : '#7E22CE',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: activeFilterCount > 0 ? '0 2px 8px rgba(124, 58, 237, 0.25)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Filter size={14} />
+            <span>Filters</span>
+            {activeFilterCount > 0 && (
+              <span
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  color: '#7C3AED',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  padding: '1px 6px',
+                  borderRadius: '9999px',
+                }}
+              >
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
+          {/* Reset button if any filter active */}
+          {(searchInput || activeFilterCount > 0 || filters.sort !== 'newest') && (
             <button
               type="button"
               onClick={handleResetFilters}
@@ -632,7 +665,155 @@ export default function ProductListPage() {
         </div>
       </div>
 
-      {/* Bulk Selection Bar (Shows when items selected or to select all) */}
+      {/* Active Filter Chips Bar */}
+      {activeFilterCount > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '14px',
+            flexWrap: 'wrap',
+            padding: '4px 2px',
+          }}
+        >
+          <span style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280' }}>
+            Active Filters:
+          </span>
+
+          {filters.categoryId && (
+            <span style={chipStyle}>
+              <span>Category: {selectedCategoryName || 'Selected'}</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('categoryId')} />
+            </span>
+          )}
+
+          {filters.subcategoryId && (
+            <span style={chipStyle}>
+              <span>Subcategory: {selectedSubcategoryName || 'Selected'}</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('subcategoryId')} />
+            </span>
+          )}
+
+          {filters.status && (
+            <span style={chipStyle}>
+              <span>Status: {filters.status === 'PUBLISHED' ? 'Live' : 'Draft'}</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('status')} />
+            </span>
+          )}
+
+          {filters.stockStatus && (
+            <span style={chipStyle}>
+              <span>Stock: {filters.stockStatus.replace('_', ' ')}</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('stockStatus')} />
+            </span>
+          )}
+
+          {filters.minPrice && (
+            <span style={chipStyle}>
+              <span>Min Price: ₹{filters.minPrice}</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('minPrice')} />
+            </span>
+          )}
+
+          {filters.maxPrice && (
+            <span style={chipStyle}>
+              <span>Max Price: ₹{filters.maxPrice}</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('maxPrice')} />
+            </span>
+          )}
+
+          {filters.minDiscount && (
+            <span style={chipStyle}>
+              <span>Discount: ≥ {filters.minDiscount}%</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('minDiscount')} />
+            </span>
+          )}
+
+          {filters.minStock && (
+            <span style={chipStyle}>
+              <span>Min Stock: {filters.minStock}</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('minStock')} />
+            </span>
+          )}
+
+          {filters.maxStock && (
+            <span style={chipStyle}>
+              <span>Max Stock: {filters.maxStock}</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('maxStock')} />
+            </span>
+          )}
+
+          {filters.brand && (
+            <span style={chipStyle}>
+              <span>Brand: {filters.brand}</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('brand')} />
+            </span>
+          )}
+
+          {filters.isFeatured === 'true' && (
+            <span style={chipStyle}>
+              <span>★ Featured</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('isFeatured')} />
+            </span>
+          )}
+
+          {filters.isBestSeller === 'true' && (
+            <span style={chipStyle}>
+              <span>🏆 Best Seller</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('isBestSeller')} />
+            </span>
+          )}
+
+          {filters.isBulk === 'true' && (
+            <span style={chipStyle}>
+              <span>📦 Bulk MOQ</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('isBulk')} />
+            </span>
+          )}
+
+          {filters.tags && (
+            <span style={chipStyle}>
+              <span>Tag: {filters.tags}</span>
+              <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveSingleFilter('tags')} />
+            </span>
+          )}
+
+          {(filters.startDate || filters.endDate) && (
+            <span style={chipStyle}>
+              <span>
+                Date: {filters.startDate || 'Start'} to {filters.endDate || 'Now'}
+              </span>
+              <X
+                size={12}
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  handleRemoveSingleFilter('startDate');
+                  handleRemoveSingleFilter('endDate');
+                }}
+              />
+            </span>
+          )}
+
+          <button
+            type="button"
+            onClick={handleResetFilters}
+            style={{
+              fontSize: '11.5px',
+              color: '#DC2626',
+              fontWeight: 700,
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              marginLeft: '4px',
+            }}
+          >
+            Clear All
+          </button>
+        </div>
+      )}
+
+      {/* Bulk Selection Bar */}
       <div
         style={{
           display: 'flex',
@@ -790,24 +971,12 @@ export default function ProductListPage() {
                     style={{ accentColor: '#7E22CE', width: '15px', height: '15px', cursor: 'pointer' }}
                   />
                 </th>
-                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' }}>
-                  Product
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' }}>
-                  Category
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' }}>
-                  Price (MRP / Sale)
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' }}>
-                  Stock Status
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' }}>
-                  Status
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', textAlign: 'right' }}>
-                  Actions
-                </th>
+                <th style={thStyle}>Product</th>
+                <th style={thStyle}>Category</th>
+                <th style={thStyle}>Price (MRP / Sale)</th>
+                <th style={thStyle}>Stock Status</th>
+                <th style={thStyle}>Status</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -824,9 +993,27 @@ export default function ProductListPage() {
                   <td colSpan={7} style={{ textAlign: 'center', padding: '60px 20px', color: '#6B7280' }}>
                     <Package size={44} style={{ color: '#C084FC', margin: '0 auto 10px' }} />
                     <h3 style={{ margin: '0 0 6px', color: '#1E1B4B' }}>No Products Found</h3>
-                    <p style={{ margin: 0, fontSize: '13px' }}>
-                      Try adjusting filters or click "+ Create Product" above.
+                    <p style={{ margin: '0 0 14px', fontSize: '13px' }}>
+                      No items matched your current filter criteria.
                     </p>
+                    {activeFilterCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleResetFilters}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '8px',
+                          backgroundColor: '#7C3AED',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          fontSize: '12.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Reset All Filters
+                      </button>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -901,7 +1088,7 @@ export default function ProductListPage() {
                             >
                               {product.name}
                             </Link>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
                               <span
                                 style={{
                                   fontSize: '11px',
@@ -915,7 +1102,22 @@ export default function ProductListPage() {
                               >
                                 {product.sku}
                               </span>
-                              {product.isBulk && (
+                              {product.isFeatured && (
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    backgroundColor: '#EDE9FE',
+                                    color: '#6D28D9',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #DDD6FE',
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  ★ Featured
+                                </span>
+                              )}
+                              {product.isBestSeller && (
                                 <span
                                   style={{
                                     fontSize: '10px',
@@ -924,6 +1126,21 @@ export default function ProductListPage() {
                                     padding: '1px 6px',
                                     borderRadius: '4px',
                                     border: '1px solid #FDE68A',
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  🏆 Best Seller
+                                </span>
+                              )}
+                              {product.isBulk && (
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    backgroundColor: '#ECFDF5',
+                                    color: '#065F46',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #A7F3D0',
                                     fontWeight: 700,
                                   }}
                                 >
@@ -1096,62 +1313,176 @@ export default function ProductListPage() {
           </table>
         </div>
 
-        {/* Pagination Bar */}
-        {pagination.totalPages > 1 && (
-          <div
-            style={{
-              padding: '14px 20px',
-              backgroundColor: '#FAF5FF',
-              borderTop: '1px solid #E9D5FF',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <div style={{ fontSize: '13px', color: '#6B7280' }}>
-              Showing page <b>{pagination.page}</b> of <b>{pagination.totalPages}</b> ({pagination.total} total)
+        {/* 🌟 ENHANCED PAGINATION BAR WITH PER-PAGE SELECTOR */}
+        <div
+          style={{
+            padding: '14px 20px',
+            backgroundColor: '#FAF5FF',
+            borderTop: '1px solid #E9D5FF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          {/* Left: Per Page selector & Showing item range */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '12.5px', color: '#6B7280', fontWeight: 500 }}>Show:</span>
+              <select
+                value={perPage}
+                onChange={(e) => {
+                  setPerPage(parseInt(e.target.value, 10));
+                  fetchProducts(1);
+                }}
+                style={{
+                  padding: '5px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid #D1D5DB',
+                  backgroundColor: '#FFFFFF',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  color: '#374151',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                <option value={10}>10 per page</option>
+                <option value={20}>20 per page</option>
+                <option value={50}>50 per page</option>
+                <option value={100}>100 per page</option>
+              </select>
             </div>
 
-            <div style={{ display: 'flex', gap: '6px' }}>
+            <div style={{ fontSize: '13px', color: '#6B7280' }}>
+              Showing{' '}
+              <b>
+                {pagination.total === 0
+                  ? 0
+                  : (pagination.page - 1) * pagination.limit + 1}
+              </b>
+              –
+              <b>
+                {Math.min(pagination.page * pagination.limit, pagination.total)}
+              </b>{' '}
+              of <b>{pagination.total}</b> products
+            </div>
+          </div>
+
+          {/* Right: Page Navigation Controls */}
+          {pagination.totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {/* First Page */}
+              <button
+                type="button"
+                disabled={pagination.page <= 1}
+                onClick={() => fetchProducts(1)}
+                style={pageNavBtnStyle(pagination.page <= 1)}
+                title="First Page"
+              >
+                <ChevronsLeft size={15} />
+              </button>
+
+              {/* Previous Page */}
               <button
                 type="button"
                 disabled={pagination.page <= 1}
                 onClick={() => fetchProducts(pagination.page - 1)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #E5E7EB',
-                  backgroundColor: '#ffffff',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: pagination.page <= 1 ? 'not-allowed' : 'pointer',
-                  color: pagination.page <= 1 ? '#9CA3AF' : '#374151',
-                }}
+                style={pageNavBtnStyle(pagination.page <= 1)}
+                title="Previous Page"
               >
-                Previous
+                <ChevronLeft size={15} />
               </button>
 
+              {/* Numbered Page Buttons with Smart Window */}
+              {renderPageButtons(pagination.page, pagination.totalPages, (p) => fetchProducts(p))}
+
+              {/* Next Page */}
               <button
                 type="button"
                 disabled={pagination.page >= pagination.totalPages}
                 onClick={() => fetchProducts(pagination.page + 1)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #E5E7EB',
-                  backgroundColor: '#ffffff',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: pagination.page >= pagination.totalPages ? 'not-allowed' : 'pointer',
-                  color: pagination.page >= pagination.totalPages ? '#9CA3AF' : '#374151',
-                }}
+                style={pageNavBtnStyle(pagination.page >= pagination.totalPages)}
+                title="Next Page"
               >
-                Next
+                <ChevronRight size={15} />
               </button>
+
+              {/* Last Page */}
+              <button
+                type="button"
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => fetchProducts(pagination.totalPages)}
+                style={pageNavBtnStyle(pagination.page >= pagination.totalPages)}
+                title="Last Page"
+              >
+                <ChevronsRight size={15} />
+              </button>
+
+              {/* Jump to Page input (if > 5 pages) */}
+              {pagination.totalPages > 5 && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const p = parseInt(jumpPageInput, 10);
+                    if (p >= 1 && p <= pagination.totalPages) {
+                      fetchProducts(p);
+                      setJumpPageInput('');
+                    }
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px' }}
+                >
+                  <input
+                    type="number"
+                    min={1}
+                    max={pagination.totalPages}
+                    placeholder="Page"
+                    value={jumpPageInput}
+                    onChange={(e) => setJumpPageInput(e.target.value)}
+                    style={{
+                      width: '46px',
+                      padding: '4px 6px',
+                      borderRadius: '6px',
+                      border: '1px solid #D1D5DB',
+                      fontSize: '12px',
+                      textAlign: 'center',
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: '#7E22CE',
+                      color: '#FFFFFF',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      border: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Go
+                  </button>
+                </form>
+              )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {/* 🌟 FILTER SLIDE-OVER DRAWER */}
+      <ProductFilterDrawer
+        isOpen={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={filters}
+        onApply={handleApplyDrawerFilters}
+        onReset={handleResetFilters}
+        categories={categories}
+        subcategories={subcategories}
+        onCategoryChange={loadSubcategories}
+      />
 
       {/* Embedded Modals for Fast Popups */}
       <CategoryManagerModal
@@ -1195,3 +1526,122 @@ export default function ProductListPage() {
     </div>
   );
 }
+
+// ─── Helper for Smart Page Window Rendering ──────────────────────────
+function renderPageButtons(currentPage, totalPages, onSelectPage) {
+  const pages = [];
+  const delta = 2;
+
+  for (let i = 1; i <= totalPages; i++) {
+    if (
+      i === 1 ||
+      i === totalPages ||
+      (i >= currentPage - delta && i <= currentPage + delta)
+    ) {
+      pages.push(i);
+    } else if (
+      (i === currentPage - delta - 1 && i > 1) ||
+      (i === currentPage + delta + 1 && i < totalPages)
+    ) {
+      pages.push('...');
+    }
+  }
+
+  // Deduplicate consecutive ellipsis
+  const cleanPages = pages.filter((item, index) => item !== '...' || pages[index - 1] !== '...');
+
+  return cleanPages.map((p, idx) => {
+    if (p === '...') {
+      return (
+        <span key={`dots-${idx}`} style={{ padding: '0 4px', fontSize: '12px', color: '#9CA3AF' }}>
+          ...
+        </span>
+      );
+    }
+
+    const isActive = p === currentPage;
+    return (
+      <button
+        key={p}
+        type="button"
+        onClick={() => onSelectPage(p)}
+        style={{
+          minWidth: '32px',
+          height: '32px',
+          padding: '0 6px',
+          borderRadius: '8px',
+          border: isActive ? '1px solid #7E22CE' : '1px solid #E5E7EB',
+          backgroundColor: isActive ? '#7E22CE' : '#FFFFFF',
+          color: isActive ? '#FFFFFF' : '#374151',
+          fontSize: '12px',
+          fontWeight: isActive ? 700 : 500,
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+        }}
+      >
+        {p}
+      </button>
+    );
+  });
+}
+
+// ─── Reusable Styles ──────────────────────────────────────────────────
+const thStyle = {
+  padding: '14px 16px',
+  fontSize: '12px',
+  fontWeight: 700,
+  color: '#6B7280',
+  textTransform: 'uppercase',
+};
+
+const topToolBtnStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '8px 12px',
+  borderRadius: '8px',
+  backgroundColor: '#FAF5FF',
+  border: '1px solid #E9D5FF',
+  color: '#7E22CE',
+  fontSize: '12px',
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+
+const filterSelectStyle = {
+  padding: '8px 12px',
+  borderRadius: '8px',
+  border: '1px solid #E5E7EB',
+  fontSize: '13px',
+  outline: 'none',
+  backgroundColor: '#FAF5FF',
+  color: '#374151',
+  cursor: 'pointer',
+};
+
+const chipStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '5px',
+  padding: '4px 9px',
+  borderRadius: '9999px',
+  backgroundColor: '#FAF5FF',
+  border: '1px solid #E9D5FF',
+  color: '#6D28D9',
+  fontSize: '11.5px',
+  fontWeight: 600,
+};
+
+const pageNavBtnStyle = (disabled) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '32px',
+  height: '32px',
+  borderRadius: '8px',
+  border: '1px solid #E5E7EB',
+  backgroundColor: '#FFFFFF',
+  color: disabled ? '#D1D5DB' : '#374151',
+  cursor: disabled ? 'not-allowed' : 'pointer',
+  transition: 'all 0.15s ease',
+});

@@ -45,9 +45,4 @@ Thumbs.db
 # Testing
 coverage/
 
-# Mobile specific build outputs / cache
-frontend/ios/
-frontend/android/
-frontend/.expo/
-frontend/web-build/
-*.metro/
+

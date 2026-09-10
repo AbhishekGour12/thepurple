@@ -13,6 +13,17 @@ export const listProducts = asyncHandler(async (req, res) => {
     stockStatus,
     minPrice,
     maxPrice,
+    minStock,
+    maxStock,
+    minDiscount,
+    maxDiscount,
+    brand,
+    isFeatured,
+    isBestSeller,
+    isBulk,
+    tags,
+    startDate,
+    endDate,
     sort,
   } = req.query;
 
@@ -26,6 +37,17 @@ export const listProducts = asyncHandler(async (req, res) => {
     stockStatus,
     minPrice,
     maxPrice,
+    minStock,
+    maxStock,
+    minDiscount,
+    maxDiscount,
+    brand,
+    isFeatured,
+    isBestSeller,
+    isBulk,
+    tags,
+    startDate,
+    endDate,
     sort,
   });
 
@@ -103,6 +125,18 @@ export const bulkDeleteProducts = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, result, result.message);
 });
 
+export const deleteProductImage = asyncHandler(async (req, res) => {
+  const { id, imageId } = req.params;
+  const ipAddress = req.ip || req.connection.remoteAddress;
+
+  const result = await productService.deleteProductImage(id, imageId, {
+    adminId: req.admin.id,
+    ipAddress,
+  });
+
+  return ApiResponse.success(res, result, result.message);
+});
+
 export default {
   listProducts,
   getProduct,
@@ -110,5 +144,6 @@ export default {
   updateProduct,
   updateProductStatus,
   deleteProduct,
+  deleteProductImage,
   bulkDeleteProducts,
 };

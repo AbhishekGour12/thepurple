@@ -14,13 +14,16 @@ function slugify(text) {
 }
 
 export const categoryService = {
-  async listCategories({ search, isActive }) {
+  async listCategories({ search, isActive, isFeatured }) {
     const where = {};
     if (search) {
       where.name = { [Op.iLike]: `%${search.trim()}%` };
     }
     if (isActive !== undefined && isActive !== '') {
       where.isActive = isActive === 'true' || isActive === true;
+    }
+    if (isFeatured !== undefined && isFeatured !== '') {
+      where.isFeatured = isFeatured === 'true' || isFeatured === true;
     }
 
     const categories = await Category.findAll({
@@ -60,7 +63,7 @@ export const categoryService = {
     return category;
   },
 
-  async createCategory({ name, slug, description, imageUrl, isActive = true, displayOrder = 0, adminId, ipAddress }) {
+  async createCategory({ name, slug, description, imageUrl, isActive = true, isFeatured = false, displayOrder = 0, adminId, ipAddress }) {
     if (!name || !name.trim()) {
       throw AppError.badRequest('Category name is required');
     }
@@ -83,6 +86,7 @@ export const categoryService = {
       description: description || null,
       imageUrl: imageUrl || null,
       isActive: Boolean(isActive),
+      isFeatured: Boolean(isFeatured),
       displayOrder: parseInt(displayOrder, 10) || 0,
     });
 
@@ -91,7 +95,7 @@ export const categoryService = {
       action: 'CATEGORY_CREATED',
       entity: 'Category',
       entityId: category.id,
-      metadata: { name: category.name, slug: category.slug },
+      metadata: { name: category.name, slug: category.slug, isFeatured: category.isFeatured },
       ipAddress: ipAddress || null,
     });
 
@@ -132,6 +136,7 @@ export const categoryService = {
               description: item.description || null,
               imageUrl: item.imageUrl || null,
               isActive: item.isActive !== undefined ? Boolean(item.isActive) : true,
+              isFeatured: item.isFeatured !== undefined ? Boolean(item.isFeatured) : false,
               displayOrder: parseInt(item.displayOrder, 10) || 0,
             },
             { transaction }
@@ -191,7 +196,7 @@ export const categoryService = {
     }
   },
 
-  async updateCategory(id, { name, slug, description, imageUrl, isActive, displayOrder, adminId, ipAddress }) {
+  async updateCategory(id, { name, slug, description, imageUrl, isActive, isFeatured, displayOrder, adminId, ipAddress }) {
     const category = await Category.findByPk(id);
     if (!category) {
       throw AppError.notFound('Category not found');
@@ -206,6 +211,7 @@ export const categoryService = {
     if (description !== undefined) updates.description = description;
     if (imageUrl !== undefined) updates.imageUrl = imageUrl;
     if (isActive !== undefined) updates.isActive = Boolean(isActive);
+    if (isFeatured !== undefined) updates.isFeatured = Boolean(isFeatured);
     if (displayOrder !== undefined) updates.displayOrder = parseInt(displayOrder, 10);
 
     if (updates.name || updates.slug) {

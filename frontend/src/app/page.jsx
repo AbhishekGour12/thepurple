@@ -6,7 +6,8 @@ import CategoryNav from '../components/layout/CategoryNav';
 import HeroBanner from '../components/home/HeroBanner';
 import HeroTrustStrip from '../components/home/HeroTrustStrip';
 import FeaturedCategories from '../components/home/FeaturedCategories';
-import SearchWhatYouLove from '../components/home/SearchWhatYouLove';
+import HomeFeaturedProducts from '../components/home/HomeFeaturedProducts';
+import HomeAboutSection from '../components/home/HomeAboutSection';
 import RecentlyViewed from '../components/home/RecentlyViewed';
 import SpecialOfferBanner from '../components/home/SpecialOfferBanner';
 import BenefitsStrip from '../components/home/BenefitsStrip';
@@ -29,7 +30,7 @@ export default function HomePage() {
       {/* 2. Main Header */}
       <MainHeader />
 
-      {/* 3. Category Navigation */}
+      {/* 3. Category Navigation (Only on HomePage) */}
       <CategoryNav />
 
       {/* Main Storefront Content Area */}
@@ -37,20 +38,20 @@ export default function HomePage() {
         {/* 4. Hero Banner Carousel */}
         <HeroBanner />
 
-        {/* 5. Hero Trust / Feature Strip */}
-        <HeroTrustStrip />
-
-        {/* 6. Shop By Category Visual Showcase */}
+        {/* 5. Shop By Category Visual Showcase (6-Box Slider) */}
         <FeaturedCategories />
 
-        {/* 7. Search & Explore What You Love (Main Product Grid) */}
-        <SearchWhatYouLove />
+        {/* 6. Trending Products Showcase (10 items + View All CTA) */}
+        <HomeFeaturedProducts />
 
-        {/* 8. Recently Viewed Products (First in Part 2) */}
-        <RecentlyViewed />
+        {/* 7. Brand Story / About Us Section with luxury visuals */}
+        <HomeAboutSection />
 
-        {/* 9. Special Offer Banner (WELCOME10 Coupon) */}
+        {/* 8. Special Offer Banner (WELCOME10 Coupon) */}
         <SpecialOfferBanner />
+
+        {/* 9. Recently Viewed Products */}
+        <RecentlyViewed />
 
         {/* 10. Service / Benefits Assurance Strip */}
         <BenefitsStrip />
