@@ -646,111 +646,40 @@ export default function AboutPage() {
             padding: '0 24px',
           }}
         >
-          {/* Section Header with Carousel Controls */}
+          {/* Section Header */}
           <div
+            className="about-values-header"
             style={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'space-between',
-              marginBottom: '32px',
-              flexWrap: 'wrap',
-              gap: '16px',
+              textAlign: 'center',
+              maxWidth: '640px',
+              margin: '0 auto 36px auto',
             }}
           >
-            <div>
-              <div
-                style={{
-                  fontSize: '11.5px',
-                  fontWeight: 800,
-                  letterSpacing: '0.14em',
-                  color: '#6D28D9',
-                  textTransform: 'uppercase',
-                  marginBottom: '6px',
-                  fontFamily: "var(--font-heading, 'Outfit', sans-serif)",
-                }}
-              >
-                OUR VALUES
-              </div>
-              <h2
-                style={{
-                  fontFamily: "var(--font-serif, 'Playfair Display', Georgia, serif)",
-                  fontSize: 'clamp(2rem, 3.2vw, 2.6rem)',
-                  fontWeight: 700,
-                  color: '#18181B',
-                  margin: 0,
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                What We <span style={{ color: '#6D28D9' }}>Stand For</span>
-              </h2>
+            <div
+              style={{
+                fontSize: '11.5px',
+                fontWeight: 800,
+                letterSpacing: '0.14em',
+                color: '#6D28D9',
+                textTransform: 'uppercase',
+                marginBottom: '6px',
+                fontFamily: "var(--font-heading, 'Outfit', sans-serif)",
+              }}
+            >
+              OUR VALUES
             </div>
-
-            {/* Subtle Prev/Next Navigation Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => scrollValues('left')}
-                aria-label="Previous Values"
-                style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '50%',
-                  backgroundColor: '#FFFFFF',
-                  border: '1.5px solid #E8E1F5',
-                  color: '#6D28D9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 6px rgba(109, 40, 217, 0.05)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#6D28D9';
-                  e.currentTarget.style.color = '#FFFFFF';
-                  e.currentTarget.style.borderColor = '#6D28D9';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
-                  e.currentTarget.style.color = '#6D28D9';
-                  e.currentTarget.style.borderColor = '#E8E1F5';
-                }}
-              >
-                <ChevronLeft size={18} strokeWidth={2.4} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => scrollValues('right')}
-                aria-label="Next Values"
-                style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '50%',
-                  backgroundColor: '#FFFFFF',
-                  border: '1.5px solid #E8E1F5',
-                  color: '#6D28D9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 6px rgba(109, 40, 217, 0.05)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#6D28D9';
-                  e.currentTarget.style.color = '#FFFFFF';
-                  e.currentTarget.style.borderColor = '#6D28D9';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
-                  e.currentTarget.style.color = '#6D28D9';
-                  e.currentTarget.style.borderColor = '#E8E1F5';
-                }}
-              >
-                <ChevronRight size={18} strokeWidth={2.4} />
-              </button>
-            </div>
+            <h2
+              style={{
+                fontFamily: "var(--font-serif, 'Playfair Display', Georgia, serif)",
+                fontSize: 'clamp(2rem, 3.2vw, 2.6rem)',
+                fontWeight: 700,
+                color: '#18181B',
+                margin: 0,
+                letterSpacing: '-0.02em',
+              }}
+            >
+              What We <span style={{ color: '#6D28D9' }}>Stand For</span>
+            </h2>
           </div>
 
           {/* 4 Values Cards Grid / Scrollable */}
@@ -780,7 +709,9 @@ export default function AboutPage() {
                     transition: 'all 0.25s ease',
                     display: 'flex',
                     flexDirection: 'column',
-                    minWidth: '240px',
+                    alignItems: 'center',
+                    textAlign: 'center',
+                    minWidth: '220px',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-4px)';
@@ -1045,7 +976,10 @@ export default function AboutPage() {
       <Footer />
 
       {/* Responsive Styles */}
-      <style jsx>{`
+      <style jsx global>{`
+        .about-values-grid::-webkit-scrollbar {
+          display: none;
+        }
         @media (max-width: 1024px) {
           .about-hero-grid {
             grid-template-columns: 1fr 1fr !important;
@@ -1071,17 +1005,49 @@ export default function AboutPage() {
           }
         }
 
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
           .about-hero-grid {
             grid-template-columns: 1fr !important;
-            gap: 30px !important;
+            gap: 26px !important;
+            text-align: center !important;
+          }
+          .about-hero-text {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            text-align: center !important;
+          }
+          .about-hero-text p {
+            margin: 0 auto 24px auto !important;
+            text-align: center !important;
           }
           .about-hero-image-wrapper {
             order: -1;
           }
+          .about-values-grid {
+            display: flex !important;
+            overflow-x: auto !important;
+            scrollbar-width: none !important;
+            -webkit-overflow-scrolling: touch !important;
+            gap: 14px !important;
+            padding: 0 4px 12px 4px !important;
+          }
+          .about-value-card {
+            flex: 0 0 230px !important;
+            min-width: 230px !important;
+          }
+          .about-story-grid {
+            text-align: center !important;
+          }
           .about-story-features {
             grid-template-columns: 1fr !important;
-            gap: 20px !important;
+            gap: 18px !important;
+          }
+          .about-story-features > div {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            text-align: center !important;
           }
           .about-stats-bar {
             grid-template-columns: 1fr !important;
@@ -1091,13 +1057,11 @@ export default function AboutPage() {
             border-right: none !important;
             border-bottom: 1px solid #DDD6FE;
             padding-bottom: 16px;
+            justify-content: center !important;
           }
           .about-stat-item:last-child {
             border-bottom: none !important;
             padding-bottom: 0;
-          }
-          .about-values-grid {
-            grid-template-columns: 1fr !important;
           }
         }
       `}</style>

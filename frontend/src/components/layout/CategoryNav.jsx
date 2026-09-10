@@ -19,8 +19,6 @@ export default function CategoryNav() {
   const pathname = usePathname();
   const [categories, setCategories] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollContainerRef = useRef(null);
 
   // Fetch active categories from backend
@@ -83,28 +81,6 @@ export default function CategoryNav() {
     return [...fixedPrefix, ...middleItems];
   }, [categories]);
 
-  // Check scroll positions
-  const checkScroll = () => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const { scrollLeft, scrollWidth, clientWidth } = el;
-    setCanScrollLeft(scrollLeft > 4);
-    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
-  };
-
-  useEffect(() => {
-    checkScroll();
-    window.addEventListener('resize', checkScroll);
-    return () => window.removeEventListener('resize', checkScroll);
-  }, [navLinks]);
-
-  const handleScroll = (direction) => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const scrollAmount = direction === 'left' ? -220 : 220;
-    el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-  };
-
   return (
     <>
       <nav
@@ -162,10 +138,9 @@ export default function CategoryNav() {
             <ChevronDown size={14} />
           </button>
 
-          {/* Navigation Items Wrapper with Horizontal Scroll and Navigation Arrows */}
+          {/* Navigation Items Wrapper with Clean Native Horizontal Scroll */}
           <div
             style={{
-              position: 'relative',
               display: 'flex',
               alignItems: 'center',
               flex: 1,
@@ -173,39 +148,9 @@ export default function CategoryNav() {
               overflow: 'hidden',
             }}
           >
-            {/* Left Scroll Arrow */}
-            {canScrollLeft && (
-              <button
-                type="button"
-                onClick={() => handleScroll('left')}
-                aria-label="Scroll left"
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  zIndex: 2,
-                  width: '28px',
-                  height: '32px',
-                  borderRadius: '0 6px 6px 0',
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  backdropFilter: 'blur(4px)',
-                  boxShadow: '2px 0 8px rgba(0,0,0,0.08)',
-                  border: '1px solid #F0ECF8',
-                  borderLeft: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: '#7E22CE',
-                }}
-              >
-                <ChevronLeft size={16} strokeWidth={2.4} />
-              </button>
-            )}
-
             {/* Scrollable Nav Links */}
             <div
               ref={scrollContainerRef}
-              onScroll={checkScroll}
               className="category-nav-scroll"
               style={{
                 display: 'flex',
@@ -215,6 +160,7 @@ export default function CategoryNav() {
                 whiteSpace: 'nowrap',
                 scrollbarWidth: 'none',
                 msOverflowStyle: 'none',
+                WebkitOverflowScrolling: 'touch',
                 flex: 1,
                 scrollBehavior: 'smooth',
                 padding: '0 4px',
@@ -258,35 +204,6 @@ export default function CategoryNav() {
                 );
               })}
             </div>
-
-            {/* Right Scroll Arrow */}
-            {canScrollRight && (
-              <button
-                type="button"
-                onClick={() => handleScroll('right')}
-                aria-label="Scroll right"
-                style={{
-                  position: 'absolute',
-                  right: 0,
-                  zIndex: 2,
-                  width: '28px',
-                  height: '32px',
-                  borderRadius: '6px 0 0 6px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  backdropFilter: 'blur(4px)',
-                  boxShadow: '-2px 0 8px rgba(0,0,0,0.08)',
-                  border: '1px solid #F0ECF8',
-                  borderRight: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: '#7E22CE',
-                }}
-              >
-                <ChevronRight size={16} strokeWidth={2.4} />
-              </button>
-            )}
           </div>
         </div>
 

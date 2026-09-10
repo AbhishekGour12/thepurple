@@ -3,16 +3,18 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User, ShoppingCart, ChevronDown, Heart } from 'lucide-react';
+import { User, ShoppingCart, ChevronDown, Heart, Menu } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { restoreCustomerSession, logoutCustomerUser } from '@/store/slices/authSlice';
 import ProfileDropdown from './ProfileDropdown';
+import MobileSidebarDrawer from './MobileSidebarDrawer';
 
 export default function MainHeader() {
   const pathname = usePathname();
   const dispatch = useDispatch();
   const customerUser = useSelector((state) => state.auth?.customer?.user);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const dropdownContainerRef = useRef(null);
   const closeTimeoutRef = useRef(null);
 
@@ -80,6 +82,7 @@ export default function MainHeader() {
       }}
     >
       <div
+        className="header-main-container"
         style={{
           maxWidth: '1420px',
           margin: '0 auto',
@@ -87,43 +90,71 @@ export default function MainHeader() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '24px',
+          gap: '16px',
         }}
       >
-        {/* 1. Brand Logo */}
-        <Link
-          href="/"
-          style={{
-            textDecoration: 'none',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '2px',
-            flexShrink: 0,
-          }}
-        >
-          <span
+        {/* Left Side: Mobile Menu Toggle & Brand Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Hamburger Menu Button (Visible on screens <= 1100px) */}
+          <button
+            type="button"
+            className="header-mobile-toggle-btn"
+            onClick={() => setIsMobileDrawerOpen(true)}
+            aria-label="Open navigation sidebar"
             style={{
-              fontFamily: "var(--font-serif, 'Playfair Display', Georgia, serif)",
-              fontSize: '1.95rem',
-              fontWeight: 800,
-              letterSpacing: '-0.03em',
-              color: '#18181B',
-            }}
-          >
-            the
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-serif, 'Playfair Display', Georgia, serif)",
-              fontSize: '1.95rem',
-              fontWeight: 800,
-              letterSpacing: '-0.03em',
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              backgroundColor: '#FAF5FF',
+              border: '1px solid #E9D5FF',
               color: '#6D28D9',
+              display: 'none',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              flexShrink: 0,
+              transition: 'all 0.15s ease',
             }}
           >
-            purple
-          </span>
-        </Link>
+            <Menu size={20} strokeWidth={2.2} />
+          </button>
+
+          {/* 1. Brand Logo */}
+          <Link
+            href="/"
+            className="header-brand-logo"
+            style={{
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '2px',
+              flexShrink: 0,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-serif, 'Playfair Display', Georgia, serif)",
+                fontSize: 'clamp(1.4rem, 4.2vw, 1.95rem)',
+                fontWeight: 800,
+                letterSpacing: '-0.03em',
+                color: '#18181B',
+              }}
+            >
+              the
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-serif, 'Playfair Display', Georgia, serif)",
+                fontSize: 'clamp(1.4rem, 4.2vw, 1.95rem)',
+                fontWeight: 800,
+                letterSpacing: '-0.03em',
+                color: '#6D28D9',
+              }}
+            >
+              purple
+            </span>
+          </Link>
+        </div>
 
         {/* 2. Center Navigation Links (Evenly Spaced & Space-Filling) */}
         <nav
@@ -194,7 +225,7 @@ export default function MainHeader() {
         </nav>
 
         {/* 3. Right Action Items (Wishlist, Account & Cart) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
           {/* Wishlist Link */}
           <Link
             href="/wishlist"
@@ -241,7 +272,7 @@ export default function MainHeader() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px',
+                gap: '8px',
                 color: '#18181B',
                 cursor: 'pointer',
                 userSelect: 'none',
@@ -316,10 +347,10 @@ export default function MainHeader() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
+              gap: '8px',
               textDecoration: 'none',
               color: '#18181B',
-              padding: '6px 12px',
+              padding: '6px 8px',
               borderRadius: '8px',
               transition: 'background-color 0.15s ease',
             }}
@@ -371,16 +402,35 @@ export default function MainHeader() {
         </div>
       </div>
 
+      {/* Slide-in Mobile Sidebar Drawer */}
+      <MobileSidebarDrawer
+        isOpen={isMobileDrawerOpen}
+        onClose={() => setIsMobileDrawerOpen(false)}
+        user={customerUser}
+        onLogout={handleLogout}
+      />
+
       <style jsx global>{`
-        @media (max-width: 900px) {
+        @media (max-width: 1150px) {
           .header-center-nav {
             display: none !important;
           }
+          .header-mobile-toggle-btn {
+            display: inline-flex !important;
+          }
+        }
+        @media (max-width: 900px) {
           .header-wishlist-link {
             display: none !important;
           }
           .header-action-text {
             display: none !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .header-main-container {
+            padding: 10px 14px !important;
+            gap: 8px !important;
           }
         }
       `}</style>

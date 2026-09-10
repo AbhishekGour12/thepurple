@@ -11,7 +11,7 @@ import HomeAboutSection from '../components/home/HomeAboutSection';
 import RecentlyViewed from '../components/home/RecentlyViewed';
 import SpecialOfferBanner from '../components/home/SpecialOfferBanner';
 import BenefitsStrip from '../components/home/BenefitsStrip';
-import NewsletterSection from '../components/home/NewsletterSection';
+import HomeContactSection from '../components/home/HomeContactSection';
 import Footer from '../components/layout/Footer';
 
 export default function HomePage() {
@@ -56,8 +56,8 @@ export default function HomePage() {
         {/* 10. Service / Benefits Assurance Strip */}
         <BenefitsStrip />
 
-        {/* 11. Newsletter Subscription */}
-        <NewsletterSection />
+        {/* 11. Contact Us Section */}
+        <HomeContactSection />
       </main>
 
       {/* 12. Complete Customer Storefront Footer */}

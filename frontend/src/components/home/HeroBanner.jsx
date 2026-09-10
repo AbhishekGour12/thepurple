@@ -148,6 +148,34 @@ export default function HeroBanner() {
     };
   }, [isPaused, activeSlide, totalSlides]);
 
+  const touchStartX = useRef(null);
+  const touchEndX = useRef(null);
+
+  const handleTouchStart = (e) => {
+    if (e.targetTouches && e.targetTouches.length > 0) {
+      touchStartX.current = e.targetTouches[0].clientX;
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.targetTouches && e.targetTouches.length > 0) {
+      touchEndX.current = e.targetTouches[0].clientX;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current !== null && touchEndX.current !== null) {
+      const diff = touchStartX.current - touchEndX.current;
+      if (diff > 45) {
+        nextSlide();
+      } else if (diff < -45) {
+        prevSlide();
+      }
+    }
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
   const current = slides[activeSlide] || DEFAULT_SLIDES[0];
   const FloatingIcon = current.floatingBadge?.icon || Award;
 
@@ -158,9 +186,13 @@ export default function HeroBanner() {
         maxWidth: '1420px',
         margin: '0 auto 0 auto',
         padding: '0 16px',
+        touchAction: 'pan-y',
       }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {/* SVG Clip Path Definition for Left-Facing Concave Curve (Ulta-C Curve) */}
       <svg width="0" height="0" style={{ position: 'absolute' }}>
@@ -826,7 +858,7 @@ export default function HeroBanner() {
             flex: 1 1 auto !important;
             width: 100% !important;
             max-width: 100% !important;
-            padding: 22px 18px 28px 18px !important;
+            padding: 24px 20px 58px 20px !important;
           }
           .hero-left-content :global(h1) {
             font-size: 1.85rem !important;
@@ -862,24 +894,20 @@ export default function HeroBanner() {
             padding: 6px 12px !important;
           }
           .hero-nav-arrow {
-            width: 34px !important;
-            height: 34px !important;
-          }
-          .hero-nav-prev {
-            left: 10px !important;
-          }
-          .hero-nav-next {
-            right: 10px !important;
+            display: none !important;
           }
         }
 
         @media (max-width: 640px) {
+          .hero-nav-arrow {
+            display: none !important;
+          }
           .hero-right-visual {
             height: 200px !important;
             min-height: 200px !important;
           }
           .hero-left-content {
-            padding: 16px 14px 24px 14px !important;
+            padding: 18px 16px 56px 16px !important;
           }
           .hero-fade-title {
             font-size: 1.7rem !important;

@@ -63,6 +63,35 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
   const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef(null);
 
+  // Touch swipe support
+  const touchStartX = useRef(null);
+  const touchEndX = useRef(null);
+
+  const handleTouchStart = (e) => {
+    if (e.targetTouches && e.targetTouches.length > 0) {
+      touchStartX.current = e.targetTouches[0].clientX;
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.targetTouches && e.targetTouches.length > 0) {
+      touchEndX.current = e.targetTouches[0].clientX;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current !== null && touchEndX.current !== null) {
+      const diff = touchStartX.current - touchEndX.current;
+      if (diff > 45) {
+        nextSlide();
+      } else if (diff < -45) {
+        prevSlide();
+      }
+    }
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
   // Fetch dynamic banners for Products Page
   useEffect(() => {
     let isMounted = true;
@@ -123,16 +152,23 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
 
   return (
     <div
+      className="prod-carousel-container"
       style={{
         maxWidth: '1380px',
-        margin: '24px auto 10px',
-        padding: '0 24px',
+        margin: '20px auto 8px',
+        padding: '0 20px',
         width: '100%',
+        boxSizing: 'border-box',
+        touchAction: 'pan-y',
       }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       <div
+        className="prod-carousel-card"
         style={{
           position: 'relative',
           borderRadius: '24px',
@@ -145,7 +181,7 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
           `,
           border: '1px solid rgba(192, 132, 252, 0.2)',
           boxShadow: '0 20px 40px rgba(19, 7, 38, 0.35)',
-          minHeight: '320px',
+          minHeight: '280px',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
@@ -154,11 +190,12 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
         {/* If Full Image Mode */}
         {slide.isFullImage ? (
           <div
+            className="prod-carousel-fullimg"
             style={{
               position: 'relative',
               width: '100%',
-              minHeight: '320px',
-              height: '320px',
+              minHeight: '260px',
+              height: '260px',
             }}
           >
             {slide.linkUrl ? (
@@ -181,10 +218,10 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
             <div
               style={{
                 position: 'absolute',
-                bottom: '20px',
-                left: '24px',
+                bottom: '16px',
+                left: '20px',
                 display: 'flex',
-                gap: '12px',
+                gap: '10px',
                 zIndex: 10,
               }}
             >
@@ -195,8 +232,8 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  padding: '10px 20px',
-                  borderRadius: '12px',
+                  padding: '9px 18px',
+                  borderRadius: '10px',
                   backgroundColor: '#9333EA',
                   color: '#FFFFFF',
                   border: 'none',
@@ -214,25 +251,27 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
         ) : (
           /* Standard Slide Content Split */
           <div
+            className="prod-carousel-split"
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '36px 44px 24px',
-              gap: '30px',
+              padding: '28px 36px 18px',
+              gap: '24px',
               flexWrap: 'wrap',
             }}
           >
             {/* Left Text Block */}
-            <div style={{ flex: '1 1 500px', maxWidth: '620px', zIndex: 2 }}>
+            <div className="prod-carousel-content" style={{ flex: '1 1 380px', maxWidth: '600px', zIndex: 2 }}>
               {/* Tag Badge */}
               {slide.tag && (
                 <div
+                  className="prod-carousel-tag"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    padding: '5px 12px',
+                    padding: '4px 12px',
                     borderRadius: '20px',
                     backgroundColor: 'rgba(255, 255, 255, 0.1)',
                     backdropFilter: 'blur(10px)',
@@ -241,7 +280,7 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
                     fontSize: '11px',
                     fontWeight: 800,
                     letterSpacing: '0.06em',
-                    marginBottom: '14px',
+                    marginBottom: '10px',
                   }}
                 >
                   <Sparkles size={12} color={slide.accent} />
@@ -252,12 +291,13 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
               {/* Slide Title */}
               {slide.title && (
                 <h1
+                  className="prod-carousel-title"
                   style={{
-                    fontSize: 'clamp(26px, 3.8vw, 38px)',
+                    fontSize: 'clamp(22px, 3.2vw, 32px)',
                     fontWeight: 800,
                     color: '#FFFFFF',
-                    lineHeight: 1.15,
-                    margin: '0 0 8px',
+                    lineHeight: 1.18,
+                    margin: '0 0 6px',
                     letterSpacing: '-0.02em',
                   }}
                 >
@@ -282,12 +322,13 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
               {/* Description */}
               {slide.description && (
                 <p
+                  className="prod-carousel-desc"
                   style={{
-                    fontSize: '13.5px',
+                    fontSize: '13px',
                     color: '#D8B4FE',
-                    lineHeight: 1.5,
-                    margin: '0 0 20px',
-                    maxWidth: '520px',
+                    lineHeight: 1.45,
+                    margin: '0 0 16px',
+                    maxWidth: '480px',
                   }}
                 >
                   {slide.description}
@@ -295,7 +336,7 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
               )}
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div className="prod-carousel-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 {/* View All Categories Modal Trigger */}
                 <button
                   type="button"
@@ -304,8 +345,8 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '8px',
-                    padding: '10px 20px',
-                    borderRadius: '12px',
+                    padding: '9px 18px',
+                    borderRadius: '10px',
                     backgroundColor: '#9333EA',
                     color: '#FFFFFF',
                     border: 'none',
@@ -337,8 +378,8 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '6px',
-                      padding: '10px 18px',
-                      borderRadius: '12px',
+                      padding: '9px 16px',
+                      borderRadius: '10px',
                       backgroundColor: 'rgba(255, 255, 255, 0.12)',
                       backdropFilter: 'blur(8px)',
                       color: '#FFFFFF',
@@ -364,8 +405,9 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
 
             {/* Right Image Showcase Card */}
             <div
+              className="prod-carousel-image-col"
               style={{
-                flex: '0 1 340px',
+                flex: '0 1 280px',
                 position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
@@ -375,9 +417,9 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
               <div
                 style={{
                   position: 'relative',
-                  width: '260px',
-                  height: '240px',
-                  borderRadius: '20px',
+                  width: '220px',
+                  height: '190px',
+                  borderRadius: '18px',
                   overflow: 'hidden',
                   border: '2px solid rgba(216, 180, 254, 0.3)',
                   boxShadow: '0 15px 35px rgba(0,0,0,0.5)',
@@ -404,13 +446,13 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
                   <span
                     style={{
                       position: 'absolute',
-                      bottom: '12px',
-                      left: '12px',
+                      bottom: '10px',
+                      left: '10px',
                       backgroundColor: '#7E22CE',
                       color: '#FFFFFF',
-                      fontSize: '10.5px',
+                      fontSize: '10px',
                       fontWeight: 800,
-                      padding: '4px 10px',
+                      padding: '3px 8px',
                       borderRadius: '6px',
                       letterSpacing: '0.04em',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
@@ -426,11 +468,12 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
 
         {/* Bottom Bar: Indicators & Controls */}
         <div
+          className="prod-carousel-bottom-bar"
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '14px 44px',
+            padding: '10px 36px',
             backgroundColor: 'rgba(0, 0, 0, 0.25)',
             backdropFilter: 'blur(10px)',
             borderTop: '1px solid rgba(255, 255, 255, 0.08)',
@@ -445,8 +488,8 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
                 onClick={() => setActiveSlide(idx)}
                 aria-label={`Go to slide ${idx + 1}`}
                 style={{
-                  width: activeSlide === idx ? '28px' : '8px',
-                  height: '8px',
+                  width: activeSlide === idx ? '24px' : '7px',
+                  height: '7px',
                   borderRadius: '4px',
                   backgroundColor: activeSlide === idx ? '#C084FC' : 'rgba(255, 255, 255, 0.3)',
                   border: 'none',
@@ -460,14 +503,15 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
 
           {/* Prev / Next Controls */}
           {totalSlides > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="prod-carousel-arrow-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 type="button"
                 onClick={prevSlide}
                 aria-label="Previous slide"
+                className="prod-carousel-arrow"
                 style={{
-                  width: '32px',
-                  height: '32px',
+                  width: '30px',
+                  height: '30px',
                   borderRadius: '8px',
                   backgroundColor: 'rgba(255, 255, 255, 0.1)',
                   border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -487,9 +531,10 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
                 type="button"
                 onClick={nextSlide}
                 aria-label="Next slide"
+                className="prod-carousel-arrow"
                 style={{
-                  width: '32px',
-                  height: '32px',
+                  width: '30px',
+                  height: '30px',
                   borderRadius: '8px',
                   backgroundColor: 'rgba(255, 255, 255, 0.1)',
                   border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -509,6 +554,103 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
           )}
         </div>
       </div>
+
+      <style jsx global>{`
+        @media (max-width: 768px) {
+          .prod-carousel-container {
+            margin: 10px auto 4px !important;
+            padding: 0 12px !important;
+          }
+          .prod-carousel-card {
+            min-height: 220px !important;
+            height: 220px !important;
+            border-radius: 16px !important;
+            position: relative !important;
+            overflow: hidden !important;
+          }
+          .prod-carousel-split {
+            position: absolute !important;
+            inset: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            display: block !important;
+          }
+          .prod-carousel-image-col {
+            display: block !important;
+            position: absolute !important;
+            inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 1 !important;
+            padding: 0 !important;
+          }
+          .prod-carousel-image-col > div {
+            width: 100% !important;
+            height: 100% !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+          }
+          .prod-carousel-image-col img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+          }
+          .prod-carousel-content {
+            position: absolute !important;
+            bottom: 38px !important;
+            left: 12px !important;
+            right: 12px !important;
+            z-index: 4 !important;
+            max-width: none !important;
+            width: auto !important;
+            padding: 0 !important;
+          }
+          .prod-carousel-tag {
+            display: none !important;
+          }
+          .prod-carousel-title {
+            display: none !important;
+          }
+          .prod-carousel-desc {
+            display: none !important;
+          }
+          .prod-carousel-actions {
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+          }
+          .prod-carousel-actions button {
+            padding: 7px 13px !important;
+            font-size: 11.5px !important;
+            border-radius: 8px !important;
+            white-space: nowrap !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+          }
+          .prod-carousel-arrow {
+            display: none !important;
+          }
+          .prod-carousel-bottom-bar {
+            position: absolute !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 5 !important;
+            padding: 6px 14px !important;
+            justify-content: center !important;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, transparent 100%) !important;
+            border-top: none !important;
+          }
+          .prod-carousel-fullimg {
+            height: 220px !important;
+            min-height: 220px !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

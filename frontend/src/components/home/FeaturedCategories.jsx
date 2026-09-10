@@ -221,6 +221,7 @@ export default function FeaturedCategories() {
             type="button"
             onClick={() => handleScroll('left')}
             aria-label="Scroll left categories"
+            className="featured-cat-arrow"
             style={{
               position: 'absolute',
               left: '-14px',
@@ -353,6 +354,7 @@ export default function FeaturedCategories() {
             type="button"
             onClick={() => handleScroll('right')}
             aria-label="Scroll right categories"
+            className="featured-cat-arrow"
             style={{
               position: 'absolute',
               right: '-14px',
@@ -423,6 +425,9 @@ export default function FeaturedCategories() {
           }
         }
         @media (max-width: 768px) {
+          :global(.featured-cat-arrow) {
+            display: none !important;
+          }
           :global(.featured-cat-card) {
             flex: 0 0 calc((100% - 2 * 10px) / 3.2);
             min-width: 130px;

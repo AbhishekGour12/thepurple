@@ -12,6 +12,7 @@ export const configureSecurityHeaders = () => {
 export const configureCors = () => {
   const allowedOrigins = [
     env.FRONTEND_URL,
+    'https://thepurple.vercel.app',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
   ];
@@ -20,7 +21,14 @@ export const configureCors = () => {
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin) || !env.isProduction) {
+      
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        origin === 'https://thepurple.vercel.app' ||
+        origin.endsWith('.vercel.app') ||
+        !env.isProduction;
+
+      if (isAllowed) {
         return callback(null, true);
       }
       return callback(new Error(`CORS policy blocked access from origin ${origin}`));

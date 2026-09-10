@@ -305,6 +305,7 @@ export default function AllCategoriesModal({
 
         {/* Modal Body: Split Navigation / Grid View */}
         <div
+          className="all-cat-split-body"
           style={{
             display: 'flex',
             flex: 1,
@@ -369,7 +370,7 @@ export default function AllCategoriesModal({
             <>
               {/* Left Column: Category List / Selector */}
               <div
-                className="custom-scrollbar"
+                className="all-cat-sidebar custom-scrollbar"
                 style={{
                   width: '320px',
                   borderRight: '1px solid #F3E8FF',
@@ -383,6 +384,7 @@ export default function AllCategoriesModal({
                 }}
               >
                 <div
+                  className="all-cat-sidebar-heading"
                   style={{
                     padding: '8px 12px 6px',
                     fontSize: '11px',
@@ -405,6 +407,7 @@ export default function AllCategoriesModal({
                       key={cat.id || idx}
                       type="button"
                       onClick={() => setSelectedCategoryIndex(idx)}
+                      className="all-cat-sidebar-btn"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -474,13 +477,13 @@ export default function AllCategoriesModal({
                           >
                             {cat.name}
                           </div>
-                          <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '1px' }}>
+                          <div className="all-cat-subcount" style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '1px' }}>
                             {subCount} subcategories
                           </div>
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      <div className="all-cat-chevron" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                         {cat.isFeatured && (
                           <span
                             title="Featured in Navigation Tabs"
@@ -515,7 +518,7 @@ export default function AllCategoriesModal({
 
               {/* Right Column: Active Category Subcategories & Details */}
               <div
-                className="custom-scrollbar"
+                className="all-cat-content custom-scrollbar"
                 style={{
                   flex: 1,
                   padding: '24px 28px',
@@ -710,6 +713,7 @@ export default function AllCategoriesModal({
                         </div>
                       ) : (
                         <div
+                          className="all-cat-sub-grid"
                           style={{
                             display: 'grid',
                             gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
@@ -843,6 +847,7 @@ export default function AllCategoriesModal({
 
         {/* Modal Footer Quick Strip */}
         <div
+          className="all-cat-footer"
           style={{
             padding: '14px 28px',
             borderTop: '1px solid #F3E8FF',
@@ -933,6 +938,7 @@ export default function AllCategoriesModal({
         }
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
+          height: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: #F8F5FC;
@@ -943,6 +949,53 @@ export default function AllCategoriesModal({
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: #A855F7;
+        }
+
+        @media (max-width: 768px) {
+          .all-cat-split-body {
+            flex-direction: column !important;
+            max-height: calc(90vh - 160px) !important;
+            min-height: auto !important;
+          }
+          .all-cat-sidebar {
+            width: 100% !important;
+            border-right: none !important;
+            border-bottom: 1px solid #F3E8FF !important;
+            flex-direction: row !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            padding: 8px 12px !important;
+            gap: 8px !important;
+            flex-shrink: 0 !important;
+          }
+          .all-cat-sidebar-heading {
+            display: none !important;
+          }
+          .all-cat-sidebar-btn {
+            padding: 8px 14px !important;
+            border-radius: 12px !important;
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+          }
+          .all-cat-subcount {
+            display: none !important;
+          }
+          .all-cat-chevron {
+            display: none !important;
+          }
+          .all-cat-content {
+            padding: 16px 14px !important;
+          }
+          .all-cat-sub-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 10px !important;
+          }
+          .all-cat-footer {
+            padding: 10px 14px !important;
+          }
+          .all-cat-footer > div:last-child {
+            display: none !important;
+          }
         }
       `}</style>
     </div>

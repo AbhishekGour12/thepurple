@@ -4,11 +4,22 @@ import logger from './logger.js';
 
 let meiliClient = null;
 
+export const getMeiliHost = () => {
+  let host = env.MEILISEARCH_HOST || 'http://localhost:7700';
+  host = host.trim();
+  if (!host.startsWith('http://') && !host.startsWith('https://')) {
+    host = `https://${host}`;
+  }
+  return host.replace(/\/+$/, '');
+};
+
 export const getMeiliClient = () => {
   if (!meiliClient) {
+    const host = getMeiliHost();
     meiliClient = new MeiliSearch({
-      host: env.MEILISEARCH_HOST || 'http://localhost:7700',
+      host,
       apiKey: env.MEILISEARCH_MASTER_KEY || '',
+      timeout: 10000, // 10s timeout for Render cold boots
     });
   }
   return meiliClient;
@@ -21,14 +32,13 @@ export const INDEX_NAMES = {
 
 export const checkMeiliHealth = async () => {
   try {
-    if (!env.MEILISEARCH_HOST || env.MEILISEARCH_HOST.includes('localhost')) {
-      if (env.NODE_ENV === 'production') {
-        logger.warn('Meilisearch host is set to localhost in production. Please set MEILISEARCH_HOST in environment variables.');
-        return {
-          status: 'unhealthy',
-          error: 'MEILISEARCH_HOST is localhost in production',
-        };
-      }
+    const host = getMeiliHost();
+    if (host.includes('localhost') && env.NODE_ENV === 'production') {
+      logger.warn('Meilisearch host is set to localhost in production. Please set MEILISEARCH_HOST in environment variables.');
+      return {
+        status: 'unhealthy',
+        error: 'MEILISEARCH_HOST is localhost in production',
+      };
     }
 
     const client = getMeiliClient();
@@ -41,7 +51,7 @@ export const checkMeiliHealth = async () => {
       details: health,
     };
   } catch (error) {
-    logger.warn(`Meilisearch health check failed: ${error.message}`);
+    logger.warn(`Meilisearch health check failed (${getMeiliHost()}): ${error.message}`);
     return {
       status: 'unhealthy',
       error: error.message,

@@ -63,8 +63,8 @@ export default function CategoryGridModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '16px',
-        backgroundColor: 'rgba(15, 7, 34, 0.7)',
+        padding: '12px',
+        backgroundColor: 'rgba(15, 7, 34, 0.75)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
         animation: 'catModalFadeIn 0.2s ease-out',
@@ -76,10 +76,11 @@ export default function CategoryGridModal({
       role="dialog"
     >
       <div
+        className="cat-modal-dialog"
         style={{
           width: '100%',
           maxWidth: '860px',
-          maxHeight: '88vh',
+          maxHeight: '90vh',
           backgroundColor: '#FFFFFF',
           borderRadius: '24px',
           border: '1.5px solid #E9D5FF',
@@ -92,39 +93,41 @@ export default function CategoryGridModal({
       >
         {/* Modal Header */}
         <div
+          className="cat-modal-header"
           style={{
-            padding: '22px 28px 18px',
+            padding: '20px 24px 16px',
             borderBottom: '1px solid #F3E8FF',
             backgroundColor: '#FCFBFE',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '16px',
+            gap: '12px',
           }}
         >
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div
                 style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '10px',
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '8px',
                   backgroundColor: '#FAF5FF',
                   border: '1px solid #E9D5FF',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: '#7E22CE',
+                  flexShrink: 0,
                 }}
               >
-                <Grid size={16} />
+                <Grid size={15} />
               </div>
-              <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#1E1B4B', margin: 0 }}>
+              <h2 className="cat-modal-title" style={{ fontSize: '19px', fontWeight: 800, color: '#1E1B4B', margin: 0 }}>
                 All Product Categories
               </h2>
             </div>
-            <p style={{ fontSize: '13px', color: '#6B7280', margin: '4px 0 0' }}>
-              Select any category to instantly filter the products catalog ({activeCategoriesList.length} categories available)
+            <p className="cat-modal-subtitle" style={{ fontSize: '12.5px', color: '#6B7280', margin: '3px 0 0' }}>
+              Tap any category to filter the catalog ({activeCategoriesList.length} categories)
             </p>
           </div>
 
@@ -133,8 +136,8 @@ export default function CategoryGridModal({
             onClick={onClose}
             aria-label="Close modal"
             style={{
-              width: '36px',
-              height: '36px',
+              width: '34px',
+              height: '34px',
               borderRadius: '50%',
               backgroundColor: '#FAF5FF',
               border: '1px solid #E9D5FF',
@@ -143,6 +146,7 @@ export default function CategoryGridModal({
               justifyContent: 'center',
               color: '#6B7280',
               cursor: 'pointer',
+              flexShrink: 0,
               transition: 'all 0.15s ease',
             }}
             onMouseEnter={(e) => {
@@ -154,14 +158,14 @@ export default function CategoryGridModal({
               e.currentTarget.style.color = '#6B7280';
             }}
           >
-            <X size={18} />
+            <X size={17} />
           </button>
         </div>
 
         {/* Search Filter Strip */}
-        <div style={{ padding: '14px 28px', backgroundColor: '#FFFFFF', borderBottom: '1px solid #F9FAFB' }}>
+        <div className="cat-modal-search" style={{ padding: '12px 24px', backgroundColor: '#FFFFFF', borderBottom: '1px solid #F9FAFB' }}>
           <div style={{ position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', left: '14px', top: '12px', color: '#9CA3AF' }} />
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '11px', color: '#9CA3AF' }} />
             <input
               ref={searchInputRef}
               type="text"
@@ -170,22 +174,23 @@ export default function CategoryGridModal({
               placeholder="Search category name..."
               style={{
                 width: '100%',
-                padding: '10px 14px 10px 40px',
-                borderRadius: '12px',
+                padding: '9px 12px 9px 36px',
+                borderRadius: '10px',
                 border: '1.5px solid #E9D5FF',
                 backgroundColor: '#FAF5FF',
-                fontSize: '13.5px',
+                fontSize: '13px',
                 color: '#1E1B4B',
                 outline: 'none',
+                boxSizing: 'border-box',
               }}
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                style={{ position: 'absolute', right: '12px', top: '11px', background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}
+                style={{ position: 'absolute', right: '10px', top: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}
               >
-                <X size={15} />
+                <X size={14} />
               </button>
             )}
           </div>
@@ -193,23 +198,25 @@ export default function CategoryGridModal({
 
         {/* Categories Grid Body */}
         <div
+          className="cat-modal-body"
           style={{
-            padding: '24px 28px',
+            padding: '20px 24px',
             overflowY: 'auto',
-            maxHeight: 'calc(88vh - 200px)',
+            maxHeight: 'calc(90vh - 190px)',
             backgroundColor: '#FAFAF9',
           }}
         >
           {filteredCategories.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#6B7280' }}>
+            <div style={{ textAlign: 'center', padding: '36px 20px', color: '#6B7280' }}>
               <p style={{ fontSize: '14px', margin: 0 }}>No categories found matching &ldquo;{search}&rdquo;</p>
             </div>
           ) : (
             <div
+              className="cat-modal-grid"
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                gap: '16px',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
+                gap: '14px',
               }}
             >
               {filteredCategories.map((cat) => {
@@ -289,8 +296,8 @@ export default function CategoryGridModal({
                             position: 'absolute',
                             top: '8px',
                             right: '8px',
-                            width: '24px',
-                            height: '24px',
+                            width: '22px',
+                            height: '22px',
                             borderRadius: '50%',
                             backgroundColor: '#7E22CE',
                             color: '#FFFFFF',
@@ -300,20 +307,20 @@ export default function CategoryGridModal({
                             boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                           }}
                         >
-                          <Check size={14} />
+                          <Check size={13} />
                         </div>
                       )}
                     </div>
 
                     {/* Category Label */}
-                    <div style={{ padding: '12px 10px 14px', width: '100%' }}>
+                    <div style={{ padding: '10px 8px 12px', width: '100%', boxSizing: 'border-box' }}>
                       <div
                         style={{
-                          fontSize: '14px',
+                          fontSize: '13.5px',
                           fontWeight: 700,
                           color: isSelected ? '#7E22CE' : '#1E1B4B',
-                          lineHeight: 1.25,
-                          marginBottom: '3px',
+                          lineHeight: 1.2,
+                          marginBottom: '2px',
                         }}
                       >
                         {cat.name}
@@ -325,7 +332,7 @@ export default function CategoryGridModal({
                           fontWeight: 600,
                         }}
                       >
-                        Select to Filter
+                        Select Category
                       </div>
                     </div>
                   </button>
@@ -337,13 +344,16 @@ export default function CategoryGridModal({
 
         {/* Modal Footer Strip */}
         <div
+          className="cat-modal-footer"
           style={{
-            padding: '14px 28px',
+            padding: '12px 24px',
             backgroundColor: '#FCFBFE',
             borderTop: '1px solid #F3E8FF',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px',
           }}
         >
           <button
@@ -352,21 +362,31 @@ export default function CategoryGridModal({
               if (onSelectCategory) onSelectCategory(null);
               onClose();
             }}
+            className="cat-modal-clear-btn"
             style={{
               padding: '8px 16px',
               borderRadius: '10px',
-              backgroundColor: 'transparent',
+              backgroundColor: '#FFFFFF',
               color: '#6B7280',
               border: '1px solid #D1D5DB',
               fontSize: '13px',
               fontWeight: 600,
               cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#7E22CE';
+              e.currentTarget.style.color = '#7E22CE';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#D1D5DB';
+              e.currentTarget.style.color = '#6B7280';
             }}
           >
             Show All Products (Clear Filter)
           </button>
 
-          <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
+          <div className="cat-modal-hint" style={{ fontSize: '12px', color: '#9CA3AF' }}>
             Clicking any category auto-scrolls to the catalog
           </div>
         </div>
@@ -383,6 +403,45 @@ export default function CategoryGridModal({
         }
         :global(.modal-cat-card:hover .modal-cat-img) {
           transform: scale(1.08);
+        }
+        @media (max-width: 640px) {
+          .cat-modal-dialog {
+            border-radius: 18px !important;
+            max-height: 92vh !important;
+          }
+          .cat-modal-header {
+            padding: 14px 16px 12px !important;
+          }
+          .cat-modal-title {
+            font-size: 16px !important;
+          }
+          .cat-modal-subtitle {
+            font-size: 11.5px !important;
+          }
+          .cat-modal-search {
+            padding: 10px 16px !important;
+          }
+          .cat-modal-body {
+            padding: 14px 16px !important;
+            max-height: calc(92vh - 170px) !important;
+          }
+          .cat-modal-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 10px !important;
+          }
+          .cat-modal-footer {
+            padding: 10px 16px !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .cat-modal-clear-btn {
+            width: 100% !important;
+            text-align: center !important;
+            padding: 9px 14px !important;
+          }
+          .cat-modal-hint {
+            display: none !important;
+          }
         }
       `}</style>
     </div>
