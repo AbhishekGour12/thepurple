@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 240" width="100%" height="100%">
+  <defs>
+    <linearGradient id="goldGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#FEF08A" />
+      <stop offset="40%" stopColor="#F59E0B" />
+      <stop offset="80%" stopColor="#D97706" />
+      <stop offset="100%" stopColor="#92400E" />
+    </linearGradient>
+    <filter id="shadow2" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" floodColor="#78350F" floodOpacity="0.18" />
+    </filter>
+  </defs>
+  <rect width="100%" height="100%" fill="#FAF7F5" />
+  <!-- Gold Plated Chain -->
+  <path d="M 45 40 C 70 155, 230 155, 255 40" fill="none" stroke="url(#goldGrad2)" stroke-width="5" stroke-linecap="round" filter="url(#shadow2)" />
+  <path d="M 45 40 C 70 155, 230 155, 255 40" fill="none" stroke="#FFFBEB" stroke-width="1.5" stroke-linecap="round" opacity="0.7" />
+</svg>
