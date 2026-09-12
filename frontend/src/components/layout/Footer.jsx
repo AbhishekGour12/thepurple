@@ -238,6 +238,7 @@ export default function Footer() {
                 { label: 'Contact Us', href: '/contact' },
                 { label: 'Privacy Policy', href: '/privacy-policy' },
                 { label: 'Terms & Conditions', href: '/terms' },
+                { label: 'Admin Panel', href: '/admin' },
               ].map((link) => (
                 <li key={link.label}>
                   <Link
@@ -245,12 +246,13 @@ export default function Footer() {
                     style={{
                       textDecoration: 'none',
                       fontSize: '13.5px',
-                      color: '#5F5A6B',
+                      color: link.href === '/admin' ? '#7C3AED' : '#5F5A6B',
+                      fontWeight: link.href === '/admin' ? 600 : 400,
                       transition: 'color 0.15s ease',
                       fontFamily: "var(--font-body, 'Plus Jakarta Sans', sans-serif)",
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.color = '#6D28D9')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = '#5F5A6B')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = link.href === '/admin' ? '#7C3AED' : '#5F5A6B')}
                   >
                     {link.label}
                   </Link>
@@ -429,8 +431,26 @@ export default function Footer() {
             color: '#8B8795',
           }}
         >
-          <div>
-            &copy; {currentYear} ThePurple. All Rights Reserved.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span>&copy; {currentYear} ThePurple. All Rights Reserved.</span>
+            <span style={{ color: '#D1D5DB' }}>•</span>
+            <Link
+              href="/admin"
+              style={{
+                color: '#6D28D9',
+                textDecoration: 'none',
+                fontWeight: 600,
+                fontSize: '12.5px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'opacity 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+            >
+              Admin Portal
+            </Link>
           </div>
 
           {/* Payment Method Badges */}
