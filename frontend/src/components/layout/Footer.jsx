@@ -432,7 +432,7 @@ export default function Footer() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <span>&copy; {currentYear} ThePurple. All Rights Reserved.</span>
+            <span suppressHydrationWarning>&copy; {currentYear} ThePurple. All Rights Reserved.</span>
             <span style={{ color: '#D1D5DB' }}>•</span>
             <Link
               href="/admin"

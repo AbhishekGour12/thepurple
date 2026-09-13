@@ -613,7 +613,7 @@ export default function AllCategoriesModal({
                         </button>
                       ) : (
                         <Link
-                          href={`/category/${currentCategory.slug}`}
+                          href={`/products?category=${encodeURIComponent(currentCategory.name)}#catalog-products-section`}
                           onClick={onClose}
                           style={{
                             display: 'inline-flex',
@@ -696,7 +696,7 @@ export default function AllCategoriesModal({
                             </button>
                           ) : (
                             <Link
-                              href={`/category/${currentCategory.slug}`}
+                              href={`/products?category=${encodeURIComponent(currentCategory.name)}#catalog-products-section`}
                               onClick={onClose}
                               style={{
                                 display: 'inline-block',
@@ -814,7 +814,7 @@ export default function AllCategoriesModal({
                               return (
                                 <Link
                                   key={sub.id || sIdx}
-                                  href={`/category/${currentCategory.slug}?subcategory=${sub.slug}`}
+                                  href={`/products?category=${encodeURIComponent(currentCategory.name)}&subcategory=${encodeURIComponent(sub.name)}#catalog-products-section`}
                                   onClick={onClose}
                                   style={cardStyle}
                                   onMouseEnter={(e) => {

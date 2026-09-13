@@ -10,49 +10,42 @@ const DEFAULT_CATEGORY_DATA = [
     id: 'chains',
     name: 'Chains',
     slug: 'chains',
-    count: '48+ Designs',
     image: '/images/storefront/cat-chains.jpg',
   },
   {
     id: 'earrings',
     name: 'Earrings',
     slug: 'earrings',
-    count: '36+ Designs',
     image: '/images/storefront/cat-earrings.jpg',
   },
   {
     id: 'necklaces',
     name: 'Necklaces',
     slug: 'necklaces',
-    count: '54+ Designs',
     image: '/images/storefront/cat-necklaces.jpg',
   },
   {
     id: 'bangles',
     name: 'Bangles',
     slug: 'bangles',
-    count: '28+ Designs',
     image: '/images/storefront/cat-bangles.jpg',
   },
   {
     id: 'rings',
     name: 'Rings',
     slug: 'rings',
-    count: '42+ Designs',
     image: '/images/storefront/cat-rings.jpg',
   },
   {
     id: 'teddy-bears',
     name: 'Teddy Bears',
     slug: 'teddy-bears',
-    count: '24+ Combos',
     image: '/images/storefront/cat-teddy.jpg',
   },
   {
     id: 'gifts',
     name: 'Gifts & Hampers',
     slug: 'gifts',
-    count: '36+ Options',
     image: '/images/storefront/hero-gifts.jpg',
   },
 ];
@@ -60,11 +53,11 @@ const DEFAULT_CATEGORY_DATA = [
 export default function FeaturedCategories() {
   const [categories, setCategories] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
   const sliderRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
 
-  // Fetch categories from backend
+  // Fetch live categories from backend API
   useEffect(() => {
     let isMounted = true;
     async function fetchStoreCategories() {
@@ -76,7 +69,7 @@ export default function FeaturedCategories() {
           setCategories(json.data.categories);
         }
       } catch {
-        // Fallback to default
+        // Fallback to default categories
       }
     }
     fetchStoreCategories();
@@ -99,7 +92,6 @@ export default function FeaturedCategories() {
           id: cat.id,
           name: cat.name,
           slug: cat.slug,
-          count: `${(cat.subcategories?.length || 0) * 8 || (30 + idx * 6)}+ Designs`,
           image: cat.imageUrl || defaultMatch?.image || DEFAULT_CATEGORY_DATA[idx % DEFAULT_CATEGORY_DATA.length].image,
         };
       });
@@ -114,7 +106,6 @@ export default function FeaturedCategories() {
           id: cat.id,
           name: cat.name,
           slug: cat.slug,
-          count: `${(cat.subcategories?.length || 0) * 8 || (24 + idx * 6)}+ Designs`,
           image: cat.imageUrl || defaultMatch?.image || DEFAULT_CATEGORY_DATA[idx % DEFAULT_CATEGORY_DATA.length].image,
         };
       });
@@ -321,29 +312,18 @@ export default function FeaturedCategories() {
                 />
               </div>
 
-              {/* Title & Count */}
+              {/* Title */}
               <div
                 style={{
                   fontSize: '14px',
                   fontWeight: 700,
                   color: '#18181B',
                   textAlign: 'center',
-                  marginBottom: '3px',
                   lineHeight: 1.3,
                   fontFamily: "var(--font-heading, 'Outfit', sans-serif)",
                 }}
               >
                 {cat.name}
-              </div>
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: '#8B8795',
-                  textAlign: 'center',
-                  fontWeight: 500,
-                }}
-              >
-                {cat.count}
               </div>
             </Link>
           ))}

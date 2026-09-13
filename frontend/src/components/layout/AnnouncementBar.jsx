@@ -74,7 +74,7 @@ export default function AnnouncementBar() {
           </Link>
 
           <Link
-            href="/support"
+            href="/contact"
             style={{
               color: '#FFFFFF',
               textDecoration: 'none',

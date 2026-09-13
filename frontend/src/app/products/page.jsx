@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import MainHeader from '@/components/layout/MainHeader';
 import ProductsPageCarousel from '@/components/products/ProductsPageCarousel';
@@ -75,11 +75,13 @@ export default function ProductsPage() {
         />
 
         {/* 5. All Products Catalog with Filters, Search & Auto-scroll */}
-        <AllProductsCatalog
-          initialCategory={selectedCategory}
-          isCategoryModalOpenExternal={isCatModalOpen}
-          onCategoryModalClose={() => setIsCatModalOpen(false)}
-        />
+        <Suspense fallback={<div style={{ padding: '60px 20px', textAlign: 'center', color: '#7E22CE' }}>Loading products catalog...</div>}>
+          <AllProductsCatalog
+            initialCategory={selectedCategory}
+            isCategoryModalOpenExternal={isCatModalOpen}
+            onCategoryModalClose={() => setIsCatModalOpen(false)}
+          />
+        </Suspense>
       </main>
 
       {/* 6. All Categories Grid Modal (Only pure categories with images, no subcategories) */}

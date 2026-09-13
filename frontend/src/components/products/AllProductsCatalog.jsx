@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
   X,
@@ -73,6 +73,8 @@ function getPaginationItems(currentPage, totalPages) {
 
 export default function AllProductsCatalog({ initialCategory = null, isCategoryModalOpenExternal = false, onCategoryModalClose = null }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   // Taxonomy Data from API
   const [dbCategories, setDbCategories] = useState([]);
   const [dbColors, setDbColors] = useState([]);
@@ -86,9 +88,23 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
   // Category Modal State
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-  // Filters State
-  const [selectedCategories, setSelectedCategories] = useState(initialCategory ? [initialCategory] : []);
-  const [selectedSubcategories, setSelectedSubcategories] = useState([]);
+  // Filters State initialized synchronously from searchParams or props
+  const [selectedCategories, setSelectedCategories] = useState(() => {
+    const catParam = searchParams ? (searchParams.get('category') || searchParams.get('categories')) : null;
+    if (catParam) {
+      return catParam.includes('||') ? catParam.split('||').map((c) => c.trim()).filter(Boolean) : [catParam.trim()];
+    }
+    return initialCategory ? [initialCategory] : [];
+  });
+
+  const [selectedSubcategories, setSelectedSubcategories] = useState(() => {
+    const subParam = searchParams ? (searchParams.get('subcategory') || searchParams.get('subcategories')) : null;
+    if (subParam) {
+      return subParam.includes('||') ? subParam.split('||').map((s) => s.trim()).filter(Boolean) : [subParam.trim()];
+    }
+    return [];
+  });
+
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(5000);
   const [selectedColors, setSelectedColors] = useState([]);
@@ -96,10 +112,15 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
   const [selectedRating, setSelectedRating] = useState(null);
   const [selectedDiscount, setSelectedDiscount] = useState(null);
   const [inStockOnly, setInStockOnly] = useState(false);
-  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchKeyword, setSearchKeyword] = useState(() => {
+    return searchParams ? (searchParams.get('search') || '').trim() : '';
+  });
   const [sortBy, setSortBy] = useState('recommended');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Request Sequence Counter to discard stale async race conditions
+  const requestSeqRef = useRef(0);
 
   // Update selected category when initialCategory changes
   useEffect(() => {
@@ -108,6 +129,43 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
       setCurrentPage(1);
     }
   }, [initialCategory]);
+
+  // Sync with URL search params (category, subcategory, search) and auto-scroll
+  useEffect(() => {
+    if (!searchParams) return;
+    const categoryParam = searchParams.get('category') || searchParams.get('categories');
+    const subcategoryParam = searchParams.get('subcategory') || searchParams.get('subcategories');
+    const searchParam = searchParams.get('search');
+
+    let hasUrlFilter = false;
+
+    if (categoryParam) {
+      const cats = categoryParam.includes('||') ? categoryParam.split('||').map((c) => c.trim()).filter(Boolean) : [categoryParam.trim()];
+      setSelectedCategories(cats);
+      hasUrlFilter = true;
+    }
+
+    if (subcategoryParam) {
+      const subs = subcategoryParam.includes('||') ? subcategoryParam.split('||').map((s) => s.trim()).filter(Boolean) : [subcategoryParam.trim()];
+      setSelectedSubcategories(subs);
+      hasUrlFilter = true;
+    }
+
+    if (searchParam) {
+      setSearchKeyword(searchParam.trim());
+      hasUrlFilter = true;
+    }
+
+    if (hasUrlFilter) {
+      setCurrentPage(1);
+      setTimeout(() => {
+        const catalogEl = document.getElementById('catalog-products-section');
+        if (catalogEl) {
+          catalogEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 300);
+    }
+  }, [searchParams]);
 
   const handleSelectCategoryFromModal = (categoryName, subcategoryName) => {
     if (categoryName) {
@@ -181,6 +239,7 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
 
   // 2. Fetch Products dynamically from backend with full filter criteria
   const fetchProducts = useCallback(async () => {
+    const currentSeq = ++requestSeqRef.current;
     setLoading(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
@@ -203,6 +262,9 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
       const res = await fetch(`${apiUrl}/products?${params.toString()}`);
       const json = await res.json();
 
+      // If a newer request was dispatched while this was fetching, discard this stale response!
+      if (currentSeq !== requestSeqRef.current) return;
+
       if (json.success && Array.isArray(json.data?.products)) {
         setRawDbProducts(json.data.products);
         setTotalCount(json.data.pagination?.total ?? json.data.products.length);
@@ -210,13 +272,21 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
         setHasFetched(true);
       } else {
         setRawDbProducts([]);
+        setTotalCount(0);
+        setTotalPages(1);
         setHasFetched(true);
       }
     } catch {
-      setRawDbProducts([]);
-      setHasFetched(true);
+      if (currentSeq === requestSeqRef.current) {
+        setRawDbProducts([]);
+        setTotalCount(0);
+        setTotalPages(1);
+        setHasFetched(true);
+      }
     } finally {
-      setLoading(false);
+      if (currentSeq === requestSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, [
     currentPage,

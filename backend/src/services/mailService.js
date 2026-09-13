@@ -125,6 +125,139 @@ export const mailService = {
 
     return { sent: true };
   },
+
+  /**
+   * Send Reply Email to User for Contact Query
+   */
+  async sendContactQueryReplyEmail({
+    toEmail,
+    recipientName,
+    subject: originalSubject,
+    originalMessage,
+    replyMessage,
+    adminName = 'ThePurple Concierge Team',
+    queryId,
+  }) {
+    const emailSubject = `Response to your inquiry: ${originalSubject || 'ThePurple Support'}`;
+    const formattedReply = (replyMessage || '')
+      .replace(/\n/g, '<br/>');
+    const formattedOriginal = (originalMessage || '')
+      .replace(/\n/g, '<br/>');
+
+    const html = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 620px; margin: 0 auto; padding: 28px 20px; background-color: #FAF5FF; border: 1px solid #E9D5FF; border-radius: 16px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; background: linear-gradient(135deg, #6B21A8 0%, #9333EA 100%); color: #ffffff; font-weight: 800; font-size: 20px; border-radius: 12px; margin-bottom: 8px;">
+            TP
+          </div>
+          <h1 style="color: #4C1D95; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">ThePurple</h1>
+          <p style="color: #7E22CE; margin: 2px 0 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">Customer Concierge Support</p>
+        </div>
+
+        <div style="background-color: #ffffff; padding: 28px; border-radius: 12px; border: 1px solid #E9D5FF; box-shadow: 0 4px 12px rgba(109, 40, 217, 0.04);">
+          <h2 style="color: #1E1B4B; font-size: 19px; margin-top: 0; font-weight: 700;">Hello ${recipientName || 'Valued Customer'},</h2>
+          
+          <p style="color: #374151; font-size: 14.5px; line-height: 1.6; margin-bottom: 20px;">
+            Thank you for reaching out to us. Our concierge team has reviewed your query regarding <strong>"${originalSubject || 'General Inquiry'}"</strong>.
+          </p>
+
+          <div style="background: linear-gradient(180deg, #FAF5FF 0%, #F3E8FF 100%); border-left: 4px solid #7E22CE; padding: 18px 20px; border-radius: 8px; margin: 24px 0;">
+            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #6B21A8;">
+              Official Response from ${adminName}
+            </p>
+            <div style="color: #1F2937; font-size: 14.5px; line-height: 1.7; font-weight: 500;">
+              ${formattedReply}
+            </div>
+          </div>
+
+          <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 16px; border-radius: 8px; margin-top: 24px;">
+            <p style="margin: 0 0 6px 0; font-size: 11.5px; font-weight: 700; color: #64748B; text-transform: uppercase;">
+              Your Original Message:
+            </p>
+            <p style="margin: 0; font-size: 13.5px; color: #475569; font-style: italic; line-height: 1.5;">
+              "${formattedOriginal}"
+            </p>
+          </div>
+
+          <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #F3E8FF; font-size: 13.5px; color: #6B7280; line-height: 1.5;">
+            <p style="margin: 0 0 6px 0;">If you have any further questions or need additional assistance, please feel free to reply to this email or visit our website.</p>
+            <p style="margin: 0; color: #4C1D95; font-weight: 700;">Warm regards,<br/>ThePurple Team</p>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 24px; color: #9CA3AF; font-size: 12px; line-height: 1.4;">
+          ${queryId ? `<p style="margin: 0 0 4px;">Ticket Ref: <code>${queryId}</code></p>` : ''}
+          &copy; ${new Date().getFullYear()} ThePurple Luxury Jewellery &amp; Gifts. All rights reserved.
+        </div>
+      </div>
+    `;
+
+    const transport = getMailTransporter();
+    if (transport) {
+      try {
+        await transport.sendMail({
+          from: env.SMTP_FROM,
+          to: toEmail,
+          subject: emailSubject,
+          html,
+        });
+        logger.info(`Contact query reply email sent successfully to ${toEmail}`);
+      } catch (err) {
+        logger.error(`Failed to send contact query reply email via SMTP: ${err.message}`);
+      }
+    } else {
+      logger.info(`[MAIL MOCK] Contact Query Reply for ${toEmail}: Subject="${emailSubject}", Message="${replyMessage}"`);
+    }
+
+    return { sent: true };
+  },
+
+  /**
+   * Send Confirmation Email to User when they submit a Contact Query
+   */
+  async sendContactQueryReceivedEmail({ toEmail, recipientName, subject: querySubject, queryId }) {
+    const emailSubject = `We've received your query: ${querySubject || 'ThePurple Support'}`;
+    const html = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #FAF5FF; border: 1px solid #E9D5FF; border-radius: 14px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h1 style="color: #6B21A8; margin: 0; font-size: 24px; font-weight: 800;">ThePurple</h1>
+          <p style="color: #7E22CE; margin: 2px 0 0; font-size: 12px; font-weight: 700; text-transform: uppercase;">Inquiry Confirmation</p>
+        </div>
+        <div style="background-color: #ffffff; padding: 24px; border-radius: 10px; border: 1px solid #E9D5FF;">
+          <h2 style="color: #1E1B4B; font-size: 18px; margin-top: 0;">Thank You, ${recipientName || 'Valued Customer'}!</h2>
+          <p style="color: #374151; font-size: 14px; line-height: 1.6;">
+            We have received your message regarding <strong>"${querySubject || 'General Inquiry'}"</strong>.
+          </p>
+          <p style="color: #374151; font-size: 14px; line-height: 1.6;">
+            Our support concierge usually responds within <strong>24 hours</strong>. We will get back to you directly at this email address.
+          </p>
+          ${queryId ? `<div style="background-color: #FAF5FF; padding: 12px; border-radius: 6px; font-size: 13px; color: #6B21A8; font-weight: 600; text-align: center; margin: 20px 0;">Reference ID: ${queryId}</div>` : ''}
+        </div>
+        <div style="text-align: center; margin-top: 20px; color: #9CA3AF; font-size: 12px;">
+          &copy; ${new Date().getFullYear()} ThePurple. All rights reserved.
+        </div>
+      </div>
+    `;
+
+    const transport = getMailTransporter();
+    if (transport) {
+      try {
+        await transport.sendMail({
+          from: env.SMTP_FROM,
+          to: toEmail,
+          subject: emailSubject,
+          html,
+        });
+        logger.info(`Contact received confirmation sent to ${toEmail}`);
+      } catch (err) {
+        logger.error(`Failed to send contact confirmation email via SMTP: ${err.message}`);
+      }
+    } else {
+      logger.info(`[MAIL MOCK] Contact Query Received Confirmation for ${toEmail}`);
+    }
+
+    return { sent: true };
+  },
 };
 
 export default mailService;

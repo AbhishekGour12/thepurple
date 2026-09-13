@@ -196,12 +196,10 @@ export const removeWishlistProduct = createAsyncThunk(
 
 // ─── Initial State ────────────────────────────────────────────────────────────
 
-const initialCached = typeof window !== 'undefined' ? getLocalCachedItems() : [];
-
 const initialState = {
-  items: initialCached,
-  likedMap: buildLikedMap(initialCached),
-  totalCount: initialCached.length,
+  items: [],
+  likedMap: {},
+  totalCount: 0,
   loading: false,
   error: null,
 };

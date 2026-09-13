@@ -12,7 +12,9 @@ import {
   Sparkles,
   CheckCircle2,
   ArrowRight,
+  AlertCircle,
 } from 'lucide-react';
+import { contactApi } from '@/lib/api/contact';
 
 export default function HomeContactSection() {
   const [formData, setFormData] = useState({
@@ -23,17 +25,34 @@ export default function HomeContactSection() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [ticketId, setTicketId] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.message) return;
+    setSubmitError(null);
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
+      setSubmitError('Please fill out Name, Email and Message.');
+      return;
+    }
+
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const res = await contactApi.submitContact({
+        fullName: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim() || undefined,
+        subject: 'Storefront Homepage Inquiry',
+        message: formData.message.trim(),
+      });
       setIsSubmitted(true);
+      setTicketId(res?.inquiry?.id || null);
       setFormData({ name: '', email: '', phone: '', message: '' });
-      setTimeout(() => setIsSubmitted(false), 5000);
-    }, 800);
+    } catch (err) {
+      setSubmitError(err?.message || 'Failed to submit inquiry. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -297,23 +316,80 @@ export default function HomeContactSection() {
             {isSubmitted ? (
               <div
                 style={{
-                  padding: '28px 16px',
+                  padding: '28px 20px',
                   textAlign: 'center',
-                  backgroundColor: '#F5F3FF',
-                  borderRadius: '14px',
-                  border: '1px solid #DDD6FE',
+                  backgroundColor: '#FAF5FF',
+                  borderRadius: '16px',
+                  border: '1.5px solid #DDD6FE',
                 }}
               >
                 <CheckCircle2 size={36} color="#16A34A" style={{ margin: '0 auto 10px' }} />
-                <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#18181B', margin: '0 0 6px' }}>
+                <h4 style={{ fontSize: '16px', fontWeight: 800, color: '#18181B', margin: '0 0 6px' }}>
                   Thank You!
                 </h4>
-                <p style={{ fontSize: '13px', color: '#5F5A6B', margin: 0 }}>
-                  We received your message and will respond within 2-4 hours.
+                <p style={{ fontSize: '13px', color: '#5F5A6B', margin: '0 0 12px 0', lineHeight: 1.5 }}>
+                  We received your message and our concierge support team will respond to your email promptly.
                 </p>
+                {ticketId && (
+                  <div
+                    style={{
+                      display: 'inline-block',
+                      backgroundColor: '#F3E8FF',
+                      border: '1px solid #D8B4FE',
+                      color: '#6B21A8',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      marginBottom: '14px',
+                    }}
+                  >
+                    Ticket Ref: {ticketId.substring(0, 8)}...
+                  </div>
+                )}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSubmitted(false);
+                      setTicketId(null);
+                    }}
+                    style={{
+                      padding: '7px 16px',
+                      borderRadius: '8px',
+                      backgroundColor: '#7E22CE',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Send Another Message
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {submitError && (
+                  <div
+                    style={{
+                      backgroundColor: '#FEF2F2',
+                      border: '1px solid #FECACA',
+                      color: '#DC2626',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <AlertCircle size={14} />
+                    <span>{submitError}</span>
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }} className="contact-form-row">
                   <div>
                     <input

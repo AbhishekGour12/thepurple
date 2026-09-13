@@ -80,9 +80,9 @@ router.get(
         if (param.includes('||')) {
           return param.split('||').map((p) => p.trim()).filter(Boolean);
         }
-        return param.split(',').map((p) => p.trim()).filter(Boolean);
+        return [param.trim()].filter(Boolean);
       }
-      return [String(param).trim()];
+      return [String(param).trim()].filter(Boolean);
     };
 
     const catList = [...new Set([...parseMultiParam(categories), ...parseMultiParam(category)])];
@@ -139,6 +139,22 @@ router.get(
       });
 
       const subIds = matchingSubs.map((s) => s.id);
+      if (subIds.length === 0) {
+        // No matching subcategories/categories found -> return empty products list immediately
+        return ApiResponse.success(
+          res,
+          {
+            products: [],
+            pagination: {
+              page: pageNum,
+              limit: limitNum,
+              total: 0,
+              totalPages: 0,
+            },
+          },
+          'Products retrieved successfully'
+        );
+      }
       where.subcategoryId = { [Op.in]: subIds };
     }
 

@@ -9,7 +9,7 @@ import { queueService } from './services/queueService.js';
 import { redisService } from './services/redisService.js';
 import bootstrapSuperAdmin from './seeders/bootstrapAdmin.js';
 import { syncProductDiscounts } from './utils/syncProductDiscounts.js';
-import { ProductInterest } from './models/index.js';
+import { ProductInterest, ContactQuery } from './models/index.js';
 import './models/index.js'; // Register models & associations
 
 const app = createApp();
@@ -84,9 +84,12 @@ const startServer = async () => {
           logger.info('Added badge column to products table.');
         }
 
-        // Ensure product_interests table is created
+        // Ensure product_interests and contact_queries tables are created
         await ProductInterest.sync({ alter: true });
         logger.info('ProductInterest table verified.');
+
+        await ContactQuery.sync({ alter: true });
+        logger.info('ContactQuery table verified.');
       } catch (colErr) {
         logger.debug?.(`Column check note: ${colErr.message}`);
       }

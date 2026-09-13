@@ -23,6 +23,7 @@ import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import MainHeader from '@/components/layout/MainHeader';
 import BenefitsStrip from '@/components/home/BenefitsStrip';
 import Footer from '@/components/layout/Footer';
+import { contactApi } from '@/lib/api/contact';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -35,6 +36,8 @@ export default function ContactPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submittedTicketId, setSubmittedTicketId] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
   const [openFaq, setOpenFaq] = useState(0); // First FAQ open by default
 
   const faqs = [
@@ -60,13 +63,19 @@ export default function ContactPage() {
     },
   ];
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.fullName || !formData.email || !formData.message) return;
+    setSubmitError(null);
+    if (!formData.fullName || !formData.email || !formData.subject || !formData.message) {
+      setSubmitError('Please fill out all required fields marked with *');
+      return;
+    }
+
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const res = await contactApi.submitContact(formData);
       setIsSubmitted(true);
+      setSubmittedTicketId(res?.inquiry?.id || null);
       setFormData({
         fullName: '',
         email: '',
@@ -75,7 +84,11 @@ export default function ContactPage() {
         orderId: '',
         message: '',
       });
-    }, 800);
+    } catch (err) {
+      setSubmitError(err?.message || 'Failed to submit inquiry. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const scrollToSection = (id) => {
@@ -716,7 +729,7 @@ export default function ContactPage() {
               {isSubmitted ? (
                 <div
                   style={{
-                    padding: '40px 20px',
+                    padding: '40px 24px',
                     textAlign: 'center',
                     backgroundColor: '#FAF5FF',
                     borderRadius: '16px',
@@ -725,31 +738,69 @@ export default function ContactPage() {
                   }}
                 >
                   <CheckCircle2 size={44} color="#16A34A" style={{ margin: '0 auto 12px' }} />
-                  <h3 style={{ fontSize: '19px', fontWeight: 800, color: '#18181B', margin: '0 0 6px' }}>
-                    Message Sent Successfully!
+                  <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#18181B', margin: '0 0 6px' }}>
+                    Inquiry Received Successfully!
                   </h3>
-                  <p style={{ fontSize: '13.5px', color: '#5F5A6B', margin: '0 auto 16px', maxWidth: '380px' }}>
-                    Thank you for writing to ThePurple. Our concierge support will reach out within 24 hours.
+                  <p style={{ fontSize: '13.5px', color: '#5F5A6B', margin: '0 auto 14px', maxWidth: '400px', lineHeight: 1.5 }}>
+                    Thank you for reaching out to ThePurple Concierge. Our dedicated support team will review your inquiry and email you back within 24 hours.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setIsSubmitted(false)}
-                    style={{
-                      padding: '9px 22px',
-                      borderRadius: '10px',
-                      backgroundColor: '#6D28D9',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Send Another Message
-                  </button>
+                  {submittedTicketId && (
+                    <div
+                      style={{
+                        display: 'inline-block',
+                        backgroundColor: '#F3E8FF',
+                        border: '1px solid #D8B4FE',
+                        color: '#6B21A8',
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        fontSize: '12.5px',
+                        fontWeight: 700,
+                        marginBottom: '20px',
+                      }}
+                    >
+                      Reference Ticket ID: <code style={{ color: '#4C1D95' }}>{submittedTicketId}</code>
+                    </div>
+                  )}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSubmitted(false);
+                        setSubmittedTicketId(null);
+                      }}
+                      style={{
+                        padding: '10px 24px',
+                        borderRadius: '10px',
+                        backgroundColor: '#6D28D9',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        fontSize: '13.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 14px rgba(109, 40, 217, 0.25)',
+                      }}
+                    >
+                      Send Another Message
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {submitError && (
+                    <div
+                      style={{
+                        backgroundColor: '#FEF2F2',
+                        border: '1px solid #FECACA',
+                        color: '#DC2626',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      ⚠️ {submitError}
+                    </div>
+                  )}
                   {/* Row 1: Full Name & Email */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }} className="contact-form-row">
                     <div>

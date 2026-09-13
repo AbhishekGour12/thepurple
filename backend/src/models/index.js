@@ -24,6 +24,7 @@ import AttributeValue from './AttributeValue.js';
 import ProductAttributeValue from './ProductAttributeValue.js';
 import ProductVariant from './ProductVariant.js';
 import ProductInterest from './ProductInterest.js';
+import ContactQuery from './ContactQuery.js';
 
 // Setup Category & Subcategory associations
 Category.hasMany(Subcategory, {
@@ -252,6 +253,17 @@ ProductInterest.belongsTo(User, {
   as: 'user',
 });
 
+// Setup Admin & ContactQuery associations
+Admin.hasMany(ContactQuery, {
+  foreignKey: 'repliedByAdminId',
+  as: 'repliedQueries',
+  onDelete: 'SET NULL',
+});
+ContactQuery.belongsTo(Admin, {
+  foreignKey: 'repliedByAdminId',
+  as: 'repliedByAdmin',
+});
+
 export const models = {
   User,
   Category,
@@ -265,6 +277,7 @@ export const models = {
   AttributeValue,
   ProductAttributeValue,
   ProductInterest,
+  ContactQuery,
   Cart,
   CartItem,
   Order,
@@ -294,6 +307,7 @@ export {
   AttributeValue,
   ProductAttributeValue,
   ProductInterest,
+  ContactQuery,
   Cart,
   CartItem,
   Order,

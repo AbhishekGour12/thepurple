@@ -15,6 +15,7 @@ import {
   Settings,
   Sparkles,
   Palette,
+  MessageSquare,
 } from 'lucide-react';
 
 export default function AdminSidebar({ role = 'EXECUTIVE', mustChangePassword = false }) {
@@ -93,6 +94,12 @@ export default function AdminSidebar({ role = 'EXECUTIVE', mustChangePassword = 
           href: '/admin/banners',
           icon: ImageIcon,
           roles: ['SUPER_ADMIN', 'MANAGER'], // Executive has NO ACCESS to Banners
+        },
+        {
+          label: 'Contact Queries',
+          href: '/admin/contacts',
+          icon: MessageSquare,
+          roles: ['SUPER_ADMIN', 'MANAGER', 'EXECUTIVE', 'WORKER'],
         },
       ],
     },

@@ -15,6 +15,7 @@ import uploadController from '../controller/uploadController.js';
 import bannerController from '../controller/bannerController.js';
 import dashboardController from '../controller/dashboardController.js';
 import userController from '../controller/userController.js';
+import contactController from '../controller/contactController.js';
 
 const router = Router();
 
@@ -350,6 +351,38 @@ router.patch(
   authenticateAdmin,
   authorize(PERMISSIONS.USER_MANAGE),
   userController.updateUserStatus
+);
+
+// ─── 12. Contact Inquiries & Replies Endpoints ───────────────────────
+router.get(
+  '/contacts',
+  authenticateAdmin,
+  authorize(PERMISSIONS.CONTACT_VIEW),
+  contactController.listQueries
+);
+router.get(
+  '/contacts/:id',
+  authenticateAdmin,
+  authorize(PERMISSIONS.CONTACT_VIEW),
+  contactController.getQuery
+);
+router.post(
+  '/contacts/:id/reply',
+  authenticateAdmin,
+  authorize(PERMISSIONS.CONTACT_REPLY),
+  contactController.replyToQuery
+);
+router.patch(
+  '/contacts/:id/status',
+  authenticateAdmin,
+  authorize(PERMISSIONS.CONTACT_REPLY),
+  contactController.updateQueryStatus
+);
+router.delete(
+  '/contacts/:id',
+  authenticateAdmin,
+  authorize(PERMISSIONS.CONTACT_MANAGE),
+  contactController.deleteQuery
 );
 
 export default router;
