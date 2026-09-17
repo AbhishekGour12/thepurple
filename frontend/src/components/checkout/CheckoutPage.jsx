@@ -366,10 +366,19 @@ export default function CheckoutPage() {
       
       {/* Responsive Stylesheet */}
       <style>{`
+        .checkout-main-wrapper {
+          max-width: 1320px;
+          margin: 0 auto;
+          width: 100%;
+          padding: 12px 20px 60px;
+          box-sizing: border-box;
+          flex: 1;
+        }
+
         .checkout-grid {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) 420px;
-          gap: 32px;
+          grid-template-columns: minmax(0, 1fr) 400px;
+          gap: 28px;
           align-items: start;
           width: 100%;
           box-sizing: border-box;
@@ -379,10 +388,12 @@ export default function CheckoutPage() {
           background-color: #FFFFFF;
           border-radius: 16px;
           border: 1px solid #E5E7EB;
-          padding: 28px;
+          padding: 24px;
           box-shadow: 0 4px 20px rgba(0,0,0,0.02);
           box-sizing: border-box;
           width: 100%;
+          max-width: 100%;
+          min-width: 0;
         }
 
         .form-row-2 {
@@ -399,7 +410,7 @@ export default function CheckoutPage() {
 
         .input-field {
           width: 100%;
-          padding: 12px 14px;
+          padding: 11px 13px;
           border-radius: 10px;
           border: 1.5px solid #E5E7EB;
           background-color: #FAF8FC;
@@ -428,19 +439,41 @@ export default function CheckoutPage() {
 
         @media (max-width: 1040px) {
           .checkout-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr);
             gap: 24px;
+          }
+          .checkout-main-wrapper {
+            padding: 10px 16px 44px;
+          }
+        }
+
+        @media (max-width: 840px) {
+          .form-row-3 {
+            grid-template-columns: 1fr;
+            gap: 14px;
           }
         }
 
         @media (max-width: 680px) {
           .checkout-card {
-            padding: 20px 16px;
+            padding: 18px 14px;
+            border-radius: 14px;
           }
-          .form-row-2,
-          .form-row-3 {
+          .form-row-2 {
             grid-template-columns: 1fr;
-            gap: 12px;
+            gap: 14px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .checkout-main-wrapper {
+            padding: 8px 10px 32px;
+          }
+          .checkout-card {
+            padding: 14px 10px;
+          }
+          .input-field {
+            padding: 10px 12px;
           }
         }
       `}</style>
@@ -450,9 +483,9 @@ export default function CheckoutPage() {
       <MainHeader />
 
       {/* 2. Breadcrumbs & Step Indicator */}
-      <div style={{ maxWidth: '1320px', margin: '0 auto', width: '100%', padding: '16px 20px 8px', boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#6B7280' }}>
+      <div style={{ maxWidth: '1320px', margin: '0 auto', width: '100%', padding: '14px 20px 8px', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#6B7280' }}>
             <Link href="/" style={{ color: '#6B7280', textDecoration: 'none' }}>Home</Link>
             <span>/</span>
             <Link href="/cart" style={{ color: '#6B7280', textDecoration: 'none' }}>Cart</Link>
@@ -460,29 +493,29 @@ export default function CheckoutPage() {
             <span style={{ color: '#7E22CE', fontWeight: 800 }}>Secure Checkout</span>
           </nav>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: '#15803D', backgroundColor: '#ECFDF5', padding: '4px 12px', borderRadius: '20px', border: '1px solid #BBF7D0' }}>
-            <ShieldCheck size={15} />
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 700, color: '#15803D', backgroundColor: '#ECFDF5', padding: '4px 10px', borderRadius: '20px', border: '1px solid #BBF7D0' }}>
+            <ShieldCheck size={14} />
             <span>256-Bit SSL Encrypted Checkout</span>
           </div>
         </div>
       </div>
 
       {/* 3. Main Checkout Container */}
-      <main style={{ maxWidth: '1320px', margin: '0 auto', width: '100%', padding: '12px 20px 60px', boxSizing: 'border-box', flex: 1 }}>
+      <main className="checkout-main-wrapper">
         
         {/* Title */}
-        <div style={{ marginBottom: '24px' }}>
-          <h1 style={{ fontSize: 'clamp(1.5rem, 3.5vw, 2rem)', fontWeight: 900, color: '#1E1B4B', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+        <div style={{ marginBottom: '22px' }}>
+          <h1 style={{ fontSize: 'clamp(1.35rem, 3.5vw, 1.9rem)', fontWeight: 900, color: '#1E1B4B', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
             Shipping & Payment
           </h1>
-          <p style={{ fontSize: '13.5px', color: '#6B7280', margin: 0 }}>
+          <p style={{ fontSize: '13px', color: '#6B7280', margin: 0 }}>
             Enter your delivery address to calculate live shipping and complete your order.
           </p>
         </div>
 
         {/* Global Error Banner */}
         {paymentError && (
-          <div style={{ marginBottom: '20px', padding: '14px 18px', backgroundColor: '#FEF2F2', border: '1.5px solid #F87171', borderRadius: '12px', color: '#B91C1C', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', fontWeight: 600 }}>
+          <div style={{ marginBottom: '20px', padding: '12px 16px', backgroundColor: '#FEF2F2', border: '1.5px solid #F87171', borderRadius: '12px', color: '#B91C1C', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 600 }}>
             <AlertCircle size={18} flexShrink={0} />
             <span>{paymentError}</span>
           </div>

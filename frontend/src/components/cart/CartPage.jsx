@@ -449,7 +449,7 @@ export default function CartPage() {
         /* Desktop Table Header */
         .cart-table-header {
           display: grid;
-          grid-template-columns: 24px minmax(0, 1fr) 110px 120px 100px;
+          grid-template-columns: 28px minmax(0, 1fr) 110px 120px 100px;
           gap: 16px;
           padding-bottom: 12px;
           border-bottom: 1.5px solid #E5E7EB;
@@ -463,7 +463,7 @@ export default function CartPage() {
         /* Cart Item Row */
         .cart-item-row {
           display: grid;
-          grid-template-columns: 24px minmax(0, 1fr) 110px 120px 100px;
+          grid-template-columns: 28px minmax(0, 1fr) 110px 120px 100px;
           gap: 16px;
           align-items: center;
           padding: 20px 0;
@@ -484,7 +484,7 @@ export default function CartPage() {
           justify-content: center;
         }
 
-        /* Mobile Row Actions */
+        /* Mobile Item Container and Actions (Hidden on Desktop) */
         .cart-item-mobile-actions {
           display: none;
         }
@@ -585,26 +585,14 @@ export default function CartPage() {
           }
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 780px) {
           .cart-wrapper-main {
-            padding: 10px 16px 40px;
+            padding: 10px 14px 40px;
           }
           .cart-card {
-            padding: 18px 16px;
+            padding: 16px 14px;
             border-radius: 14px;
           }
-          .cart-assurance-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 14px;
-            padding: 16px;
-          }
-          .rec-card-slide {
-            flex: 0 0 185px;
-            width: 185px;
-          }
-        }
-
-        @media (max-width: 680px) {
           .cart-table-header {
             display: none !important;
           }
@@ -635,44 +623,55 @@ export default function CartPage() {
             padding: 10px 12px;
             border-radius: 10px;
             border: 1px solid #F3E8FF;
-            margin-top: 4px;
+            margin-top: 2px;
             width: 100%;
             box-sizing: border-box;
-          }
-          .rec-card-slide {
-            flex: 0 0 165px;
-            width: 165px;
+            gap: 8px;
           }
           .cart-assurance-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 12px;
-            padding: 14px 12px;
+            padding: 16px 14px;
+          }
+          .rec-card-slide {
+            flex: 0 0 175px;
+            width: 175px;
           }
         }
 
-        @media (max-width: 480px) {
+        @media (max-width: 520px) {
           .cart-wrapper-main {
-            padding: 8px 12px 32px;
+            padding: 8px 10px 32px;
           }
           .cart-card {
-            padding: 14px 12px;
+            padding: 14px 10px;
+          }
+          .cart-item-mobile-header {
+            gap: 10px;
           }
           .cart-item-mobile-actions {
-            flex-direction: row;
             flex-wrap: wrap;
-            align-items: center;
-            justifyContent: space-between;
             gap: 8px;
             padding: 8px 10px;
           }
           .rec-card-slide {
-            flex: 0 0 150px;
-            width: 150px;
+            flex: 0 0 155px;
+            width: 155px;
           }
           .cart-assurance-grid {
-            grid-template-columns: minmax(0, 1fr);
-            gap: 12px;
+            grid-template-columns: 1fr;
+            gap: 10px;
             padding: 14px 12px;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .cart-card {
+            padding: 12px 8px;
+          }
+          .rec-card-slide {
+            flex: 0 0 140px;
+            width: 140px;
           }
         }
       `}</style>
@@ -800,7 +799,6 @@ export default function CartPage() {
             <div className="cart-card">
               {/* Desktop Table Header */}
               <div className="cart-table-header">
-                <div></div>
                 <div style={{ color: '#6B7280' }}>Product</div>
                 <div style={{ color: '#6B7280', textAlign: 'left' }}>Price</div>
                 <div style={{ color: '#6B7280', textAlign: 'center' }}>Quantity</div>
@@ -814,29 +812,30 @@ export default function CartPage() {
 
                   return (
                     <div key={item.id} className="cart-item-row">
-                      {/* Checkbox (Desktop & Mobile) */}
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <input
-                          type="checkbox"
-                          checked={!!item.selected}
-                          onChange={() => handleToggleSelect(item.id)}
-                          style={{
-                            width: '18px',
-                            height: '18px',
-                            accentColor: '#7E22CE',
-                            cursor: 'pointer',
-                            borderRadius: '4px',
-                          }}
-                        />
-                      </div>
+                      {/* Product Column (Checkbox + Thumbnail + Details) */}
+                      <div className="cart-item-main-col" style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', minWidth: 0, width: '100%' }}>
+                        {/* Checkbox */}
+                        <div style={{ display: 'flex', alignItems: 'center', paddingTop: '4px', flexShrink: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={!!item.selected}
+                            onChange={() => handleToggleSelect(item.id)}
+                            aria-label={`Select ${item.productName}`}
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              accentColor: '#7E22CE',
+                              cursor: 'pointer',
+                              borderRadius: '4px',
+                            }}
+                          />
+                        </div>
 
-                      {/* Product Thumbnail & Details */}
-                      <div className="cart-item-mobile-header">
-                        {/* Clean Thumbnail without badge clutter */}
+                        {/* Product Thumbnail */}
                         <div
                           style={{
-                            width: '78px',
-                            height: '78px',
+                            width: '74px',
+                            height: '74px',
                             borderRadius: '12px',
                             backgroundColor: '#FAF5FF',
                             border: '1px solid #E5E7EB',
@@ -858,10 +857,10 @@ export default function CartPage() {
                               href={`/products/${item.slug || item.productId}`}
                               style={{
                                 color: '#1E1B4B',
-                                fontSize: '14px',
+                                fontSize: '13.5px',
                                 fontWeight: 700,
                                 textDecoration: 'none',
-                                lineHeight: 1.3,
+                                lineHeight: 1.35,
                                 display: '-webkit-box',
                                 WebkitLineClamp: 2,
                                 WebkitBoxOrient: 'vertical',
@@ -882,6 +881,7 @@ export default function CartPage() {
                                   borderRadius: '4px',
                                   border: '1px solid #E9D5FF',
                                   letterSpacing: '0.03em',
+                                  flexShrink: 0,
                                 }}
                               >
                                 {item.badge}
@@ -1011,11 +1011,16 @@ export default function CartPage() {
 
                       {/* Mobile Row Actions: Price, Quantity & Total in single compact bar */}
                       <div className="cart-item-mobile-actions">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '12px', color: '#6B7280' }}>Price:</span>
-                          <span style={{ fontSize: '14px', fontWeight: 800, color: '#1E1B4B' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '12px', color: '#6B7280', fontWeight: 600 }}>Price:</span>
+                          <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#1E1B4B' }}>
                             ₹{parseFloat(item.price || 0).toLocaleString('en-IN')}
                           </span>
+                          {item.mrp && item.mrp > item.price && (
+                            <span style={{ fontSize: '10.5px', color: '#9CA3AF', textDecoration: 'line-through' }}>
+                              ₹{parseFloat(item.mrp).toLocaleString('en-IN')}
+                            </span>
+                          )}
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1072,8 +1077,8 @@ export default function CartPage() {
                           </div>
 
                           <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '11px', color: '#6B7280' }}>Total:</div>
-                            <div style={{ fontSize: '14px', fontWeight: 800, color: '#7E22CE' }}>
+                            <div style={{ fontSize: '10.5px', color: '#6B7280', fontWeight: 600 }}>Total:</div>
+                            <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#7E22CE' }}>
                               ₹{lineTotal.toLocaleString('en-IN')}
                             </div>
                           </div>
