@@ -966,6 +966,35 @@ export const productService = {
       logger.warn(`Meilisearch sync error: ${err.message}`);
     }
   },
+
+  /**
+   * Export Products Dataset
+   */
+  async exportProducts(filters = {}) {
+    const result = await this.listProducts({
+      ...filters,
+      page: 1,
+      limit: 10000,
+    });
+
+    return (result.products || []).map((p) => ({
+      sku: p.sku || 'N/A',
+      name: p.name,
+      slug: p.slug,
+      category: p.subcategory?.category?.name || 'Jewellery',
+      subcategory: p.subcategory?.name || 'N/A',
+      price: parseFloat(p.price || 0),
+      salePrice: parseFloat(p.salePrice || p.price || 0),
+      discountPercent: p.discountPercent || 0,
+      stock: p.stock || 0,
+      status: p.status,
+      rating: parseFloat(p.rating || 0),
+      reviewCount: p.reviewCount || 0,
+      isFeatured: p.isFeatured ? 'Yes' : 'No',
+      isBestSeller: p.isBestSeller ? 'Yes' : 'No',
+      createdAt: p.createdAt,
+    }));
+  },
 };
 
 export default productService;

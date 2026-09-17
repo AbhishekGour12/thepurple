@@ -1,23 +1,23 @@
 'use client';
 
-import { Truck, Banknote, RotateCcw, Lock, Headphones } from 'lucide-react';
+import { Truck, ShieldCheck, Sparkles, Lock, Headphones } from 'lucide-react';
 
 export default function BenefitsStrip() {
   const benefits = [
     {
       icon: Truck,
-      title: 'Free Shipping',
-      desc: 'On orders above ₹999',
+      title: 'Express Delivery',
+      desc: 'Fast & insured transit',
     },
     {
-      icon: Banknote,
-      title: 'COD Available',
-      desc: 'Pay on delivery',
+      icon: ShieldCheck,
+      title: '100% Certified',
+      desc: 'BIS hallmarked purity',
     },
     {
-      icon: RotateCcw,
-      title: 'Easy Returns',
-      desc: '7 days return policy',
+      icon: Sparkles,
+      title: 'Luxury Packaging',
+      desc: 'Gift ready presentation',
     },
     {
       icon: Lock,

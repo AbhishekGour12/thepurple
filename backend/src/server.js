@@ -32,67 +32,37 @@ const startServer = async () => {
   if (db.status === 'healthy') {
     try {
       await sequelize.sync({ alter: false });
-      // Ensure isFeatured column exists in categories table safely
-      try {
-        const qi = sequelize.getQueryInterface();
-        const catDesc = await qi.describeTable('categories');
-        if (!catDesc.isFeatured) {
-          await qi.addColumn('categories', 'isFeatured', {
-            type: sequelize.Sequelize.BOOLEAN,
-            defaultValue: false,
-          });
-          logger.info('Added isFeatured column to categories table.');
-        }
+      const qi = sequelize.getQueryInterface();
+      // Automatic Comprehensive Schema Verification for All Models & Columns
+      for (const modelName of Object.keys(sequelize.models)) {
+          const model = sequelize.models[modelName];
+          const tableName = model.getTableName();
+          let tableDesc = {};
+          try {
+            tableDesc = await qi.describeTable(tableName);
+          } catch {
+            await model.sync({ alter: true });
+            tableDesc = await qi.describeTable(tableName);
+          }
 
-        // Ensure banners table has all rich slide columns
-        const bannerDesc = await qi.describeTable('banners');
-        const newCols = [
-          { name: 'placement', type: sequelize.Sequelize.STRING(50), defaultValue: 'HOME_HERO' },
-          { name: 'highlight', type: sequelize.Sequelize.STRING(150), defaultValue: null },
-          { name: 'badge', type: sequelize.Sequelize.STRING(100), defaultValue: null },
-          { name: 'description', type: sequelize.Sequelize.TEXT, defaultValue: null },
-          { name: 'primaryBtnText', type: sequelize.Sequelize.STRING(100), defaultValue: null },
-          { name: 'primaryBtnUrl', type: sequelize.Sequelize.STRING(500), defaultValue: null },
-          { name: 'secondaryBtnText', type: sequelize.Sequelize.STRING(100), defaultValue: null },
-          { name: 'secondaryBtnUrl', type: sequelize.Sequelize.STRING(500), defaultValue: null },
-          { name: 'accentColor', type: sequelize.Sequelize.STRING(50), defaultValue: '#7E22CE' },
-          { name: 'bgGradient', type: sequelize.Sequelize.STRING(255), defaultValue: null },
-          { name: 'couponCode', type: sequelize.Sequelize.STRING(50), defaultValue: null },
-          { name: 'discountTag', type: sequelize.Sequelize.STRING(100), defaultValue: null },
-          { name: 'isFullImage', type: sequelize.Sequelize.BOOLEAN, defaultValue: false },
-        ];
-
-        for (const col of newCols) {
-          if (!bannerDesc[col.name]) {
-            await qi.addColumn('banners', col.name, {
-              type: col.type,
-              defaultValue: col.defaultValue,
-              allowNull: true,
-            });
-            logger.info(`Added ${col.name} column to banners table.`);
+          const modelAttributes = model.rawAttributes;
+          for (const [attrName, attrDef] of Object.entries(modelAttributes)) {
+            if (!tableDesc[attrName]) {
+              try {
+                await qi.addColumn(tableName, attrName, {
+                  type: attrDef.type,
+                  allowNull: attrDef.allowNull !== undefined ? attrDef.allowNull : true,
+                  defaultValue: attrDef.defaultValue !== undefined ? attrDef.defaultValue : null,
+                });
+                logger.info(`Added missing column [${attrName}] to table [${tableName}].`);
+              } catch {
+                try {
+                  await model.sync({ alter: true });
+                } catch {}
+              }
+            }
           }
         }
-
-        // Ensure products table has badge column
-        const prodDesc = await qi.describeTable('products');
-        if (!prodDesc.badge) {
-          await qi.addColumn('products', 'badge', {
-            type: sequelize.Sequelize.STRING(100),
-            defaultValue: null,
-            allowNull: true,
-          });
-          logger.info('Added badge column to products table.');
-        }
-
-        // Ensure product_interests and contact_queries tables are created
-        await ProductInterest.sync({ alter: true });
-        logger.info('ProductInterest table verified.');
-
-        await ContactQuery.sync({ alter: true });
-        logger.info('ContactQuery table verified.');
-      } catch (colErr) {
-        logger.debug?.(`Column check note: ${colErr.message}`);
-      }
 
       logger.info('Database schema synchronized successfully.');
       await bootstrapSuperAdmin();

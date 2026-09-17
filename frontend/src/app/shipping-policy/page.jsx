@@ -52,10 +52,10 @@ export default function ShippingPolicyPage() {
             <div style={{ fontSize: '14.5px', lineHeight: '1.7', color: '#3F3F46', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <section>
                 <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#18181B', marginBottom: '6px' }}>
-                  1. Free Insured Shipping
+                  1. Express Insured Shipping
                 </h2>
                 <p>
-                  We offer 100% complimentary insured express shipping across all pin codes in India on all orders. Every package is sealed in tamper-proof, discreet packaging with full transit insurance.
+                  We offer insured express shipping across all serviceable pin codes in India. Shipping charges are calculated dynamically at checkout based on your destination pincode. Every package is sealed in tamper-proof, discreet packaging with full transit insurance.
                 </p>
               </section>
 

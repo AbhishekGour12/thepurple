@@ -52,10 +52,10 @@ export default function ReturnPolicyPage() {
             <div style={{ fontSize: '14.5px', lineHeight: '1.7', color: '#3F3F46', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <section>
                 <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#18181B', marginBottom: '6px' }}>
-                  1. 7-Day Easy Returns
+                  1. Return &amp; Replacement Policy
                 </h2>
                 <p>
-                  We want you to love your jewellery and gifts. If for any reason you are not completely satisfied, you can initiate a return or exchange request within 7 days of delivery.
+                  We strive for 100% customer satisfaction. In the rare event that an item arrives damaged, defective, or incorrect, our customer care team will promptly arrange a replacement or refund upon notification.
                 </p>
               </section>
 

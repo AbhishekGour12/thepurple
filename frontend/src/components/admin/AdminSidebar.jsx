@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -16,10 +17,33 @@ import {
   Sparkles,
   Palette,
   MessageSquare,
+  Tag,
 } from 'lucide-react';
+import { orderApi } from '@/lib/api/orders';
 
 export default function AdminSidebar({ role = 'EXECUTIVE', mustChangePassword = false }) {
   const pathname = usePathname();
+  const [orderCount, setOrderCount] = useState(null);
+
+  useEffect(() => {
+    let isSubscribed = true;
+    async function loadStats() {
+      try {
+        const stats = await orderApi.adminGetStats();
+        if (isSubscribed && stats?.totalOrders !== undefined) {
+          setOrderCount(stats.totalOrders);
+        }
+      } catch {
+        // Silently continue
+      }
+    }
+    loadStats();
+    const interval = setInterval(loadStats, 10000);
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Role Permission Matrix for Sidebar Navigation
   // Super Admin: Dashboard, Products, Categories, Bulk, Orders, Payments, Banners, Users, Admin Management, Settings
@@ -75,13 +99,14 @@ export default function AdminSidebar({ role = 'EXECUTIVE', mustChangePassword = 
           label: 'Orders',
           href: '/admin/orders',
           icon: ShoppingBag,
+          badge: orderCount !== null ? orderCount : null,
           roles: ['SUPER_ADMIN', 'MANAGER', 'EXECUTIVE', 'WORKER'],
         },
         {
           label: 'Payments',
           href: '/admin/payments',
           icon: CreditCard,
-          roles: ['SUPER_ADMIN', 'MANAGER'], // Executive has NO ACCESS to Payments
+          roles: ['SUPER_ADMIN', 'MANAGER', 'EXECUTIVE'],
         },
         {
           label: 'Customers / Users',
@@ -100,6 +125,12 @@ export default function AdminSidebar({ role = 'EXECUTIVE', mustChangePassword = 
           href: '/admin/contacts',
           icon: MessageSquare,
           roles: ['SUPER_ADMIN', 'MANAGER', 'EXECUTIVE', 'WORKER'],
+        },
+        {
+          label: 'Coupons & Offers',
+          href: '/admin/coupons',
+          icon: Tag,
+          roles: ['SUPER_ADMIN', 'MANAGER', 'EXECUTIVE'],
         },
       ],
     },
@@ -220,7 +251,7 @@ export default function AdminSidebar({ role = 'EXECUTIVE', mustChangePassword = 
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '12px',
+                        justifyContent: 'space-between',
                         padding: '10px 14px',
                         borderRadius: '8px',
                         fontSize: '0.9rem',
@@ -232,14 +263,31 @@ export default function AdminSidebar({ role = 'EXECUTIVE', mustChangePassword = 
                         transition: 'all 0.15s ease',
                       }}
                     >
-                      <Icon
-                        size={18}
-                        style={{
-                          color: isActive ? '#7E22CE' : '#6B7280',
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span>{item.label}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <Icon
+                          size={18}
+                          style={{
+                            color: isActive ? '#7E22CE' : '#6B7280',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span>{item.label}</span>
+                      </div>
+
+                      {item.badge !== undefined && item.badge !== null && (
+                        <span
+                          style={{
+                            padding: '2px 7px',
+                            borderRadius: '12px',
+                            backgroundColor: isActive ? '#7E22CE' : '#F3E8FF',
+                            color: isActive ? '#FFFFFF' : '#7E22CE',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                          }}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

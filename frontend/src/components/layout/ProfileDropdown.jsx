@@ -154,7 +154,8 @@ export default function ProfileDropdown({ user, onLogout, onClose }) {
             {/* Navigation Links */}
             <div style={{ padding: '8px 6px' }}>
               <Link
-                href="/orders"
+                href="/my-orders"
+                prefetch={true}
                 onClick={onClose}
                 className="dropdown-link-item"
                 style={linkItemStyle}
@@ -171,6 +172,7 @@ export default function ProfileDropdown({ user, onLogout, onClose }) {
 
               <Link
                 href="/cart"
+                prefetch={true}
                 onClick={onClose}
                 className="dropdown-link-item"
                 style={linkItemStyle}
@@ -187,6 +189,7 @@ export default function ProfileDropdown({ user, onLogout, onClose }) {
 
               <Link
                 href="/my-interests"
+                prefetch={true}
                 onClick={onClose}
                 className="dropdown-link-item"
                 style={linkItemStyle}
@@ -203,6 +206,7 @@ export default function ProfileDropdown({ user, onLogout, onClose }) {
 
               <Link
                 href="/account"
+                prefetch={true}
                 onClick={onClose}
                 className="dropdown-link-item"
                 style={linkItemStyle}
@@ -219,6 +223,7 @@ export default function ProfileDropdown({ user, onLogout, onClose }) {
 
               <Link
                 href="/contact"
+                prefetch={true}
                 onClick={onClose}
                 className="dropdown-link-item"
                 style={linkItemStyle}
@@ -344,7 +349,25 @@ export default function ProfileDropdown({ user, onLogout, onClose }) {
             {/* Quick Links */}
             <div style={{ padding: '8px 6px' }}>
               <Link
-                href="/orders"
+                href="/login?redirect=/account"
+                prefetch={true}
+                onClick={onClose}
+                className="dropdown-link-item"
+                style={linkItemStyle}
+              >
+                <div style={iconBoxStyle('#EFF6FF', '#2563EB')}>
+                  <User size={17} strokeWidth={2} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={linkTitleStyle}>My Profile</div>
+                  <div style={linkSubStyle}>Sign in to view saved addresses & details</div>
+                </div>
+                <ChevronRight size={15} style={{ color: '#9CA3AF' }} />
+              </Link>
+
+              <Link
+                href="/my-orders"
+                prefetch={true}
                 onClick={onClose}
                 className="dropdown-link-item"
                 style={linkItemStyle}
@@ -361,6 +384,7 @@ export default function ProfileDropdown({ user, onLogout, onClose }) {
 
               <Link
                 href="/cart"
+                prefetch={true}
                 onClick={onClose}
                 className="dropdown-link-item"
                 style={linkItemStyle}
@@ -377,6 +401,7 @@ export default function ProfileDropdown({ user, onLogout, onClose }) {
 
               <Link
                 href="/my-interests"
+                prefetch={true}
                 onClick={onClose}
                 className="dropdown-link-item"
                 style={linkItemStyle}
@@ -393,6 +418,7 @@ export default function ProfileDropdown({ user, onLogout, onClose }) {
 
               <Link
                 href="/contact"
+                prefetch={true}
                 onClick={onClose}
                 className="dropdown-link-item"
                 style={linkItemStyle}

@@ -140,7 +140,7 @@ export default function FeaturedCategories() {
     <section
       style={{
         maxWidth: '1420px',
-        margin: '36px auto 0 auto',
+        margin: '20px auto 28px auto',
         padding: '0 20px',
         width: '100%',
         boxSizing: 'border-box',

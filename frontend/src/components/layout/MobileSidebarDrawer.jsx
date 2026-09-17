@@ -66,7 +66,8 @@ export default function MobileSidebarDrawer({ isOpen, onClose, user, onLogout })
   ];
 
   const userActionItems = [
-    { label: 'My Orders', href: '/orders', icon: Package, desc: 'Track & manage orders' },
+    { label: 'My Profile', href: '/account', icon: User, desc: 'Personal info & saved address' },
+    { label: 'My Orders', href: '/my-orders', icon: Package, desc: 'Track & manage orders' },
     { label: 'My Wishlist & Interests', href: '/my-interests', icon: Heart, desc: 'Saved pieces & favorites' },
     { label: 'My Cart', href: '/cart', icon: ShoppingBag, desc: 'View cart & checkout' },
     { label: 'Track Order', href: '/track-order', icon: Compass, desc: 'Realtime order status' },

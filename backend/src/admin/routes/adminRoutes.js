@@ -16,6 +16,9 @@ import bannerController from '../controller/bannerController.js';
 import dashboardController from '../controller/dashboardController.js';
 import userController from '../controller/userController.js';
 import contactController from '../controller/contactController.js';
+import couponController from '../controller/couponController.js';
+import adminOrderController from '../controller/adminOrderController.js';
+import paymentController from '../controller/paymentController.js';
 
 const router = Router();
 
@@ -26,6 +29,20 @@ router.post('/auth/reset-password', authRateLimiter, authController.resetPasswor
 router.post('/auth/change-password', authenticateAdmin, authController.changePassword);
 router.post('/auth/logout', authenticateAdmin, authController.logout);
 router.get('/auth/me', authenticateAdmin, authController.getMe);
+
+// ─── 1.1 Dashboard Analytics ─────────────────────────────────────────
+router.get(
+  '/dashboard',
+  authenticateAdmin,
+  authorize(PERMISSIONS.DASHBOARD_VIEW),
+  dashboardController.getDashboardAnalytics
+);
+router.get(
+  '/dashboard/analytics',
+  authenticateAdmin,
+  authorize(PERMISSIONS.DASHBOARD_VIEW),
+  dashboardController.getDashboardAnalytics
+);
 
 // ─── 2. Admin User Management (Super Admin Only) ─────────────────────
 router.get(
@@ -251,6 +268,12 @@ router.delete(
   productController.bulkDeleteProducts
 );
 router.get(
+  '/products/export',
+  authenticateAdmin,
+  authorize(PERMISSIONS.PRODUCT_VIEW),
+  productController.exportProducts
+);
+router.get(
   '/products/:id',
   authenticateAdmin,
   authorize(PERMISSIONS.PRODUCT_VIEW),
@@ -383,6 +406,113 @@ router.delete(
   authenticateAdmin,
   authorize(PERMISSIONS.CONTACT_MANAGE),
   contactController.deleteQuery
+);
+
+// ─── 13. Coupon Management Endpoints ─────────────────────────────────
+router.get(
+  '/coupons',
+  authenticateAdmin,
+  authorize(PERMISSIONS.COUPON_VIEW),
+  couponController.listCoupons
+);
+router.post(
+  '/coupons',
+  authenticateAdmin,
+  authorize(PERMISSIONS.COUPON_MANAGE),
+  couponController.createCoupon
+);
+router.get(
+  '/coupons/:id',
+  authenticateAdmin,
+  authorize(PERMISSIONS.COUPON_VIEW),
+  couponController.getCoupon
+);
+router.patch(
+  '/coupons/:id',
+  authenticateAdmin,
+  authorize(PERMISSIONS.COUPON_MANAGE),
+  couponController.updateCoupon
+);
+router.patch(
+  '/coupons/:id/status',
+  authenticateAdmin,
+  authorize(PERMISSIONS.COUPON_MANAGE),
+  couponController.updateCouponStatus
+);
+// ─── 14. Order Management & Refund Endpoints ──────────────────────
+router.get(
+  '/orders/stats',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_VIEW),
+  adminOrderController.getOrderStats
+);
+router.get(
+  '/orders/export',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_VIEW),
+  adminOrderController.exportOrders
+);
+router.get(
+  '/orders',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_VIEW),
+  adminOrderController.getOrders
+);
+router.get(
+  '/orders/:id',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_VIEW),
+  adminOrderController.getOrderDetails
+);
+router.patch(
+  '/orders/:id/status',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_UPDATE),
+  adminOrderController.updateOrderStatus
+);
+router.post(
+  '/orders/:id/generate-label',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_UPDATE),
+  adminOrderController.generateShiprocketLabel
+);
+router.post(
+  '/orders/:id/sync-shiprocket',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_UPDATE),
+  adminOrderController.syncShiprocketStatus
+);
+router.post(
+  '/orders/:id/process-refund',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_UPDATE),
+  adminOrderController.processRefund
+);
+
+// ─── 15. Payment History & Transaction Endpoints ───────────────────
+router.get(
+  '/payments/stats',
+  authenticateAdmin,
+  authorize(PERMISSIONS.PAYMENT_VIEW),
+  paymentController.getPaymentStats
+);
+router.get(
+  '/payments/export',
+  authenticateAdmin,
+  authorize(PERMISSIONS.PAYMENT_EXPORT),
+  paymentController.exportPayments
+);
+router.get(
+  '/payments',
+  authenticateAdmin,
+  authorize(PERMISSIONS.PAYMENT_VIEW),
+  paymentController.listPayments
+);
+router.get(
+  '/payments/:id',
+  authenticateAdmin,
+  authorize(PERMISSIONS.PAYMENT_VIEW),
+  paymentController.getPaymentDetails
 );
 
 export default router;

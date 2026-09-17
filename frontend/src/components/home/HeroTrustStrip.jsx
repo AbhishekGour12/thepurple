@@ -1,6 +1,6 @@
 'use client';
 
-import { ShieldCheck, RotateCcw, Lock, Banknote } from 'lucide-react';
+import { ShieldCheck, Sparkles, Lock, Truck } from 'lucide-react';
 
 export default function HeroTrustStrip() {
   const features = [
@@ -10,9 +10,9 @@ export default function HeroTrustStrip() {
       desc: 'Finest materials',
     },
     {
-      icon: RotateCcw,
-      title: 'Easy Returns',
-      desc: '7 days return',
+      icon: Sparkles,
+      title: 'Authentic Designs',
+      desc: '100% Original & Handcrafted',
     },
     {
       icon: Lock,
@@ -20,9 +20,9 @@ export default function HeroTrustStrip() {
       desc: '100% safe & secure',
     },
     {
-      icon: Banknote,
-      title: 'COD Available',
-      desc: 'Pay on delivery',
+      icon: Truck,
+      title: 'Express Shipping',
+      desc: 'Fast & insured',
     },
   ];
 

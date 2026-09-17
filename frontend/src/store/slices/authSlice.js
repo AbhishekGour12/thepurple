@@ -4,6 +4,7 @@ import { adminAuthApi } from '@/lib/api/admin/auth';
 import {
   clearCustomerSession,
   getStoredCustomerToken,
+  getStoredCustomerUser,
   signOutAdmin,
   getStoredAdmin,
   getStoredAdminToken,
@@ -36,6 +37,13 @@ export const logoutAdminUser = createAsyncThunk('auth/logoutAdminUser', async ()
 
 // ─── Customer Thunks ─────────────────────────────────────────────────
 
+export const hydrateCustomerFromStorage = createAsyncThunk('auth/hydrateCustomer', async () => {
+  const token = getStoredCustomerToken();
+  const user = getStoredCustomerUser();
+  if (!token || !user) return null;
+  return { token, user };
+});
+
 export const restoreCustomerSession = createAsyncThunk(
   'auth/restoreCustomerSession',
   async (_, { rejectWithValue }) => {
@@ -61,6 +69,21 @@ export const fetchCustomerProfile = createAsyncThunk(
       return { user: data.user, token };
     } catch (err) {
       return rejectWithValue(err.message || 'Unable to load profile');
+    }
+  }
+);
+
+export const updateCustomerProfile = createAsyncThunk(
+  'auth/updateCustomerProfile',
+  async (updates, { rejectWithValue }) => {
+    try {
+      const data = await customerApi.updateMe(updates);
+      const updatedUser = data?.user || data;
+      const token = getStoredCustomerToken();
+      setCustomerSession(token, updatedUser);
+      return { user: updatedUser, token };
+    } catch (err) {
+      return rejectWithValue(err.message || 'Failed to update profile');
     }
   }
 );
@@ -137,6 +160,7 @@ const authSlice = createSlice({
         state.admin.status = 'idle';
       })
       // Customer
+      .addCase(hydrateCustomerFromStorage.fulfilled, applyCustomerSession)
       .addCase(restoreCustomerSession.pending, (state) => {
         state.customer.status = 'loading';
       })
@@ -162,6 +186,7 @@ const authSlice = createSlice({
         state.customer.user = null;
         state.customer.status = 'idle';
       })
+      .addCase(updateCustomerProfile.fulfilled, applyCustomerSession)
       .addCase(logoutCustomerUser.fulfilled, (state) => {
         state.customer.user = null;
         state.customer.token = null;

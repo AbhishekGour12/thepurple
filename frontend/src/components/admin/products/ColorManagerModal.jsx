@@ -123,7 +123,8 @@ export default function ColorManagerModal({ open, onClose, onColorsUpdated }) {
 
     try {
       await adminAttributeApi.createColor({ name: newColorName, hexCode: newColorHex }, true);
-      loadColors();
+      await loadColors();
+      if (onColorsUpdated) onColorsUpdated();
     } catch (err) {
       setError(err?.message || 'Failed to create color');
       loadColors();
@@ -139,6 +140,7 @@ export default function ColorManagerModal({ open, onClose, onColorsUpdated }) {
     try {
       await adminAttributeApi.bulkCreateColors({ items: presetGroup.colors }, true);
       await loadColors();
+      if (onColorsUpdated) onColorsUpdated();
     } catch (err) {
       setError(err?.message || 'Failed to apply color presets');
     } finally {
@@ -173,6 +175,7 @@ export default function ColorManagerModal({ open, onClose, onColorsUpdated }) {
       await adminAttributeApi.bulkCreateColors({ items }, true);
       setBulkText('');
       await loadColors();
+      if (onColorsUpdated) onColorsUpdated();
       setActiveTab('browse');
     } catch (err) {
       setError(err?.message || 'Failed to import bulk colors');

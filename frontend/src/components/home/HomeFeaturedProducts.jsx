@@ -1,18 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Star,
   Heart,
   ShoppingCart,
+  ShoppingBag,
   Check,
   ArrowRight,
   Sparkles,
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { optimisticToggle, toggleWishlistProduct } from '@/store/slices/wishlistSlice';
+import { addToCart, removeFromCart, syncAddToCart, syncRemoveFromCart } from '@/store/slices/cartSlice';
 
 const FALLBACK_10_FEATURED = [
   {
@@ -160,9 +162,20 @@ const FALLBACK_10_FEATURED = [
 export default function HomeFeaturedProducts() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const customerUser = useSelector((state) => state.auth?.customer?.user);
+  const cartItems = useSelector((state) => state.cart?.items || []);
+  const cartMap = useMemo(() => {
+    const map = {};
+    cartItems.forEach((item) => {
+      if (item.productId) map[item.productId] = true;
+      if (item.id) map[item.id] = true;
+      if (item.slug) map[item.slug] = true;
+    });
+    return map;
+  }, [cartItems]);
+  const wishlistItems = useSelector((state) => state.wishlist?.items || []);
   const likedMap = useSelector((state) => state.wishlist?.likedMap || {});
   const [products, setProducts] = useState(FALLBACK_10_FEATURED);
-  const [cartState, setCartState] = useState({});
 
   useEffect(() => {
     let isMounted = true;
@@ -227,19 +240,55 @@ export default function HomeFeaturedProducts() {
   const toggleWishlist = (e, prod) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!customerUser) {
+      const returnUrl = typeof window !== 'undefined' ? window.location.pathname : '/';
+      router.push(`/login?redirect=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
     // 1. Instant 0ms synchronous UI toggle across all pages
     dispatch(optimisticToggle(prod));
     // 2. Database & auth sync
     dispatch(toggleWishlistProduct(prod));
   };
 
-  const handleAddToCart = (e, id) => {
+  const handleAddToCart = (e, prodOrId) => {
     e.preventDefault();
     e.stopPropagation();
-    setCartState((prev) => ({ ...prev, [id]: true }));
-    setTimeout(() => {
-      setCartState((prev) => ({ ...prev, [id]: false }));
-    }, 1800);
+    const prod =
+      typeof prodOrId === 'object' && prodOrId !== null
+        ? prodOrId
+        : productsList?.find((p) => p.id === prodOrId);
+
+    if (!prod) return;
+
+    const isInCart = Boolean(cartMap[prod.id] || (prod.slug && cartMap[prod.slug]));
+
+    if (isInCart) {
+      dispatch(removeFromCart(prod.id));
+      dispatch(syncRemoveFromCart(prod.id));
+    } else {
+      const salePrice = prod.price || 899;
+      dispatch(
+        addToCart({
+          productId: prod.id,
+          productName: prod.name,
+          slug: prod.slug,
+          categoryName: prod.category || 'Jewellery',
+          selectedSize: 'Standard',
+          selectedColor: 'Gold',
+          metaSubtitle: `${prod.category || 'Jewellery'} | Standard`,
+          imageUrl: prod.image,
+          badge: prod.badge,
+          price: salePrice,
+          mrp: prod.originalPrice || salePrice * 1.4,
+          discountPercent: prod.discount || 0,
+          quantity: 1,
+          stock: 20,
+          inStock: true,
+        })
+      );
+      dispatch(syncAddToCart({ productId: prod.id, quantity: 1, priceSnapshot: salePrice }));
+    }
   };
 
   return (
@@ -319,7 +368,7 @@ export default function HomeFeaturedProducts() {
       >
         {products.map((prod) => {
           const isWish = Boolean(likedMap[String(prod.id)] || likedMap[String(prod.productId)]);
-          const isAdded = !!cartState[prod.id];
+          const isAdded = Boolean(cartMap[prod.id] || (prod.slug && cartMap[prod.slug]));
 
           return (
             <div
@@ -549,7 +598,8 @@ export default function HomeFeaturedProducts() {
                   {/* Add to Cart Button */}
                   <button
                     type="button"
-                    onClick={(e) => handleAddToCart(e, prod.id)}
+                    onClick={(e) => handleAddToCart(e, prod)}
+                    title={isAdded ? 'In Cart - Click to remove' : 'Add to Cart'}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -566,8 +616,8 @@ export default function HomeFeaturedProducts() {
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                       boxShadow: isAdded
-                        ? '0 3px 8px rgba(5, 150, 105, 0.3)'
-                        : '0 3px 8px rgba(109, 40, 217, 0.2)',
+                        ? '0 3px 10px rgba(5, 150, 105, 0.3)'
+                        : '0 3px 10px rgba(109, 40, 217, 0.25)',
                     }}
                     onMouseEnter={(e) => {
                       if (!isAdded) e.currentTarget.style.backgroundColor = '#581C87';
@@ -578,12 +628,12 @@ export default function HomeFeaturedProducts() {
                   >
                     {isAdded ? (
                       <>
-                        <Check size={14} />
-                        <span>Added to Cart</span>
+                        <Check size={15} />
+                        <span>Added</span>
                       </>
                     ) : (
                       <>
-                        <ShoppingCart size={14} />
+                        <ShoppingBag size={14} />
                         <span>Add to Cart</span>
                       </>
                     )}

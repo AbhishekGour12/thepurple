@@ -25,6 +25,7 @@ import ProductAttributeValue from './ProductAttributeValue.js';
 import ProductVariant from './ProductVariant.js';
 import ProductInterest from './ProductInterest.js';
 import ContactQuery from './ContactQuery.js';
+import Review from './Review.js';
 
 // Setup Category & Subcategory associations
 Category.hasMany(Subcategory, {
@@ -253,6 +254,28 @@ ProductInterest.belongsTo(User, {
   as: 'user',
 });
 
+// Setup Product & Review associations
+Product.hasMany(Review, {
+  foreignKey: 'productId',
+  as: 'reviews',
+  onDelete: 'CASCADE',
+});
+Review.belongsTo(Product, {
+  foreignKey: 'productId',
+  as: 'product',
+});
+
+// Setup User & Review associations
+User.hasMany(Review, {
+  foreignKey: 'userId',
+  as: 'reviews',
+  onDelete: 'SET NULL',
+});
+Review.belongsTo(User, {
+  foreignKey: 'userId',
+  as: 'user',
+});
+
 // Setup Admin & ContactQuery associations
 Admin.hasMany(ContactQuery, {
   foreignKey: 'repliedByAdminId',
@@ -278,6 +301,7 @@ export const models = {
   ProductAttributeValue,
   ProductInterest,
   ContactQuery,
+  Review,
   Cart,
   CartItem,
   Order,
@@ -308,6 +332,7 @@ export {
   ProductAttributeValue,
   ProductInterest,
   ContactQuery,
+  Review,
   Cart,
   CartItem,
   Order,

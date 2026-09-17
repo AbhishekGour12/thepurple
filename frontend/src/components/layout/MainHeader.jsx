@@ -15,6 +15,9 @@ export default function MainHeader() {
   const dispatch = useDispatch();
   const customerUser = useSelector((state) => state.auth?.customer?.user);
   const savedCount = useSelector((state) => state.wishlist?.totalCount || 0);
+  const cartItems = useSelector((state) => state.cart?.items || []);
+  const cartCount = cartItems.reduce((acc, i) => acc + (i.quantity || 1), 0);
+  const cartTotal = cartItems.reduce((acc, i) => acc + (parseFloat(i.price || 0) * (i.quantity || 1)), 0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const dropdownContainerRef = useRef(null);
@@ -178,6 +181,7 @@ export default function MainHeader() {
               <Link
                 key={idx}
                 href={item.href}
+                prefetch={true}
                 style={{
                   fontSize: '14.5px',
                   fontWeight: isActive ? 700 : 600,
@@ -399,30 +403,35 @@ export default function MainHeader() {
               >
                 <ShoppingCart size={18} strokeWidth={2} />
               </div>
-              <span
-                style={{
-                  position: 'absolute',
-                  top: '-3px',
-                  right: '-3px',
-                  backgroundColor: '#6D28D9',
-                  color: '#FFFFFF',
-                  fontSize: '10px',
-                  fontWeight: 800,
-                  width: '18px',
-                  height: '18px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '2px solid #FFFFFF',
-                }}
-              >
-                2
-              </span>
+              {cartCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-3px',
+                    right: '-3px',
+                    backgroundColor: '#6D28D9',
+                    color: '#FFFFFF',
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    minWidth: '18px',
+                    height: '18px',
+                    borderRadius: '10px',
+                    padding: '0 4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '2px solid #FFFFFF',
+                  }}
+                >
+                  {cartCount}
+                </span>
+              )}
             </div>
             <div className="header-action-text" style={{ lineHeight: 1.25 }}>
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#18181B' }}>Cart</div>
-              <div style={{ fontSize: '11px', color: '#6D28D9', fontWeight: 700 }}>₹1,299</div>
+              <div style={{ fontSize: '11px', color: '#6D28D9', fontWeight: 700 }}>
+                ₹{cartTotal.toLocaleString('en-IN')}
+              </div>
             </div>
           </Link>
         </div>

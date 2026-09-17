@@ -34,9 +34,11 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Download,
 } from 'lucide-react';
 import { adminProductApi } from '@/lib/api/admin/products';
 import { adminCategoryApi } from '@/lib/api/admin/categories';
+import { exportToCSV } from '@/lib/utils/exportToExcel';
 
 // Modals
 import CategoryManagerModal from '@/components/admin/products/CategoryManagerModal';
@@ -415,6 +417,54 @@ export default function ProductListPage() {
           >
             <Upload size={14} color="#059669" />
             <span>📥 Excel Import</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (!products || products.length === 0) {
+                alert('No products available to export.');
+                return;
+              }
+              const exportRows = products.map((p) => ({
+                sku: p.sku || 'N/A',
+                name: p.name,
+                category: p.subcategory?.category?.name || 'Jewellery',
+                subcategory: p.subcategory?.name || 'N/A',
+                price: parseFloat(p.price || 0),
+                salePrice: parseFloat(p.salePrice || p.price || 0),
+                discountPercent: p.discountPercent || 0,
+                stock: p.stock || 0,
+                status: p.status,
+                rating: parseFloat(p.rating || 0),
+                reviewCount: p.reviewCount || 0,
+                createdAt: p.createdAt,
+              }));
+              exportToCSV(exportRows, 'ThePurple-Products-Catalog', {
+                sku: 'SKU Code',
+                name: 'Product Name',
+                category: 'Category',
+                subcategory: 'Subcategory',
+                price: 'Price (INR)',
+                salePrice: 'Sale Price (INR)',
+                discountPercent: 'Discount %',
+                stock: 'Stock Quantity',
+                status: 'Publish Status',
+                rating: 'Average Rating',
+                reviewCount: 'Review Count',
+                createdAt: 'Date Created',
+              });
+            }}
+            style={{
+              ...topToolBtnStyle,
+              border: '1px solid #10B981',
+              color: '#047857',
+              backgroundColor: '#ECFDF5',
+              fontWeight: 700,
+            }}
+          >
+            <Download size={14} color="#059669" />
+            <span>Export to Excel</span>
           </button>
 
           <Link

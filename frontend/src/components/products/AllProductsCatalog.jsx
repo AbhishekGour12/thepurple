@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { optimisticToggle, toggleWishlistProduct } from '@/store/slices/wishlistSlice';
+import { addToCart, removeFromCart, syncAddToCart, syncRemoveFromCart } from '@/store/slices/cartSlice';
 import CategoryGridModal from './CategoryGridModal';
 
 const DEFAULT_DISCOUNT_OPTIONS = [
@@ -71,9 +72,16 @@ function getPaginationItems(currentPage, totalPages) {
   return pages;
 }
 
-export default function AllProductsCatalog({ initialCategory = null, isCategoryModalOpenExternal = false, onCategoryModalClose = null }) {
+export default function AllProductsCatalog({
+  initialCategory = null,
+  initialCollection = null,
+  isCategoryModalOpenExternal = false,
+  onCategoryModalClose = null,
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const dispatch = useDispatch();
+  const customerUser = useSelector((state) => state.auth?.customer?.user);
 
   // Taxonomy Data from API
   const [dbCategories, setDbCategories] = useState([]);
@@ -84,9 +92,19 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Category Modal State
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
+  // Sentinel ref for bottom IntersectionObserver infinite scroll
+  const sentinelRef = useRef(null);
+
+  // Collection State (new-arrivals, best-sellers, offers, gifts)
+  const [activeCollection, setActiveCollection] = useState(() => {
+    const colParam = searchParams ? searchParams.get('collection') : null;
+    return colParam || initialCollection || null;
+  });
 
   // Filters State initialized synchronously from searchParams or props
   const [selectedCategories, setSelectedCategories] = useState(() => {
@@ -115,6 +133,17 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
   const [searchKeyword, setSearchKeyword] = useState(() => {
     return searchParams ? (searchParams.get('search') || '').trim() : '';
   });
+  const [debouncedSearch, setDebouncedSearch] = useState(() => {
+    return searchParams ? (searchParams.get('search') || '').trim() : '';
+  });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchKeyword.trim());
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [searchKeyword]);
+
   const [sortBy, setSortBy] = useState('recommended');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [currentPage, setCurrentPage] = useState(1);
@@ -122,22 +151,48 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
   // Request Sequence Counter to discard stale async race conditions
   const requestSeqRef = useRef(0);
 
+  // Smooth scroll to catalog products section
+  const scrollToCatalog = useCallback(() => {
+    setTimeout(() => {
+      const catalogEl = document.getElementById('catalog-products-section');
+      if (catalogEl) {
+        catalogEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
+  }, []);
+
   // Update selected category when initialCategory changes
   useEffect(() => {
     if (initialCategory) {
       setSelectedCategories([initialCategory]);
       setCurrentPage(1);
+      scrollToCatalog();
     }
-  }, [initialCategory]);
+  }, [initialCategory, scrollToCatalog]);
 
-  // Sync with URL search params (category, subcategory, search) and auto-scroll
+  // Update active collection when initialCollection changes
+  useEffect(() => {
+    if (initialCollection) {
+      setActiveCollection(initialCollection);
+      setCurrentPage(1);
+      scrollToCatalog();
+    }
+  }, [initialCollection, scrollToCatalog]);
+
+  // Sync with URL search params (category, subcategory, search, collection) and auto-scroll
   useEffect(() => {
     if (!searchParams) return;
     const categoryParam = searchParams.get('category') || searchParams.get('categories');
     const subcategoryParam = searchParams.get('subcategory') || searchParams.get('subcategories');
     const searchParam = searchParams.get('search');
+    const collectionParam = searchParams.get('collection');
 
     let hasUrlFilter = false;
+
+    if (collectionParam) {
+      setActiveCollection(collectionParam);
+      hasUrlFilter = true;
+    }
 
     if (categoryParam) {
       const cats = categoryParam.includes('||') ? categoryParam.split('||').map((c) => c.trim()).filter(Boolean) : [categoryParam.trim()];
@@ -156,16 +211,11 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
       hasUrlFilter = true;
     }
 
-    if (hasUrlFilter) {
+    if (hasUrlFilter || (typeof window !== 'undefined' && window.location.hash === '#catalog-products-section')) {
       setCurrentPage(1);
-      setTimeout(() => {
-        const catalogEl = document.getElementById('catalog-products-section');
-        if (catalogEl) {
-          catalogEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 300);
+      scrollToCatalog();
     }
-  }, [searchParams]);
+  }, [searchParams, scrollToCatalog]);
 
   const handleSelectCategoryFromModal = (categoryName, subcategoryName) => {
     if (categoryName) {
@@ -177,11 +227,7 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
       }
       setCurrentPage(1);
       setIsCategoryModalOpen(false);
-      // Smoothly scroll to catalog
-      const catalogEl = document.getElementById('catalog-products-section');
-      if (catalogEl) {
-        catalogEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      scrollToCatalog();
     }
   };
 
@@ -199,10 +245,18 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
   // Mobile Filter Drawer Toggle
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
-  // Redux Wishlist and Cart feedback state
-  const dispatch = useDispatch();
+  // Redux Wishlist and Cart state
   const likedMap = useSelector((state) => state.wishlist?.likedMap || {});
-  const [cartState, setCartState] = useState({});
+  const cartItems = useSelector((state) => state.cart?.items || []);
+  const cartMap = useMemo(() => {
+    const map = {};
+    cartItems.forEach((item) => {
+      if (item.productId) map[item.productId] = true;
+      if (item.id) map[item.id] = true;
+      if (item.slug) map[item.slug] = true;
+    });
+    return map;
+  }, [cartItems]);
 
   const toggleAccordion = (key) => {
     setAccordions((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -237,17 +291,23 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
     };
   }, []);
 
-  // 2. Fetch Products dynamically from backend with full filter criteria
-  const fetchProducts = useCallback(async () => {
+  // 2. Fetch Products dynamically from backend (loads 30 items per batch)
+  const fetchProducts = useCallback(async (pageToFetch = 1) => {
     const currentSeq = ++requestSeqRef.current;
-    setLoading(true);
+    if (pageToFetch === 1) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
       const params = new URLSearchParams();
-      params.set('page', currentPage);
+      params.set('page', pageToFetch);
       params.set('limit', ITEMS_PER_PAGE);
 
-      if (searchKeyword.trim()) params.set('search', searchKeyword.trim());
+      if (activeCollection) params.set('collection', activeCollection);
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       if (selectedCategories.length > 0) params.set('category', selectedCategories.join('||'));
       if (selectedSubcategories.length > 0) params.set('subcategory', selectedSubcategories.join('||'));
       if (minPrice > 0) params.set('minPrice', minPrice);
@@ -262,35 +322,50 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
       const res = await fetch(`${apiUrl}/products?${params.toString()}`);
       const json = await res.json();
 
-      // If a newer request was dispatched while this was fetching, discard this stale response!
+      // Discard stale responses if filter changed mid-flight
       if (currentSeq !== requestSeqRef.current) return;
 
       if (json.success && Array.isArray(json.data?.products)) {
-        setRawDbProducts(json.data.products);
-        setTotalCount(json.data.pagination?.total ?? json.data.products.length);
+        const newProducts = json.data.products;
+        setTotalCount(json.data.pagination?.total ?? newProducts.length);
         setTotalPages(json.data.pagination?.totalPages || 1);
+
+        if (pageToFetch === 1) {
+          setRawDbProducts(newProducts);
+        } else {
+          setRawDbProducts((prev) => {
+            const existingIds = new Set(prev.map((p) => String(p.id)));
+            const filteredNew = newProducts.filter((p) => !existingIds.has(String(p.id)));
+            return [...prev, ...filteredNew];
+          });
+        }
         setHasFetched(true);
       } else {
-        setRawDbProducts([]);
-        setTotalCount(0);
-        setTotalPages(1);
+        if (pageToFetch === 1) {
+          setRawDbProducts([]);
+          setTotalCount(0);
+          setTotalPages(1);
+        }
         setHasFetched(true);
       }
     } catch {
       if (currentSeq === requestSeqRef.current) {
-        setRawDbProducts([]);
-        setTotalCount(0);
-        setTotalPages(1);
+        if (pageToFetch === 1) {
+          setRawDbProducts([]);
+          setTotalCount(0);
+          setTotalPages(1);
+        }
         setHasFetched(true);
       }
     } finally {
       if (currentSeq === requestSeqRef.current) {
         setLoading(false);
+        setLoadingMore(false);
       }
     }
   }, [
-    currentPage,
-    searchKeyword,
+    activeCollection,
+    debouncedSearch,
     selectedCategories,
     selectedSubcategories,
     selectedColors,
@@ -303,9 +378,41 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
     sortBy,
   ]);
 
+  // Initial fetch and on filter changes reset to page 1
   useEffect(() => {
-    fetchProducts();
+    setCurrentPage(1);
+    fetchProducts(1);
   }, [fetchProducts]);
+
+  // Load More Handler (button or automatic infinite scroll)
+  const handleLoadMore = useCallback(() => {
+    if (!loading && !loadingMore && currentPage < totalPages && rawDbProducts.length < totalCount) {
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      fetchProducts(nextPage);
+    }
+  }, [loading, loadingMore, currentPage, totalPages, rawDbProducts.length, totalCount, fetchProducts]);
+
+  // Infinite Scroll IntersectionObserver on bottom sentinel
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first.isIntersecting && !loading && !loadingMore && currentPage < totalPages && rawDbProducts.length < totalCount) {
+          handleLoadMore();
+        }
+      },
+      { threshold: 0.1, rootMargin: '250px' }
+    );
+
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [handleLoadMore, loading, loadingMore, currentPage, totalPages, rawDbProducts.length, totalCount]);
 
   // Transform DB products seamlessly - strictly using backend database results (never dummy fallback)
   const displayProducts = useMemo(() => {
@@ -327,6 +434,32 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
       const originalPrice = hasDiscount ? numPrice : null;
       const discount = hasDiscount ? Math.round(((numPrice - numSale) / numPrice) * 100) : 0;
 
+      const isBest = p.isBestSeller || (p.badge && p.badge.toUpperCase().includes('BEST'));
+      let resolvedBadge = p.badge;
+      if (activeCollection === 'best-sellers' || isBest) {
+        resolvedBadge = 'BESTSELLER';
+      } else if (activeCollection === 'new-arrivals') {
+        resolvedBadge = (p.badge && p.badge.toUpperCase().includes('NEW')) ? p.badge : 'NEW ARRIVAL';
+      } else if (activeCollection === 'offers' || (hasDiscount && discount > 0)) {
+        resolvedBadge = hasDiscount && discount > 0 ? `${discount}% OFF` : (p.badge || 'SPECIAL OFFER');
+      } else if (activeCollection === 'gifts') {
+        resolvedBadge = p.badge || 'GIFT CHOICE';
+      } else if (!resolvedBadge) {
+        if (p.isFeatured) resolvedBadge = 'FEATURED';
+      }
+
+      const resolvedBadgeColor = (() => {
+        const b = (resolvedBadge || '').toUpperCase();
+        if (b.includes('EXCLUSIVE')) return '#059669';
+        if (b.includes('TRENDING')) return '#DB2777';
+        if (b.includes('GIFT')) return '#9333EA';
+        if (b.includes('BEST')) return '#6D28D9';
+        if (b.includes('NEW')) return '#4338CA';
+        if (b.includes('HOT') || b.includes('DEAL') || b.includes('%') || b.includes('OFF')) return '#DC2626';
+        if (b.includes('LIMITED')) return '#0284C7';
+        return '#6D28D9';
+      })();
+
       return {
         id: String(p.id),
         name: p.name,
@@ -337,18 +470,8 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
         discount,
         rating: Number(p.rating || 4.8),
         reviews: p.reviewCount || 42,
-        badge: p.badge || (p.isFeatured ? 'FEATURED' : p.isBestSeller ? 'BESTSELLER' : hasDiscount && discount > 0 ? `${discount}% OFF` : ''),
-        badgeColor: (() => {
-          const b = (p.badge || (p.isBestSeller ? 'BESTSELLER' : '')).toUpperCase();
-          if (b.includes('EXCLUSIVE')) return '#059669';
-          if (b.includes('TRENDING')) return '#DB2777';
-          if (b.includes('GIFT')) return '#9333EA';
-          if (b.includes('BEST')) return '#6D28D9';
-          if (b.includes('NEW')) return '#4338CA';
-          if (b.includes('HOT') || b.includes('DEAL')) return '#DC2626';
-          if (b.includes('LIMITED')) return '#0284C7';
-          return p.isBestSeller ? '#6D28D9' : '#DB2777';
-        })(),
+        badge: resolvedBadge,
+        badgeColor: resolvedBadgeColor,
         color: p.variants?.[0]?.color?.name || 'Gold',
         colorHex: p.variants?.[0]?.color?.hexCode || '#EAB308',
         size: p.variants?.[0]?.size?.name || 'Standard',
@@ -358,7 +481,7 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
         slug: p.slug || p.id,
       };
     });
-  }, [rawDbProducts]);
+  }, [rawDbProducts, activeCollection]);
 
   // Categories list for filters
   const filterCategories = useMemo(() => {
@@ -404,14 +527,6 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
     }
     return ['16 Inch', '18 Inch', '22 Inch', 'Size 7', '2.4', '2.6', '30 cm', '120 cm', 'Standard'];
   }, [dbSizes]);
-
-  // Auto-scroll to products catalog section
-  const scrollToCatalog = () => {
-    const catalogEl = document.getElementById('catalog-products-section');
-    if (catalogEl) {
-      catalogEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
 
   // Filter Handlers
   const handleCategoryToggle = (categoryName) => {
@@ -464,19 +579,55 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
   const toggleWishlist = (e, prod) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!customerUser) {
+      const returnUrl = typeof window !== 'undefined' ? window.location.pathname : '/products';
+      router.push(`/login?redirect=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
     // 1. Instant 0ms synchronous UI toggle across all pages
     dispatch(optimisticToggle(prod));
     // 2. Database & auth sync
     dispatch(toggleWishlistProduct(prod));
   };
 
-  const handleAddToCart = (e, id) => {
+  const handleAddToCart = (e, prodOrId) => {
     e.preventDefault();
     e.stopPropagation();
-    setCartState((prev) => ({ ...prev, [id]: true }));
-    setTimeout(() => {
-      setCartState((prev) => ({ ...prev, [id]: false }));
-    }, 1800);
+    const prod =
+      typeof prodOrId === 'object' && prodOrId !== null
+        ? prodOrId
+        : (filteredProducts?.find((p) => p.id === prodOrId) || products?.find((p) => p.id === prodOrId));
+
+    if (!prod) return;
+
+    const isInCart = Boolean(cartMap[prod.id] || (prod.slug && cartMap[prod.slug]));
+
+    if (isInCart) {
+      dispatch(removeFromCart(prod.id));
+      dispatch(syncRemoveFromCart(prod.id));
+    } else {
+      const salePrice = prod.price || prod.salePrice || 999;
+      dispatch(
+        addToCart({
+          productId: prod.id,
+          productName: prod.name,
+          slug: prod.slug,
+          categoryName: prod.categoryName || prod.subcategory?.name || 'Jewellery',
+          selectedSize: 'Standard',
+          selectedColor: 'Gold',
+          metaSubtitle: `${prod.categoryName || 'Jewellery'} | Standard`,
+          imageUrl: prod.image || (Array.isArray(prod.images) && prod.images[0]?.imageUrl) || (Array.isArray(prod.images) && prod.images[0]) || '/images/storefront/cat-chains.jpg',
+          badge: prod.badge,
+          price: salePrice,
+          mrp: prod.originalPrice || prod.mrp || salePrice * 1.5,
+          discountPercent: prod.discountPercent || 0,
+          quantity: 1,
+          stock: prod.stock || 20,
+          inStock: true,
+        })
+      );
+      dispatch(syncAddToCart({ productId: prod.id, quantity: 1, priceSnapshot: salePrice }));
+    }
   };
   // Active filter count
   const activeFilterCount =
@@ -981,6 +1132,22 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
     </div>
   );
 
+  const getCollectionTitle = () => {
+    if (activeCollection === 'new-arrivals') return '✨ New Arrivals Collection';
+    if (activeCollection === 'best-sellers') return '🔥 Best Sellers & Top Rated';
+    if (activeCollection === 'offers' || activeCollection === 'special-offers') return '🏷️ Special Offers & Deals';
+    if (activeCollection === 'gifts' || activeCollection === 'gift-cards') return '🎁 Gift Items & Hampers';
+    return 'Explore All Products';
+  };
+
+  const getCollectionLabel = () => {
+    if (activeCollection === 'new-arrivals') return 'New Arrivals';
+    if (activeCollection === 'best-sellers') return 'Best Sellers';
+    if (activeCollection === 'offers' || activeCollection === 'special-offers') return 'Special Offers';
+    if (activeCollection === 'gifts' || activeCollection === 'gift-cards') return 'Gift Items';
+    return activeCollection;
+  };
+
   return (
     <div id="catalog-products-section" style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 20px 60px' }}>
       {/* Top Search & Filter Bar */}
@@ -995,10 +1162,39 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#1E1B4B', margin: 0 }}>
-              Explore All Products
+              {getCollectionTitle()}
             </h1>
+            {activeCollection && (
+              <span
+                style={{
+                  padding: '3px 10px',
+                  borderRadius: '12px',
+                  backgroundColor: '#FDF2F8',
+                  border: '1px solid #FBCFE8',
+                  color: '#DB2777',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <span>Collection: {getCollectionLabel()}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveCollection(null);
+                    scrollToCatalog();
+                  }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DB2777', padding: 0 }}
+                  title="Clear collection filter"
+                >
+                  <X size={13} />
+                </button>
+              </span>
+            )}
             {selectedCategories.length > 0 && (
               <span
                 style={{
@@ -1075,6 +1271,7 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
               onChange={(e) => setSearchKeyword(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
+                  setDebouncedSearch(searchKeyword.trim());
                   setCurrentPage(1);
                   scrollToCatalog();
                 }
@@ -1095,6 +1292,7 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
                 type="button"
                 onClick={() => {
                   setSearchKeyword('');
+                  setDebouncedSearch('');
                   setCurrentPage(1);
                   scrollToCatalog();
                 }}
@@ -1437,7 +1635,7 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
             >
               {displayProducts.map((prod) => {
                 const isWishlisted = Boolean(likedMap[String(prod.id)] || likedMap[String(prod.productId)]);
-                const isAdded = cartState[prod.id];
+                const isAdded = Boolean(cartMap[prod.id] || (prod.slug && cartMap[prod.slug]));
 
                 return (
                   <div
@@ -1605,11 +1803,12 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
 
                         <button
                           type="button"
-                          onClick={(e) => handleAddToCart(e, prod.id)}
+                          onClick={(e) => handleAddToCart(e, prod)}
+                          title={isAdded ? 'In Cart - Click to remove' : 'Add to Cart'}
                           style={{
                             padding: '6px 12px',
                             borderRadius: '8px',
-                            backgroundColor: isAdded ? '#10B981' : '#7E22CE',
+                            backgroundColor: isAdded ? '#059669' : '#7E22CE',
                             color: '#ffffff',
                             border: 'none',
                             fontSize: '12px',
@@ -1618,7 +1817,8 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
                             display: 'flex',
                             alignItems: 'center',
                             gap: '4px',
-                            transition: 'background-color 0.2s ease',
+                            transition: 'all 0.2s ease',
+                            boxShadow: isAdded ? '0 2px 8px rgba(5, 150, 105, 0.25)' : '0 2px 8px rgba(126, 34, 206, 0.25)',
                           }}
                         >
                           {isAdded ? (
@@ -1644,7 +1844,7 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {displayProducts.map((prod) => {
                 const isWishlisted = Boolean(likedMap[String(prod.id)] || likedMap[String(prod.productId)]);
-                const isAdded = cartState[prod.id];
+                const isAdded = Boolean(cartMap[prod.id] || (prod.slug && cartMap[prod.slug]));
 
                 return (
                   <div
@@ -1702,11 +1902,12 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                       <button
                         type="button"
-                        onClick={(e) => handleAddToCart(e, prod.id)}
+                        onClick={(e) => handleAddToCart(e, prod)}
+                        title={isAdded ? 'In Cart - Click to remove' : 'Add to Cart'}
                         style={{
                           padding: '8px 16px',
                           borderRadius: '8px',
-                          backgroundColor: isAdded ? '#10B981' : '#7E22CE',
+                          backgroundColor: isAdded ? '#059669' : '#7E22CE',
                           color: '#ffffff',
                           border: 'none',
                           fontSize: '12.5px',
@@ -1715,6 +1916,8 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '6px',
+                          boxShadow: isAdded ? '0 2px 8px rgba(5, 150, 105, 0.25)' : '0 2px 8px rgba(126, 34, 206, 0.25)',
+                          transition: 'all 0.2s ease',
                         }}
                       >
                         {isAdded ? <Check size={14} /> : <ShoppingCart size={14} />}
@@ -1748,198 +1951,126 @@ export default function AllProductsCatalog({ initialCategory = null, isCategoryM
             </div>
           )}
 
-          {/* Dynamic Scalable Pagination */}
+          {/* Infinite Scroll Bottom Controls, Show More Button & Completion Status */}
           {totalCount > 0 && (
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: totalPages > 1 ? 'space-between' : 'center',
                 marginTop: '40px',
                 paddingTop: '20px',
                 borderTop: '1px solid #F3F4F6',
-                flexWrap: 'wrap',
-                gap: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '16px',
               }}
             >
-              <div style={{ fontSize: '13px', color: '#6B7280', fontWeight: 500 }}>
+              {/* Progress Count Summary */}
+              <div style={{ fontSize: '13px', color: '#6B7280', fontWeight: 600, textAlign: 'center' }}>
                 Showing{' '}
-                <b style={{ color: '#111827' }}>
-                  {totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}
+                <b style={{ color: '#1E1B4B' }}>
+                  {Math.min(displayProducts.length, totalCount)}
                 </b>{' '}
-                to{' '}
-                <b style={{ color: '#111827' }}>
-                  {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}
-                </b>{' '}
-                of <b style={{ color: '#111827' }}>{totalCount}</b> products
-                {totalPages > 1 && (
-                  <span style={{ color: '#9CA3AF', marginLeft: '6px' }}>
-                    (Page {currentPage} of {totalPages})
-                  </span>
-                )}
-              </div>
-
-              {totalPages > 1 && (
+                of <b style={{ color: '#7E22CE' }}>{totalCount}</b> exquisite products
+                {/* Progress bar line */}
                 <div
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    flexWrap: 'wrap',
+                    width: '240px',
+                    height: '5px',
+                    backgroundColor: '#EDE9FE',
+                    borderRadius: '999px',
+                    margin: '8px auto 0',
+                    overflow: 'hidden',
                   }}
                 >
-                  {/* First Page */}
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${Math.min(100, Math.round((displayProducts.length / Math.max(1, totalCount)) * 100))}%`,
+                      backgroundColor: '#7E22CE',
+                      borderRadius: '999px',
+                      transition: 'width 0.3s ease',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Show More Products Button (30 more) */}
+              {displayProducts.length < totalCount && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '12px 0 8px' }}>
                   <button
                     type="button"
-                    title="First Page"
-                    disabled={currentPage === 1}
-                    onClick={() => {
-                      setCurrentPage(1);
-                      scrollToCatalog();
-                    }}
+                    disabled={loadingMore}
+                    onClick={handleLoadMore}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '8px',
-                      backgroundColor: '#FFFFFF',
-                      border: '1px solid #E5E7EB',
-                      color: currentPage === 1 ? '#D1D5DB' : '#374151',
-                      cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                      transition: 'all 0.15s ease',
+                      gap: '10px',
+                      padding: '13px 34px',
+                      backgroundColor: '#7E22CE',
+                      color: '#FFFFFF',
+                      borderRadius: '999px',
+                      border: 'none',
+                      fontSize: '13.5px',
+                      fontWeight: 800,
+                      cursor: loadingMore ? 'wait' : 'pointer',
+                      boxShadow: '0 6px 20px rgba(126, 34, 206, 0.25)',
+                      transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!loadingMore) {
+                        e.currentTarget.style.backgroundColor = '#6B21A8';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 10px 24px rgba(126, 34, 206, 0.35)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!loadingMore) {
+                        e.currentTarget.style.backgroundColor = '#7E22CE';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 6px 20px rgba(126, 34, 206, 0.25)';
+                      }
                     }}
                   >
-                    <ChevronsLeft size={16} />
+                    {loadingMore ? (
+                      <>
+                        <Loader2 size={17} className="animate-spin" />
+                        <span>Loading 30 More Products...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        <span>Show More Products (+30)</span>
+                      </>
+                    )}
                   </button>
+                  <span style={{ fontSize: '11.5px', color: '#9CA3AF' }}>
+                    💡 Automatically loads when scrolling to the bottom
+                  </span>
+                </div>
+              )}
 
-                  {/* Previous Page */}
-                  <button
-                    type="button"
-                    disabled={currentPage === 1}
-                    onClick={() => {
-                      setCurrentPage((p) => Math.max(1, p - 1));
-                      scrollToCatalog();
-                    }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: '#FFFFFF',
-                      border: '1px solid #E5E7EB',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: currentPage === 1 ? '#9CA3AF' : '#374151',
-                      cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <ChevronLeft size={15} />
-                    <span>Prev</span>
-                  </button>
+              {/* Sentinel element for infinite scroll observer */}
+              <div ref={sentinelRef} style={{ height: '20px', width: '100%', pointerEvents: 'none' }} />
 
-                  {/* Page Numbers */}
-                  {getPaginationItems(currentPage, totalPages).map((item, idx) => {
-                    if (item === '...') {
-                      return (
-                        <span
-                          key={`ellipsis-${idx}`}
-                          style={{
-                            padding: '0 4px',
-                            color: '#9CA3AF',
-                            fontSize: '14px',
-                            fontWeight: 700,
-                            userSelect: 'none',
-                          }}
-                        >
-                          ...
-                        </span>
-                      );
-                    }
-                    const num = item;
-                    const isCurrent = currentPage === num;
-                    return (
-                      <button
-                        key={num}
-                        type="button"
-                        onClick={() => {
-                          setCurrentPage(num);
-                          scrollToCatalog();
-                        }}
-                        style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '8px',
-                          backgroundColor: isCurrent ? '#7E22CE' : '#FFFFFF',
-                          color: isCurrent ? '#FFFFFF' : '#374151',
-                          border: isCurrent ? '1px solid #7E22CE' : '1px solid #E5E7EB',
-                          fontSize: '13px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                          boxShadow: isCurrent ? '0 2px 4px rgba(126, 34, 206, 0.2)' : 'none',
-                        }}
-                      >
-                        {num}
-                      </button>
-                    );
-                  })}
-
-                  {/* Next Page */}
-                  <button
-                    type="button"
-                    disabled={currentPage >= totalPages}
-                    onClick={() => {
-                      setCurrentPage((p) => p + 1);
-                      scrollToCatalog();
-                    }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: '#FFFFFF',
-                      border: '1px solid #E5E7EB',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: currentPage >= totalPages ? '#9CA3AF' : '#374151',
-                      cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <span>Next</span>
-                    <ChevronRight size={15} />
-                  </button>
-
-                  {/* Last Page */}
-                  <button
-                    type="button"
-                    title="Last Page"
-                    disabled={currentPage >= totalPages}
-                    onClick={() => {
-                      setCurrentPage(totalPages);
-                      scrollToCatalog();
-                    }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '8px',
-                      backgroundColor: '#FFFFFF',
-                      border: '1px solid #E5E7EB',
-                      color: currentPage >= totalPages ? '#D1D5DB' : '#374151',
-                      cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <ChevronsRight size={16} />
-                  </button>
+              {/* Completion Banner */}
+              {hasFetched && displayProducts.length >= totalCount && totalCount > 0 && (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 20px',
+                    borderRadius: '999px',
+                    backgroundColor: '#FAF5FF',
+                    border: '1.5px solid #E9D5FF',
+                    color: '#7E22CE',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    marginTop: '8px',
+                  }}
+                >
+                  <Sparkles size={14} color="#9333EA" />
+                  <span>You&apos;ve viewed all {totalCount} products in this collection</span>
                 </div>
               )}
             </div>

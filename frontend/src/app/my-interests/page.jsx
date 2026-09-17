@@ -20,10 +20,12 @@ import MainHeader from '@/components/layout/MainHeader';
 import Footer from '@/components/layout/Footer';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchWishlist, removeWishlistProduct } from '@/store/slices/wishlistSlice';
+import { addToCart } from '@/store/slices/cartSlice';
 
 export default function MyInterestsPage() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const currentUser = useSelector((state) => state.auth?.customer?.user);
   const { items: interests, loading } = useSelector((state) => state.wishlist);
   const [deletingId, setDeletingId] = useState(null);
   const [cartFeedback, setCartFeedback] = useState({});
@@ -47,9 +49,32 @@ export default function MyInterestsPage() {
     }
   };
 
-  const handleAddToCart = (e, prodId) => {
+  const handleAddToCart = (e, item) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!currentUser) {
+      router.push('/login?redirect=/my-interests');
+      return;
+    }
+
+    const prod = item.product || item;
+    const prodId = prod.id || item.productId || prod._id;
+
+    dispatch(
+      addToCart({
+        id: prodId,
+        name: prod.name,
+        slug: prod.slug,
+        image: prod.images?.[0] || prod.image || '/images/hero-ring.png',
+        price: prod.price || 0,
+        originalPrice: prod.originalPrice || prod.price || 0,
+        sku: prod.sku || 'TP-JW',
+        category: prod.category || 'Jewelry',
+        quantity: 1,
+      })
+    );
+
     setCartFeedback((prev) => ({ ...prev, [prodId]: true }));
     setTimeout(() => {
       setCartFeedback((prev) => ({ ...prev, [prodId]: false }));
@@ -414,7 +439,7 @@ export default function MyInterestsPage() {
                       {/* Add to Cart Button */}
                       <button
                         type="button"
-                        onClick={(e) => handleAddToCart(e, prod.id || item.productId)}
+                        onClick={(e) => handleAddToCart(e, prod)}
                         style={{
                           display: 'flex',
                           alignItems: 'center',

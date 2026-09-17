@@ -137,6 +137,60 @@ export const deleteProductImage = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, result, result.message);
 });
 
+export const exportProducts = asyncHandler(async (req, res) => {
+  const {
+    search,
+    categoryId,
+    subcategoryId,
+    status,
+    stockStatus,
+    minPrice,
+    maxPrice,
+    minStock,
+    maxStock,
+    format = 'json',
+  } = req.query;
+
+  const data = await productService.exportProducts({
+    search,
+    categoryId,
+    subcategoryId,
+    status,
+    stockStatus,
+    minPrice,
+    maxPrice,
+    minStock,
+    maxStock,
+  });
+
+  if (format === 'csv') {
+    if (!data.length) {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="products-export.csv"');
+      return res.status(200).send('SKU,Product Name,Slug,Category,Subcategory,Price,Sale Price,Discount %,Stock,Status,Rating,Reviews,Date\n');
+    }
+
+    const headers = Object.keys(data[0]);
+    const csvRows = [
+      headers.join(','),
+      ...data.map((row) =>
+        headers
+          .map((fieldName) => {
+            const val = row[fieldName] !== undefined && row[fieldName] !== null ? String(row[fieldName]) : '';
+            return `"${val.replace(/"/g, '""')}"`;
+          })
+          .join(',')
+      ),
+    ];
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="products-export-${Date.now()}.csv"`);
+    return res.status(200).send(csvRows.join('\n'));
+  }
+
+  return ApiResponse.success(res, { products: data, total: data.length }, 'Products exported successfully');
+});
+
 export default {
   listProducts,
   getProduct,
@@ -146,4 +200,5 @@ export default {
   deleteProduct,
   deleteProductImage,
   bulkDeleteProducts,
+  exportProducts,
 };

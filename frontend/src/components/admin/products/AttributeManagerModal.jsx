@@ -138,6 +138,7 @@ export default function AttributeManagerModal({ open, onClose, onAttributesUpdat
       setAttrName('');
       setAttrValuesText('');
       await loadAttributes();
+      if (onAttributesUpdated) onAttributesUpdated();
       setActiveTab('browse');
     } catch (err) {
       setError(err?.message || 'Failed to create attribute');
@@ -156,6 +157,7 @@ export default function AttributeManagerModal({ open, onClose, onAttributesUpdat
         values: preset.values,
       });
       await loadAttributes();
+      if (onAttributesUpdated) onAttributesUpdated();
     } catch (err) {
       setError(err?.message || 'Failed to apply preset');
     } finally {
@@ -185,7 +187,8 @@ export default function AttributeManagerModal({ open, onClose, onAttributesUpdat
 
     try {
       await adminAttributeApi.addAttributeValue(attrId, { value: val });
-      loadAttributes();
+      await loadAttributes();
+      if (onAttributesUpdated) onAttributesUpdated();
     } catch (err) {
       setError(err?.message || 'Failed to add value');
       loadAttributes();

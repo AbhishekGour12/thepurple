@@ -29,7 +29,7 @@ export default function Footer() {
           className="footer-grid"
           style={{
             display: 'grid',
-            gridTemplateColumns: '2.2fr 1.1fr 1.1fr 1.2fr 1.1fr 1.8fr',
+            gridTemplateColumns: '2.4fr 1.2fr 1.3fr 1.2fr 1.9fr',
             gap: '36px',
             paddingBottom: '44px',
           }}
@@ -112,49 +112,7 @@ export default function Footer() {
                 { label: 'New Arrivals', href: '/new-arrivals' },
                 { label: 'Best Sellers', href: '/best-sellers' },
                 { label: 'Special Offers', href: '/offers' },
-                { label: 'Gift Cards', href: '/gift-cards' },
-              ].map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    style={{
-                      textDecoration: 'none',
-                      fontSize: '13.5px',
-                      color: '#5F5A6B',
-                      transition: 'color 0.15s ease',
-                      fontFamily: "var(--font-body, 'Plus Jakarta Sans', sans-serif)",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = '#6D28D9')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = '#5F5A6B')}
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Col 3: Categories */}
-          <div className="footer-col-categories" style={{ minWidth: 0 }}>
-            <h4
-              style={{
-                fontSize: '14px',
-                fontWeight: 800,
-                color: '#18181B',
-                marginBottom: '16px',
-                letterSpacing: '0.02em',
-                fontFamily: "var(--font-heading, 'Outfit', sans-serif)",
-              }}
-            >
-              Categories
-            </h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {[
-                { label: 'Chains', href: '/category/chains' },
-                { label: 'Earrings', href: '/category/earrings' },
-                { label: 'Necklaces', href: '/category/necklaces' },
-                { label: 'Bangles', href: '/category/bangles' },
-                { label: 'Teddy Bears', href: '/category/teddy-bears' },
+                { label: 'Gift Items', href: '/gift-cards' },
               ].map((link) => (
                 <li key={link.label}>
                   <Link

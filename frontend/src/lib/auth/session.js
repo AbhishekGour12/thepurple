@@ -1,4 +1,5 @@
 const CUSTOMER_TOKEN_KEY = 'thepurple_customer_token';
+const CUSTOMER_USER_KEY = 'thepurple_customer_user';
 const ADMIN_TOKEN_KEY = 'thepurple_admin_token';
 const ADMIN_PROFILE_KEY = 'thepurple_admin_profile';
 
@@ -28,9 +29,14 @@ export function observeSession(listener) {
 
 // ─── Customer Session ────────────────────────────────────────────────
 
-export function setCustomerSession(token) {
+export function setCustomerSession(token, user = null) {
   if (typeof window !== 'undefined') {
-    localStorage.setItem(CUSTOMER_TOKEN_KEY, token);
+    if (token) {
+      localStorage.setItem(CUSTOMER_TOKEN_KEY, token);
+    }
+    if (user) {
+      localStorage.setItem(CUSTOMER_USER_KEY, JSON.stringify(user));
+    }
   }
 }
 
@@ -41,9 +47,22 @@ export function getStoredCustomerToken() {
   return null;
 }
 
+export function getStoredCustomerUser() {
+  if (typeof window !== 'undefined') {
+    const raw = localStorage.getItem(CUSTOMER_USER_KEY);
+    try {
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export function clearCustomerSession() {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(CUSTOMER_TOKEN_KEY);
+    localStorage.removeItem(CUSTOMER_USER_KEY);
   }
 }
 

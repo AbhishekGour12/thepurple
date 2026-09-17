@@ -46,4 +46,35 @@ export const authenticateUser = asyncHandler(async (req, res, next) => {
   }
 });
 
+export const authenticateOptionalUser = asyncHandler(async (req, res, next) => {
+  let token = null;
+
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  }
+
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, env.JWT_SECRET);
+    if (decoded?.id && decoded?.type === 'customer') {
+      const user = await User.findByPk(decoded.id);
+      if (user && user.status !== 'BLOCKED') {
+        req.user = user;
+        req.userToken = token;
+      }
+    }
+  } catch {
+    // If token is invalid or expired, continue as guest session without failing
+    req.user = null;
+  }
+
+  next();
+});
+
 export default authenticateUser;
+

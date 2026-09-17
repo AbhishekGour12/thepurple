@@ -8,6 +8,9 @@ import { auth, googleProvider } from '@/lib/firebase/config';
 import { customerApi } from '@/lib/api/customer';
 import { setCustomerSession, getStoredCustomerToken } from '@/lib/auth/session';
 import { setCustomer } from '@/store/slices/authSlice';
+import { syncMergeCart, fetchCart } from '@/store/slices/cartSlice';
+import { fetchWishlist } from '@/store/slices/wishlistSlice';
+import { getCartSessionId } from '@/lib/api/cart';
 
 import BrandHeader from '@/components/auth/BrandHeader';
 import LoginBackground from '@/components/auth/LoginBackground';
@@ -51,8 +54,15 @@ function CustomerLoginContent() {
         throw new Error(response?.message || 'Failed to authenticate with ThePurple backend.');
       }
 
+      const guestSid = getCartSessionId();
       setCustomerSession(response.token, response.user);
       dispatch(setCustomer({ token: response.token, user: response.user }));
+
+      // Merge guest cart items into user's DB cart
+      await dispatch(syncMergeCart(guestSid));
+      dispatch(fetchCart());
+      dispatch(fetchWishlist());
+
       router.push(redirectUrl);
     } catch (err) {
       if (

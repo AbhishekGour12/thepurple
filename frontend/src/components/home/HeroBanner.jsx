@@ -340,6 +340,7 @@ export default function HeroBanner() {
               </button>
 
               <div
+                className="hero-dots-container"
                 style={{
                   position: 'absolute',
                   bottom: '18px',
@@ -397,6 +398,7 @@ export default function HeroBanner() {
         >
           {/* Ambient Light */}
           <div
+            className="hero-ambient-light"
             style={{
               position: 'absolute',
               top: '-50px',
@@ -648,6 +650,7 @@ export default function HeroBanner() {
                     }}
                   />
                   <div
+                    className="hero-img-gradient-overlay"
                     style={{
                       position: 'absolute',
                       inset: 0,
@@ -768,6 +771,7 @@ export default function HeroBanner() {
 
               {/* Dots */}
               <div
+                className="hero-dots-container"
                 style={{
                   position: 'absolute',
                   bottom: '18px',
@@ -844,6 +848,11 @@ export default function HeroBanner() {
         }
 
         @media (max-width: 990px) {
+          .hero-ambient-light,
+          .hero-img-gradient-overlay,
+          .hero-floating-pill {
+            display: none !important;
+          }
           .hero-banner-card:not(.hero-full-image-card) {
             flex-direction: column-reverse !important;
             min-height: auto !important;
@@ -884,14 +893,17 @@ export default function HeroBanner() {
             -webkit-clip-path: none !important;
             mask-image: none !important;
             -webkit-mask-image: none !important;
+            filter: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
             border-radius: 18px 18px 0 0 !important;
             width: 100% !important;
             height: 100% !important;
           }
-          .hero-floating-pill {
-            left: 16px !important;
-            bottom: 16px !important;
-            padding: 6px 12px !important;
+          .hero-dots-container {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background-color: rgba(24, 24, 27, 0.65) !important;
           }
           .hero-nav-arrow {
             display: none !important;
@@ -899,6 +911,11 @@ export default function HeroBanner() {
         }
 
         @media (max-width: 640px) {
+          .hero-ambient-light,
+          .hero-img-gradient-overlay,
+          .hero-floating-pill {
+            display: none !important;
+          }
           .hero-nav-arrow {
             display: none !important;
           }
@@ -920,6 +937,11 @@ export default function HeroBanner() {
             font-size: inherit;
             justify-content: center !important;
             text-align: center !important;
+          }
+          .hero-dots-container {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background-color: rgba(24, 24, 27, 0.65) !important;
           }
         }
       `}</style>

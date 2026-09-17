@@ -48,48 +48,33 @@ export default function AdminDashboardPage() {
 
   const [dashboardData, setDashboardData] = useState({
     kpis: {
-      totalRevenue: 500300,
-      revenueGrowth: '+18.4%',
-      totalOrders: 182,
-      ordersGrowth: '+14.2%',
-      completedOrders: 154,
-      pendingOrders: 28,
-      totalCustomers: 64,
-      customersGrowth: '+22.5%',
-      totalProducts: 48,
-      publishedProducts: 42,
-      lowStockProducts: 3,
-      outOfStockProducts: 1,
-      averageOrderValue: 4850,
-      conversionRate: '3.8%',
-      inventoryHealth: '94%',
+      totalRevenue: 0,
+      revenueGrowth: '0%',
+      totalOrders: 0,
+      ordersGrowth: '0%',
+      completedOrders: 0,
+      pendingOrders: 0,
+      cancelledOrders: 0,
+      totalCustomers: 0,
+      customersGrowth: '0%',
+      totalProducts: 0,
+      publishedProducts: 0,
+      lowStockProducts: 0,
+      outOfStockProducts: 0,
+      totalCategories: 0,
+      averageOrderValue: 0,
+      conversionRate: '0%',
+      inventoryHealth: '100%',
     },
-    revenueTrend: [
-      { day: 'Mon', revenue: 38500, orders: 14, visitors: 420 },
-      { day: 'Tue', revenue: 52400, orders: 19, visitors: 610 },
-      { day: 'Wed', revenue: 47900, orders: 16, visitors: 540 },
-      { day: 'Thu', revenue: 68200, orders: 24, visitors: 780 },
-      { day: 'Fri', revenue: 84600, orders: 31, visitors: 950 },
-      { day: 'Sat', revenue: 112500, orders: 42, visitors: 1340 },
-      { day: 'Sun', revenue: 95800, orders: 36, visitors: 1180 },
-    ],
-    monthlyTrend: [
-      { month: 'Jan', revenue: 340000, orders: 120 },
-      { month: 'Feb', revenue: 410000, orders: 145 },
-      { month: 'Mar', revenue: 485000, orders: 168 },
-      { month: 'Apr', revenue: 560000, orders: 195 },
-      { month: 'May', revenue: 690000, orders: 235 },
-      { month: 'Jun', revenue: 820000, orders: 280 },
-      { month: 'Jul', revenue: 950000, orders: 315 },
-      { month: 'Aug', revenue: 1120000, orders: 380 },
-    ],
+    revenueTrend: [],
+    monthlyTrend: [],
     categoryBreakdown: [],
     recentOrders: [],
     recentProducts: [],
   });
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     try {
       const res = await adminDashboardApi.getAnalytics({ timeRange });
       if (res?.data || res?.kpis) {
@@ -98,12 +83,16 @@ export default function AdminDashboardPage() {
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+    const interval = setInterval(() => {
+      loadData(false); // Live background refresh every 12s
+    }, 12000);
+    return () => clearInterval(interval);
   }, [timeRange]);
 
   const kpis = dashboardData.kpis || {};
@@ -893,7 +882,7 @@ export default function AdminDashboardPage() {
                     >
                       <img
                         src={prod.thumbnailUrl || '/images/storefront/hero-gold.jpg'}
-                        alt={prod.title}
+                        alt={prod.name || prod.title || 'Product'}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     </div>
@@ -910,17 +899,17 @@ export default function AdminDashboardPage() {
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {prod.title}
+                        {prod.name || prod.title}
                       </h4>
                       <span style={{ fontSize: '11.5px', color: '#64748B' }}>
-                        {prod.category?.name || 'General'}
+                        {prod.categoryName || prod.category?.name || 'Jewellery'}
                       </span>
                     </div>
                   </div>
 
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#1E1B4B' }}>
-                      {formatINR(prod.sellingPrice || prod.regularPrice)}
+                      {formatINR(prod.salePrice || prod.price || prod.sellingPrice || prod.regularPrice)}
                     </div>
                     <span
                       style={{

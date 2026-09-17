@@ -50,8 +50,8 @@ export default function ContactPage() {
       a: 'We offer a 7-day hassle-free return and exchange policy for unworn items in their original brand packaging with all certificates and security tags intact. Custom personalized items are covered for transit replacements.',
     },
     {
-      q: 'Do you offer Cash on Delivery?',
-      a: 'Yes, Cash on Delivery (COD) is available across all serviceable pin codes in India on orders up to ₹10,000 with zero additional convenience fees.',
+      q: 'What payment methods do you accept?',
+      a: 'We accept 100% secure online payments via UPI (Google Pay, PhonePe, Paytm), all major Credit/Debit Cards, Net Banking, and digital wallets powered by Razorpay with instant order confirmation.',
     },
     {
       q: 'How long does delivery take?',

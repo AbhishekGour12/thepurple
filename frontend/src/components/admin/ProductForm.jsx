@@ -42,6 +42,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [colorModalOpen, setColorModalOpen] = useState(false);
   const [sizeModalOpen, setSizeModalOpen] = useState(false);
+  const [sizeModalInitialTab, setSizeModalInitialTab] = useState('browse');
   const [attributeModalOpen, setAttributeModalOpen] = useState(false);
 
   // Basic Info
@@ -120,6 +121,17 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
   const [matrixColors, setMatrixColors] = useState([]);
   const [matrixSizes, setMatrixSizes] = useState([]);
 
+  // Direct Inline Quick Add State (No modal required)
+  const [quickColorName, setQuickColorName] = useState('');
+  const [quickColorHex, setQuickColorHex] = useState('#7E22CE');
+  const [quickColorLoading, setQuickColorLoading] = useState(false);
+  const [quickColorSuccess, setQuickColorSuccess] = useState(false);
+
+  const [quickSizeName, setQuickSizeName] = useState('');
+  const [quickSizeCode, setQuickSizeCode] = useState('');
+  const [quickSizeLoading, setQuickSizeLoading] = useState(false);
+  const [quickSizeSuccess, setQuickSizeSuccess] = useState(false);
+
   // UI State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -157,6 +169,57 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
       const res = await adminAttributeApi.listAttributes();
       setAttributes(res?.attributes || []);
     } catch {}
+  };
+
+  const handleQuickAddColor = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const cName = quickColorName.trim();
+    if (!cName) return;
+    setQuickColorLoading(true);
+    try {
+      const res = await adminAttributeApi.createColor({ name: cName, hexCode: quickColorHex || '#7E22CE' }, true);
+      const colorId = res?.color?.id;
+      await refreshColors();
+      if (colorId) {
+        setMatrixColors((prev) => (prev.includes(colorId) ? prev : [...prev, colorId]));
+      }
+      setQuickColorName('');
+      setQuickColorSuccess(true);
+      setTimeout(() => setQuickColorSuccess(false), 2500);
+    } catch (err) {
+      alert(err?.message || 'Failed to add color');
+    } finally {
+      setQuickColorLoading(false);
+    }
+  };
+
+  const handleQuickAddSize = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const sName = quickSizeName.trim();
+    if (!sName) return;
+    setQuickSizeLoading(true);
+    try {
+      const res = await adminAttributeApi.createSize({ name: sName, code: quickSizeCode.trim() || undefined }, true);
+      const sizeId = res?.size?.id;
+      await refreshSizes();
+      if (sizeId) {
+        setMatrixSizes((prev) => (prev.includes(sizeId) ? prev : [...prev, sizeId]));
+      }
+      setQuickSizeName('');
+      setQuickSizeCode('');
+      setQuickSizeSuccess(true);
+      setTimeout(() => setQuickSizeSuccess(false), 2500);
+    } catch (err) {
+      alert(err?.message || 'Failed to add size');
+    } finally {
+      setQuickSizeLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -1247,7 +1310,35 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
 
               <button
                 type="button"
-                onClick={() => setSizeModalOpen(true)}
+                onClick={() => {
+                  setSizeModalInitialTab('dimensions');
+                  setSizeModalOpen(true);
+                }}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  backgroundColor: '#FAF5FF',
+                  border: '1.5px solid #C084FC',
+                  color: '#7E22CE',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  boxShadow: '0 2px 6px rgba(126, 34, 206, 0.1)',
+                }}
+                title="Add Length x Width dimensions with cm, inch, m auto-conversion"
+              >
+                <Ruler size={13} /> 📐 + Dimension (L × W / cm ⇄ inch)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSizeModalInitialTab('browse');
+                  setSizeModalOpen(true);
+                }}
                 style={{
                   padding: '6px 12px',
                   borderRadius: '8px',
@@ -1284,6 +1375,261 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
               >
                 <Plus size={14} /> Add Variant
               </button>
+            </div>
+          </div>
+
+          {/* Direct Inline Quick Add Strip (Instant DB create & auto-sync - NO form submit) */}
+          <div
+            style={{
+              padding: '14px 16px',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '14px',
+              border: '1.5px solid #E9D5FF',
+              marginBottom: '16px',
+              boxShadow: '0 4px 12px rgba(126, 34, 206, 0.06)',
+            }}
+          >
+            <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#581C87', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sparkles size={15} style={{ color: '#7E22CE' }} />
+              <span>⚡ Direct Quick-Add (Instant Database Save & Real-Time Sync without popup):</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
+              {/* Quick Add Color Box */}
+              <div
+                style={{
+                  backgroundColor: '#FAF5FF',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid #E9D5FF',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#7E22CE', whiteSpace: 'nowrap' }}>+ New Color:</span>
+                  <input
+                    type="text"
+                    value={quickColorName}
+                    onChange={(e) => setQuickColorName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleQuickAddColor();
+                      }
+                    }}
+                    placeholder="e.g. Emerald Green / Gold"
+                    style={{ ...inputStyle, padding: '6px 8px', fontSize: '12px', flex: 1, backgroundColor: '#fff' }}
+                  />
+
+                  {/* Visual Color Swatch & Color Picker */}
+                  <label
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 6px',
+                      backgroundColor: '#fff',
+                      border: '1.5px solid #CBD5E1',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    }}
+                    title="Click to pick exact color"
+                  >
+                    <span
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        backgroundColor: quickColorHex,
+                        border: '1px solid #94A3B8',
+                        display: 'inline-block',
+                      }}
+                    />
+                    <input
+                      type="color"
+                      value={quickColorHex}
+                      onChange={(e) => setQuickColorHex(e.target.value)}
+                      style={{ opacity: 0, width: 0, height: 0, position: 'absolute', pointerEvents: 'none' }}
+                    />
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#6B7280' }}>Pick</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleQuickAddColor();
+                    }}
+                    disabled={quickColorLoading || !quickColorName.trim()}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: quickColorSuccess ? '#16A34A' : '#7E22CE',
+                      color: '#fff',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      border: 'none',
+                      cursor: quickColorLoading || !quickColorName.trim() ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap',
+                      opacity: !quickColorName.trim() ? 0.6 : 1,
+                    }}
+                  >
+                    {quickColorLoading ? 'Adding...' : quickColorSuccess ? '✓ Added' : '+ Add Color'}
+                  </button>
+                </div>
+
+                {/* 1-Tap Quick Color Presets */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 600, color: '#6B7280' }}>Presets:</span>
+                  {[
+                    { name: '22K Gold', hex: '#EAB308' },
+                    { name: 'Rose Gold', hex: '#FB7185' },
+                    { name: 'Silver', hex: '#CBD5E1' },
+                    { name: 'Platinum', hex: '#94A3B8' },
+                    { name: 'Emerald', hex: '#10B981' },
+                    { name: 'Ruby Red', hex: '#EF4444' },
+                    { name: 'Royal Blue', hex: '#3B82F6' },
+                    { name: 'Black', hex: '#1E293B' },
+                  ].map((preset, pIdx) => (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setQuickColorHex(preset.hex);
+                        if (!quickColorName.trim()) setQuickColorName(preset.name);
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        padding: '2px 6px',
+                        borderRadius: '6px',
+                        backgroundColor: '#fff',
+                        border: '1px solid #E5E7EB',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        color: '#374151',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: preset.hex, border: '1px solid #ccc' }} />
+                      <span>{preset.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick Add Size / Dimension Box */}
+              <div
+                style={{
+                  backgroundColor: '#FAF5FF',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid #E9D5FF',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#7E22CE', whiteSpace: 'nowrap' }}>+ New Size:</span>
+                  <input
+                    type="text"
+                    value={quickSizeName}
+                    onChange={(e) => setQuickSizeName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleQuickAddSize();
+                      }
+                    }}
+                    placeholder='e.g. 18" (45.7 cm) / 50x70 cm'
+                    style={{ ...inputStyle, padding: '6px 8px', fontSize: '12px', flex: 1, backgroundColor: '#fff' }}
+                  />
+                  <input
+                    type="text"
+                    value={quickSizeCode}
+                    onChange={(e) => setQuickSizeCode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleQuickAddSize();
+                      }
+                    }}
+                    placeholder="Code (18IN)"
+                    style={{ ...inputStyle, padding: '6px 8px', fontSize: '12px', width: '90px', backgroundColor: '#fff' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleQuickAddSize();
+                    }}
+                    disabled={quickSizeLoading || !quickSizeName.trim()}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: quickSizeSuccess ? '#16A34A' : '#7E22CE',
+                      color: '#fff',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      border: 'none',
+                      cursor: quickSizeLoading || !quickSizeName.trim() ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap',
+                      opacity: !quickSizeName.trim() ? 0.6 : 1,
+                    }}
+                  >
+                    {quickSizeLoading ? 'Adding...' : quickSizeSuccess ? '✓ Added' : '+ Add Size'}
+                  </button>
+                </div>
+
+                {/* 1-Tap Quick Size Presets */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 600, color: '#6B7280' }}>Quick:</span>
+                  {[
+                    { name: '16" (40.6 cm)', code: '16IN' },
+                    { name: '18" (45.7 cm)', code: '18IN' },
+                    { name: '24" (61.0 cm)', code: '24IN' },
+                    { name: '50 cm (Hug Size)', code: '50CM' },
+                    { name: '100 cm (Giant)', code: '100CM' },
+                    { name: '4" × 6"', code: '4X6IN' },
+                    { name: '8" × 10"', code: '8X10IN' },
+                  ].map((preset, sIdx) => (
+                    <button
+                      key={sIdx}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setQuickSizeName(preset.name);
+                        setQuickSizeCode(preset.code);
+                      }}
+                      style={{
+                        padding: '2px 6px',
+                        borderRadius: '6px',
+                        backgroundColor: '#fff',
+                        border: '1px solid #E5E7EB',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        color: '#374151',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1409,14 +1755,41 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {/* Variant Table Header */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1.2fr 1.4fr 1.3fr 0.9fr 1.1fr 0.8fr 36px',
+                  gap: '10px',
+                  padding: '6px 12px',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                <span>Variant SKU</span>
+                <span>Color</span>
+                <span>Size / Dimension</span>
+                <span>MRP (₹)</span>
+                <span>Offer Price (₹)</span>
+                <span>Stock</span>
+                <span></span>
+              </div>
+
               {variants.map((v, idx) => {
                 const selectedColor = colors.find((c) => c.id === v.colorId);
+                const numVMrp = parseFloat(v.mrp) || 0;
+                const numVSale = parseFloat(v.salePrice) || numVMrp;
+                const vDiscount = numVMrp > 0 && numVSale < numVMrp ? Math.round(((numVMrp - numVSale) / numVMrp) * 100) : 0;
+
                 return (
                   <div
                     key={idx}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '1.4fr 1.6fr 1fr 1fr 1fr 40px',
+                      gridTemplateColumns: '1.2fr 1.4fr 1.3fr 0.9fr 1.1fr 0.8fr 36px',
                       gap: '10px',
                       alignItems: 'center',
                       padding: '12px',
@@ -1431,16 +1804,16 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                         value={v.sku}
                         onChange={(e) => handleVariantChange(idx, 'sku', e.target.value)}
                         placeholder="Variant SKU"
-                        style={{ ...inputStyle, padding: '8px 10px', backgroundColor: '#fff' }}
+                        style={{ ...inputStyle, padding: '8px 10px', backgroundColor: '#fff', fontSize: '12px' }}
                       />
                     </div>
 
                     {/* Color with visual swatch preview */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <div
                         style={{
-                          width: '24px',
-                          height: '24px',
+                          width: '22px',
+                          height: '22px',
                           borderRadius: '50%',
                           backgroundColor: selectedColor?.hexCode || '#E5E7EB',
                           border: '2px solid #CBD5E1',
@@ -1452,7 +1825,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                       <select
                         value={v.colorId}
                         onChange={(e) => handleVariantChange(idx, 'colorId', e.target.value)}
-                        style={{ ...inputStyle, padding: '8px 10px', backgroundColor: '#fff', flex: 1 }}
+                        style={{ ...inputStyle, padding: '8px 8px', backgroundColor: '#fff', flex: 1, fontSize: '12px' }}
                       >
                         <option value="">Select Color</option>
                         {colors.map((c) => (
@@ -1467,7 +1840,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                       <select
                         value={v.sizeId}
                         onChange={(e) => handleVariantChange(idx, 'sizeId', e.target.value)}
-                        style={{ ...inputStyle, padding: '8px 10px', backgroundColor: '#fff' }}
+                        style={{ ...inputStyle, padding: '8px 8px', backgroundColor: '#fff', fontSize: '12px' }}
                       >
                         <option value="">Select Size</option>
                         {sizes.map((s) => (
@@ -1478,30 +1851,64 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                       </select>
                     </div>
 
+                    {/* MRP (Cut Price) */}
                     <div>
                       <input
                         type="number"
-                        value={v.salePrice}
-                        onChange={(e) => handleVariantChange(idx, 'salePrice', e.target.value)}
-                        placeholder="Price ₹"
-                        style={{ ...inputStyle, padding: '8px 10px', backgroundColor: '#fff' }}
+                        min="0"
+                        value={v.mrp}
+                        onChange={(e) => handleVariantChange(idx, 'mrp', e.target.value)}
+                        placeholder="MRP ₹"
+                        style={{ ...inputStyle, padding: '8px 8px', backgroundColor: '#fff', fontSize: '12px', color: '#6B7280' }}
+                        title="Original retail price before discount"
                       />
+                    </div>
+
+                    {/* Offer / Sale Price with Discount badge */}
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <input
+                          type="number"
+                          min="0"
+                          value={v.salePrice}
+                          onChange={(e) => handleVariantChange(idx, 'salePrice', e.target.value)}
+                          placeholder="Sale ₹"
+                          style={{ ...inputStyle, padding: '8px 8px', backgroundColor: '#fff', fontSize: '12px', fontWeight: 700, color: '#7E22CE', flex: 1 }}
+                          title="Offer / Selling price"
+                        />
+                        {vDiscount > 0 && (
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 800,
+                              backgroundColor: '#DC2626',
+                              color: '#fff',
+                              padding: '2px 5px',
+                              borderRadius: '4px',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {vDiscount}% OFF
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div>
                       <input
                         type="number"
+                        min="0"
                         value={v.stock}
                         onChange={(e) => handleVariantChange(idx, 'stock', e.target.value)}
-                        placeholder="Stock"
-                        style={{ ...inputStyle, padding: '8px 10px', backgroundColor: '#fff' }}
+                        placeholder="Qty"
+                        style={{ ...inputStyle, padding: '8px 8px', backgroundColor: '#fff', fontSize: '12px' }}
                       />
                     </div>
 
                     <button
                       type="button"
                       onClick={() => handleRemoveVariant(idx)}
-                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#DC2626' }}
+                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       title="Remove variant"
                     >
                       <Trash2 size={16} />
@@ -1692,6 +2099,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
 
       <SizeManagerModal
         open={sizeModalOpen}
+        initialTab={sizeModalInitialTab}
         onClose={() => setSizeModalOpen(false)}
         onSizesUpdated={refreshSizes}
       />

@@ -32,7 +32,7 @@ export default function AnnouncementBar() {
         {/* Left Announcement Message */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Truck size={15} style={{ color: '#DDD6FE', flexShrink: 0 }} />
-          <span>Free Shipping on Orders Above ₹999 | COD Available</span>
+          <span>✨ Express Insured Delivery Across India | 100% Certified Pure Jewellery</span>
         </div>
 
         {/* Right Utility Navigation */}

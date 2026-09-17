@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, use, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useParams } from 'next/navigation';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import MainHeader from '@/components/layout/MainHeader';
 import ProductsPageCarousel from '@/components/products/ProductsPageCarousel';
@@ -18,8 +19,8 @@ function slugToName(slug) {
 }
 
 export default function CategoryPage({ params }) {
-  const unwrappedParams = typeof params?.then === 'function' ? use(params) : params;
-  const slug = unwrappedParams?.slug || '';
+  const routeParams = useParams();
+  const slug = routeParams?.slug || params?.slug || '';
   const initialCategoryName = slugToName(slug);
 
   const [categories, setCategories] = useState([]);
@@ -48,8 +49,18 @@ export default function CategoryPage({ params }) {
       }
     }
     loadCategories();
+
+    // Auto-scroll directly to catalog section
+    const scrollTimer = setTimeout(() => {
+      const catalogEl = document.getElementById('catalog-products-section');
+      if (catalogEl) {
+        catalogEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 250);
+
     return () => {
       isMounted = false;
+      clearTimeout(scrollTimer);
     };
   }, [slug]);
 

@@ -29,11 +29,11 @@ export const createSequelizeInstance = () => {
 
   const poolConfig = isRemote
     ? {
-        max: 8,
-        min: 2,
-        acquire: 20000,
-        idle: 30000,
-        evict: 10000,
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 5000,
+        evict: 2000,
       }
     : {
         max: 10,

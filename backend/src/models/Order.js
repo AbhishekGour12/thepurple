@@ -91,6 +91,68 @@ export const Order = sequelize.define(
       type: DataTypes.ENUM('PENDING', 'PAID', 'FAILED', 'REFUNDED'),
       defaultValue: 'PENDING',
     },
+    appliedCouponCode: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    // Shiprocket Integration Details
+    shiprocketOrderId: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    shiprocketShipmentId: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    awbCode: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    courierName: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    trackingUrl: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    isLabelGenerated: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    labelUrl: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    manifestUrl: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    // Cancellation & Refund Flow
+    cancelledAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    cancellationReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    refundStatus: {
+      type: DataTypes.ENUM('NONE', 'REQUESTED', 'APPROVED', 'REJECTED', 'PROCESSED'),
+      defaultValue: 'NONE',
+    },
+    refundReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    refundAmount: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0.0,
+    },
+    refundProcessedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     notes: {
       type: DataTypes.TEXT,
       allowNull: true,

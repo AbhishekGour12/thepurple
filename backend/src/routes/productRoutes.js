@@ -43,6 +43,12 @@ router.get(
       inStock,
       sortBy = 'recommended',
       badge,
+      collection,
+      newArrivals,
+      bestSellers,
+      offers,
+      gifts,
+      isFeatured,
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -52,17 +58,164 @@ router.get(
     const where = {};
     where.status = { [Op.ne]: PRODUCT_STATUS.UNPUBLISHED };
 
-    // Search query
-    if (search && search.trim()) {
-      const q = `%${search.trim().toLowerCase()}%`;
+    // 1. Collection Filter (New Arrivals, Best Sellers, Offers, Gifts, Featured)
+    if (collection === 'new-arrivals' || newArrivals === 'true') {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       where[Op.or] = [
-        { name: { [Op.iLike]: q } },
-        { sku: { [Op.iLike]: q } },
-        { brand: { [Op.iLike]: q } },
-        { shortDescription: { [Op.iLike]: q } },
-        { description: { [Op.iLike]: q } },
-        { badge: { [Op.iLike]: q } },
+        { badge: { [Op.iLike]: '%new%' } },
+        { publishedAt: { [Op.gte]: thirtyDaysAgo } },
+        { createdAt: { [Op.gte]: thirtyDaysAgo } },
       ];
+    } else if (collection === 'best-sellers' || bestSellers === 'true') {
+      where[Op.or] = [
+        { isBestSeller: true },
+        { badge: { [Op.iLike]: '%best%' } },
+      ];
+    } else if (collection === 'offers' || collection === 'special-offers' || offers === 'true') {
+      where[Op.or] = [
+        { discountPercent: { [Op.gt]: 0 } },
+        { badge: { [Op.iLike]: '%deal%' } },
+        { badge: { [Op.iLike]: '%offer%' } },
+        { badge: { [Op.iLike]: '%sale%' } },
+      ];
+    } else if (collection === 'gifts' || collection === 'gift-cards' || gifts === 'true') {
+      where[Op.or] = [
+        { name: { [Op.iLike]: '%gift%' } },
+        { name: { [Op.iLike]: '%teddy%' } },
+        { name: { [Op.iLike]: '%hamper%' } },
+        { name: { [Op.iLike]: '%box%' } },
+        { name: { [Op.iLike]: '%set%' } },
+        { shortDescription: { [Op.iLike]: '%gift%' } },
+        { description: { [Op.iLike]: '%gift%' } },
+        { badge: { [Op.iLike]: '%gift%' } },
+      ];
+    }
+
+    if (isFeatured === 'true' || collection === 'featured') {
+      where.isFeatured = true;
+    }
+
+    // 2. Intelligent, Typo-Tolerant & Category-Aware Search query
+    if (search && search.trim()) {
+      const rawSearch = search.trim().toLowerCase().replace(/[^\w\s]/gi, ' ');
+      const tokens = rawSearch.split(/\s+/).filter(Boolean);
+
+      const synonymMap = {
+        gift: ['gift', 'hamper', 'teddy', 'box', 'set', 'celebration', 'pendant', 'present'],
+        gifts: ['gift', 'hamper', 'teddy', 'box', 'set', 'celebration', 'pendant', 'present'],
+        gifting: ['gift', 'hamper', 'teddy', 'box', 'set'],
+        hamper: ['hamper', 'gift', 'celebration', 'teddy', 'box', 'set'],
+        hampers: ['hamper', 'gift', 'celebration', 'teddy', 'box', 'set'],
+        teddy: ['teddy', 'bear', 'plush', 'gift', 'hamper'],
+        teddies: ['teddy', 'bear', 'plush', 'gift'],
+        chain: ['chain', 'choker', 'rope', 'cuban', 'italian', 'layered', 'necklace', 'collar'],
+        chains: ['chain', 'choker', 'rope', 'cuban', 'italian', 'layered', 'necklace', 'collar'],
+        choker: ['choker', 'necklace', 'collar', 'chain'],
+        necklace: ['necklace', 'choker', 'haram', 'pendant', 'collar', 'chain', 'mangalsutra'],
+        necklaces: ['necklace', 'choker', 'haram', 'pendant', 'collar', 'chain', 'mangalsutra'],
+        neckla: ['necklace', 'choker', 'chain'],
+        pendant: ['pendant', 'necklace', 'solitaire', 'heart'],
+        earring: ['earring', 'jhumka', 'chandbali', 'stud', 'drop', 'polki'],
+        earrings: ['earring', 'jhumka', 'chandbali', 'stud', 'drop', 'polki'],
+        earing: ['earring', 'earrings', 'jhumka', 'chandbali', 'stud'],
+        earings: ['earring', 'earrings', 'jhumka', 'chandbali', 'stud'],
+        erring: ['earring', 'earrings', 'jhumka', 'chandbali', 'stud'],
+        errings: ['earring', 'earrings', 'jhumka', 'chandbali', 'stud'],
+        jhumka: ['jhumka', 'earring', 'chandbali'],
+        jhumkas: ['jhumka', 'earring', 'chandbali'],
+        stud: ['stud', 'earring', 'diamond'],
+        studs: ['stud', 'earring', 'diamond'],
+        bangle: ['bangle', 'kada', 'bracelet', 'peacock'],
+        bangles: ['bangle', 'kada', 'bracelet', 'peacock'],
+        bangal: ['bangle', 'bangles', 'kada', 'bracelet'],
+        bangals: ['bangle', 'bangles', 'kada', 'bracelet'],
+        kada: ['kada', 'bangle', 'bracelet'],
+        kadas: ['kada', 'bangle', 'bracelet'],
+        bracelet: ['bracelet', 'bangle', 'kada'],
+        bracelets: ['bracelet', 'bangle', 'kada'],
+        ring: ['ring', 'solitaire', 'diamond', 'band'],
+        rings: ['ring', 'solitaire', 'diamond', 'band'],
+        gold: ['gold', '22k', '18k', 'yellow'],
+        silver: ['silver', '925', 'sterling'],
+        diamond: ['diamond', 'solitaire', 'cluster', 'cz'],
+        kurta: ['kurta', 'silk', 'apparel', 'dress'],
+        kurtas: ['kurta', 'silk', 'apparel', 'dress'],
+      };
+
+      const termsSet = new Set();
+      if (rawSearch.length >= 2) termsSet.add(rawSearch);
+
+      tokens.forEach((token) => {
+        if (token.length >= 2) termsSet.add(token);
+
+        // Deduplicate consecutive repeated letters (e.g. giftt -> gift, chainn -> chain)
+        const dedup = token.replace(/(.)\1+/g, '$1');
+        if (dedup.length >= 2) termsSet.add(dedup);
+
+        // Prefix stems for longer words
+        if (token.length >= 5) termsSet.add(token.slice(0, -1));
+        if (dedup.length >= 5) termsSet.add(dedup.slice(0, -1));
+
+        // Stems for plural / forms
+        const stem = token.replace(/ies$/, 'y').replace(/es$/, '').replace(/s$/, '');
+        if (stem.length >= 2) termsSet.add(stem);
+
+        const candidateKeys = [token, dedup, stem];
+        candidateKeys.forEach((k) => {
+          if (synonymMap[k]) {
+            synonymMap[k].forEach((s) => termsSet.add(s));
+          }
+        });
+      });
+
+      const termList = Array.from(termsSet).filter((t) => t.length >= 2);
+
+      // Find matching categories and subcategories
+      const catSubOr = [];
+      termList.forEach((term) => {
+        catSubOr.push({ name: { [Op.iLike]: `%${term}%` } });
+        catSubOr.push({ slug: { [Op.iLike]: `%${term}%` } });
+      });
+
+      const [matchingSubs, matchingCats] = await Promise.all([
+        Subcategory.findAll({
+          where: { [Op.or]: catSubOr },
+          attributes: ['id'],
+        }),
+        Category.findAll({
+          where: { [Op.or]: catSubOr },
+          include: [{ model: Subcategory, as: 'subcategories', attributes: ['id'] }],
+        }),
+      ]);
+
+      const subIds = new Set(matchingSubs.map((s) => s.id));
+      matchingCats.forEach((c) => {
+        (c.subcategories || []).forEach((sc) => subIds.add(sc.id));
+      });
+
+      const searchConditions = [];
+      termList.forEach((term) => {
+        const q = `%${term}%`;
+        searchConditions.push({ name: { [Op.iLike]: q } });
+        searchConditions.push({ sku: { [Op.iLike]: q } });
+        searchConditions.push({ brand: { [Op.iLike]: q } });
+        searchConditions.push({ shortDescription: { [Op.iLike]: q } });
+        searchConditions.push({ description: { [Op.iLike]: q } });
+        searchConditions.push({ badge: { [Op.iLike]: q } });
+        searchConditions.push({ seoKeywords: { [Op.iLike]: q } });
+        searchConditions.push({ seoTitle: { [Op.iLike]: q } });
+      });
+
+      if (subIds.size > 0) {
+        searchConditions.push({ subcategoryId: { [Op.in]: Array.from(subIds) } });
+      }
+
+      if (where[Op.or]) {
+        where[Op.and] = [{ [Op.or]: where[Op.or] }, { [Op.or]: searchConditions }];
+        delete where[Op.or];
+      } else {
+        where[Op.or] = searchConditions;
+      }
     }
 
     // Badge filter
@@ -234,6 +387,12 @@ router.get(
       order = [['isBestSeller', 'DESC'], ['rating', 'DESC']];
     } else if (sortBy === 'newest') {
       order = [['createdAt', 'DESC']];
+    } else if (collection === 'new-arrivals' || newArrivals === 'true') {
+      order = [['createdAt', 'DESC']];
+    } else if (collection === 'best-sellers' || bestSellers === 'true') {
+      order = [['isBestSeller', 'DESC'], ['rating', 'DESC'], ['createdAt', 'DESC']];
+    } else if (collection === 'offers' || offers === 'true') {
+      order = [['discountPercent', 'DESC'], ['createdAt', 'DESC']];
     } else {
       order = [['isFeatured', 'DESC'], ['createdAt', 'DESC']];
     }
@@ -336,6 +495,80 @@ router.get(
         sizes,
       },
       'Filter taxonomy retrieved successfully'
+    );
+  })
+);
+
+/**
+ * @route   GET /api/v1/products/new-arrivals
+ * @desc    Get new arrival products filtered by publishedAt, createdAt, and badge
+ * @access  Public
+ */
+router.get(
+  '/new-arrivals',
+  asyncHandler(async (req, res) => {
+    const { page = 1, limit = 30 } = req.query;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 30));
+    const offset = (pageNum - 1) * limitNum;
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const where = {
+      status: { [Op.ne]: PRODUCT_STATUS.UNPUBLISHED },
+      [Op.or]: [
+        { badge: { [Op.iLike]: '%new%' } },
+        { publishedAt: { [Op.gte]: thirtyDaysAgo } },
+        { createdAt: { [Op.gte]: thirtyDaysAgo } },
+      ],
+    };
+
+    const { count, rows: products } = await Product.findAndCountAll({
+      where,
+      include: [
+        {
+          model: ProductImage,
+          as: 'images',
+          attributes: ['id', 'imageUrl', 'altText', 'isPrimary', 'displayOrder'],
+          required: false,
+        },
+        {
+          model: Subcategory,
+          as: 'subcategory',
+          required: false,
+          include: [{ model: Category, as: 'category', required: false }],
+        },
+        {
+          model: ProductVariant,
+          as: 'variants',
+          required: false,
+          include: [
+            { model: Color, as: 'color', attributes: ['id', 'name', 'hexCode'] },
+            { model: Size, as: 'size', attributes: ['id', 'name', 'code'] },
+          ],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: limitNum,
+      offset,
+      distinct: true,
+    });
+
+    const totalPages = Math.ceil(count / limitNum);
+
+    return ApiResponse.success(
+      res,
+      {
+        products,
+        pagination: {
+          total: count,
+          page: pageNum,
+          limit: limitNum,
+          totalPages,
+          hasMore: pageNum < totalPages,
+        },
+      },
+      'New arrival products retrieved successfully'
     );
   })
 );

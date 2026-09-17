@@ -35,11 +35,11 @@ export default function HomePage() {
 
       {/* Main Storefront Content Area */}
       <main style={{ flex: 1 }}>
-        {/* 4. Hero Banner Carousel */}
-        <HeroBanner />
-
-        {/* 5. Shop By Category Visual Showcase (6-Box Slider) */}
+        {/* 4. Shop By Category Visual Showcase (6-Box Slider) */}
         <FeaturedCategories />
+
+        {/* 5. Hero Banner Carousel */}
+        <HeroBanner />
 
         {/* 6. Trending Products Showcase (10 items + View All CTA) */}
         <HomeFeaturedProducts />

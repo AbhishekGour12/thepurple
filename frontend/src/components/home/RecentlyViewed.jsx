@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Star, Heart, ShoppingBag, Check, Eye } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { optimisticToggle, toggleWishlistProduct } from '@/store/slices/wishlistSlice';
+import { addToCart, removeFromCart, syncAddToCart, syncRemoveFromCart } from '@/store/slices/cartSlice';
 import HorizontalCarousel from './HorizontalCarousel';
 
 const CATALOGUE_PRODUCTS = [
@@ -144,6 +145,18 @@ const CATALOGUE_PRODUCTS = [
 export default function RecentlyViewed() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const customerUser = useSelector((state) => state.auth?.customer?.user);
+  const cartItems = useSelector((state) => state.cart?.items || []);
+  const cartMap = useMemo(() => {
+    const map = {};
+    cartItems.forEach((item) => {
+      if (item.productId) map[item.productId] = true;
+      if (item.id) map[item.id] = true;
+      if (item.slug) map[item.slug] = true;
+    });
+    return map;
+  }, [cartItems]);
+  const wishlistItems = useSelector((state) => state.wishlist?.items || []);
   const likedMap = useSelector((state) => state.wishlist?.likedMap || {});
   const [viewedProducts, setViewedProducts] = useState([]);
   const [addedToCart, setAddedToCart] = useState({});
@@ -239,19 +252,55 @@ export default function RecentlyViewed() {
   const toggleWishlist = (e, prod) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!customerUser) {
+      const returnUrl = typeof window !== 'undefined' ? window.location.pathname : '/';
+      router.push(`/login?redirect=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
     // 1. Instant 0ms synchronous UI toggle across all pages
     dispatch(optimisticToggle(prod));
     // 2. Database & auth sync
     dispatch(toggleWishlistProduct(prod));
   };
 
-  const handleQuickAdd = (e, id) => {
+  const handleQuickAdd = (e, prodOrId) => {
     e.preventDefault();
     e.stopPropagation();
-    setAddedToCart((prev) => ({ ...prev, [id]: true }));
-    setTimeout(() => {
-      setAddedToCart((prev) => ({ ...prev, [id]: false }));
-    }, 2000);
+    const prod =
+      typeof prodOrId === 'object' && prodOrId !== null
+        ? prodOrId
+        : viewedProducts?.find((p) => p.id === prodOrId);
+
+    if (!prod) return;
+
+    const isInCart = Boolean(cartMap[prod.id] || (prod.slug && cartMap[prod.slug]));
+
+    if (isInCart) {
+      dispatch(removeFromCart(prod.id));
+      dispatch(syncRemoveFromCart(prod.id));
+    } else {
+      const salePrice = prod.price || 899;
+      dispatch(
+        addToCart({
+          productId: prod.id,
+          productName: prod.name,
+          slug: prod.slug,
+          categoryName: prod.category || 'Jewellery',
+          selectedSize: 'Standard',
+          selectedColor: 'Gold',
+          metaSubtitle: `${prod.category || 'Jewellery'} | Standard`,
+          imageUrl: prod.image || '/images/storefront/prod-gold-rope.jpg',
+          badge: prod.badge,
+          price: salePrice,
+          mrp: prod.originalPrice || salePrice * 1.5,
+          discountPercent: 0,
+          quantity: 1,
+          stock: 20,
+          inStock: true,
+        })
+      );
+      dispatch(syncAddToCart({ productId: prod.id, quantity: 1, priceSnapshot: salePrice }));
+    }
   };
 
   if (isLoaded && viewedProducts.length === 0) return null;
@@ -320,7 +369,7 @@ export default function RecentlyViewed() {
       <HorizontalCarousel gap={16}>
         {viewedProducts.map((prod) => {
           const isLiked = Boolean(likedMap[String(prod.id)] || likedMap[String(prod.productId)]);
-          const isAdded = !!addedToCart[prod.id];
+          const isAdded = Boolean(cartMap[prod.id] || (prod.slug && cartMap[prod.slug]) || addedToCart[prod.id]);
           const hasDiscount = prod.originalPrice && prod.originalPrice > prod.price;
           const discountPct = hasDiscount ? Math.round(((prod.originalPrice - prod.price) / prod.originalPrice) * 100) : 0;
 
@@ -395,7 +444,7 @@ export default function RecentlyViewed() {
               </div>
 
               <Link
-                href={`/product/${prod.slug}`}
+                href={`/products/${prod.slug}`}
                 style={{
                   display: 'block',
                   width: '100%',
@@ -424,7 +473,7 @@ export default function RecentlyViewed() {
                 {prod.category}
               </div>
               <Link
-                href={`/product/${prod.slug}`}
+                href={`/products/${prod.slug}`}
                 style={{
                   textDecoration: 'none',
                   fontSize: '12.5px',
@@ -464,7 +513,8 @@ export default function RecentlyViewed() {
 
               <button
                 type="button"
-                onClick={(e) => handleQuickAdd(e, prod.id)}
+                onClick={(e) => handleQuickAdd(e, prod)}
+                title={isAdded ? 'In Cart - Click to remove' : 'Add to Cart'}
                 style={{
                   width: '100%',
                   padding: '7px 10px',
@@ -479,8 +529,8 @@ export default function RecentlyViewed() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '5px',
-                  marginTop: 'auto',
                   transition: 'all 0.2s ease',
+                  marginTop: 'auto',
                 }}
               >
                 {isAdded ? (

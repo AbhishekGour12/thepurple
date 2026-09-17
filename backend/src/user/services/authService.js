@@ -99,6 +99,14 @@ export const userAuthService = {
         id: user.id,
         name: user.name,
         email: user.email,
+        contactEmail: user.contactEmail,
+        mobile: user.mobile,
+        alternatePhone: user.alternatePhone,
+        shippingAddress: user.shippingAddress,
+        landmark: user.landmark,
+        city: user.city,
+        state: user.state,
+        pincode: user.pincode,
         avatar: user.avatar,
         role: user.role,
         status: user.status,
@@ -113,7 +121,24 @@ export const userAuthService = {
    */
   async getProfile(userId) {
     const user = await User.findByPk(userId, {
-      attributes: ['id', 'name', 'email', 'mobile', 'avatar', 'role', 'status', 'createdAt', 'lastLoginAt'],
+      attributes: [
+        'id',
+        'name',
+        'email',
+        'contactEmail',
+        'mobile',
+        'alternatePhone',
+        'shippingAddress',
+        'landmark',
+        'city',
+        'state',
+        'pincode',
+        'avatar',
+        'role',
+        'status',
+        'createdAt',
+        'lastLoginAt',
+      ],
     });
     if (!user) {
       throw AppError.notFound('Customer profile not found');

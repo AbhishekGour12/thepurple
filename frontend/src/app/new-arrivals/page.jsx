@@ -1,7 +1,7 @@
 'use client';
 
-import ProductsPage from '../products/page';
+import ProductsPageView from '@/components/products/ProductsPageView';
 
 export default function NewArrivalsPage() {
-  return <ProductsPage />;
+  return <ProductsPageView initialCollection="new-arrivals" />;
 }

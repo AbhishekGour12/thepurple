@@ -26,6 +26,17 @@ export const User = sequelize.define(
         isEmail: true,
       },
     },
+    contactEmail: {
+      type: DataTypes.STRING(150),
+      allowNull: true,
+      validate: {
+        isEmail: true,
+      },
+    },
+    alternatePhone: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
     googleId: {
       type: DataTypes.STRING(150),
       allowNull: true,
@@ -52,6 +63,26 @@ export const User = sequelize.define(
     },
     lastLoginAt: {
       type: DataTypes.DATE,
+      allowNull: true,
+    },
+    shippingAddress: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    landmark: {
+      type: DataTypes.STRING(150),
+      allowNull: true,
+    },
+    city: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    state: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    pincode: {
+      type: DataTypes.STRING(10),
       allowNull: true,
     },
   },

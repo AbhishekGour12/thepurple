@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Search, X, Star, Heart, ShoppingBag, Check } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { optimisticToggle, toggleWishlistProduct } from '@/store/slices/wishlistSlice';
+import { addToCart, removeFromCart, syncAddToCart, syncRemoveFromCart } from '@/store/slices/cartSlice';
 
 const ALL_PRODUCTS = [
   {
@@ -145,7 +146,18 @@ const CATEGORY_TABS = ['All', 'Chains', 'Necklaces', 'Rings', 'Earrings', 'Gifts
 export default function SearchWhatYouLove() {
   const router = useRouter();
   const dispatch = useDispatch();
-  const likedMap = useSelector((state) => state.wishlist?.likedMap || {});
+  const customerUser = useSelector((state) => state.auth?.customer?.user);
+  const cartItems = useSelector((state) => state.cart?.items || []);
+  const cartMap = useMemo(() => {
+    const map = {};
+    cartItems.forEach((item) => {
+      if (item.productId) map[item.productId] = true;
+      if (item.id) map[item.id] = true;
+      if (item.slug) map[item.slug] = true;
+    });
+    return map;
+  }, [cartItems]);
+  const wishlistItems = useSelector((state) => state.wishlist?.items || []);
   const [productsList, setProductsList] = useState(ALL_PRODUCTS);
   const [searchIntent, setSearchIntent] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -211,19 +223,55 @@ export default function SearchWhatYouLove() {
   const toggleWishlist = (e, prod) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!customerUser) {
+      const returnUrl = typeof window !== 'undefined' ? window.location.pathname : '/';
+      router.push(`/login?redirect=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
     // 1. Instant 0ms synchronous UI toggle across all pages
     dispatch(optimisticToggle(prod));
     // 2. Database & auth sync
     dispatch(toggleWishlistProduct(prod));
   };
 
-  const handleQuickAdd = (e, id) => {
+  const handleQuickAdd = (e, prodOrId) => {
     e.preventDefault();
     e.stopPropagation();
-    setAddedToCart((prev) => ({ ...prev, [id]: true }));
-    setTimeout(() => {
-      setAddedToCart((prev) => ({ ...prev, [id]: false }));
-    }, 2000);
+    const prod =
+      typeof prodOrId === 'object' && prodOrId !== null
+        ? prodOrId
+        : productsList?.find((p) => p.id === prodOrId);
+
+    if (!prod) return;
+
+    const isInCart = Boolean(cartMap[prod.id] || (prod.slug && cartMap[prod.slug]));
+
+    if (isInCart) {
+      dispatch(removeFromCart(prod.id));
+      dispatch(syncRemoveFromCart(prod.id));
+    } else {
+      const salePrice = prod.price || 899;
+      dispatch(
+        addToCart({
+          productId: prod.id,
+          productName: prod.name,
+          slug: prod.slug,
+          categoryName: prod.category || 'Jewellery',
+          selectedSize: 'Standard',
+          selectedColor: 'Gold',
+          metaSubtitle: `${prod.category || 'Jewellery'} | Standard`,
+          imageUrl: prod.image || '/images/storefront/prod-gold-rope.jpg',
+          badge: prod.badge,
+          price: salePrice,
+          mrp: prod.originalPrice || salePrice * 1.5,
+          discountPercent: 0,
+          quantity: 1,
+          stock: 20,
+          inStock: true,
+        })
+      );
+      dispatch(syncAddToCart({ productId: prod.id, quantity: 1, priceSnapshot: salePrice }));
+    }
   };
 
   const filteredProducts = useMemo(() => {
@@ -444,7 +492,7 @@ export default function SearchWhatYouLove() {
         >
           {filteredProducts.map((prod) => {
             const isLiked = Boolean(likedMap[String(prod.id)] || likedMap[String(prod.productId)]);
-            const isAdded = !!addedToCart[prod.id];
+            const isAdded = Boolean(cartMap[prod.id] || (prod.slug && cartMap[prod.slug]) || addedToCart[prod.id]);
             const hasDiscount = prod.originalPrice && prod.originalPrice > prod.price;
             const discountPct = hasDiscount ? Math.round(((prod.originalPrice - prod.price) / prod.originalPrice) * 100) : 0;
 
@@ -537,7 +585,7 @@ export default function SearchWhatYouLove() {
 
                 {/* Product Image Container — larger visual */}
                 <Link
-                  href={`/product/${prod.slug}`}
+                  href={`/products/${prod.slug}`}
                   style={{
                     display: 'block',
                     width: '100%',
@@ -581,7 +629,7 @@ export default function SearchWhatYouLove() {
                   </div>
 
                   <Link
-                    href={`/product/${prod.slug}`}
+                    href={`/products/${prod.slug}`}
                     style={{
                       textDecoration: 'none',
                       fontSize: '12.5px',
@@ -665,7 +713,8 @@ export default function SearchWhatYouLove() {
 
                   <button
                     type="button"
-                    onClick={(e) => handleQuickAdd(e, prod.id)}
+                    onClick={(e) => handleQuickAdd(e, prod)}
+                    title={isAdded ? 'In Cart - Click to remove' : 'Add to Cart'}
                     style={{
                       width: '100%',
                       padding: '7px 10px',
