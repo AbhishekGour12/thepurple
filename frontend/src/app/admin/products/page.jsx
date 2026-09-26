@@ -108,6 +108,7 @@ export default function ProductListPage() {
   // Loading states for actions
   const [deletingId, setDeletingId] = useState(null);
   const [togglingStatusId, setTogglingStatusId] = useState(null);
+  const [togglingFeaturedId, setTogglingFeaturedId] = useState(null);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
 
@@ -227,6 +228,30 @@ export default function ProductListPage() {
       fetchProducts(pagination.page);
     } finally {
       setTogglingStatusId(null);
+    }
+  };
+
+  // Quick 1-click Toggle Featured status on Home Page Showcase
+  const handleToggleFeatured = async (product) => {
+    if (togglingFeaturedId === product.id) return;
+    const updatedStatus = !product.isFeatured;
+    setTogglingFeaturedId(product.id);
+
+    // Optimistic instant UI update
+    setProducts((prev) =>
+      prev.map((p) => (p.id === product.id ? { ...p, isFeatured: updatedStatus } : p))
+    );
+
+    try {
+      await adminProductApi.updateProduct(product.id, { isFeatured: updatedStatus });
+    } catch {
+      // Revert if API fails
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, isFeatured: !updatedStatus } : p))
+      );
+      fetchProducts(pagination.page);
+    } finally {
+      setTogglingFeaturedId(null);
     }
   };
 
@@ -530,6 +555,35 @@ export default function ProductListPage() {
             </button>
           );
         })}
+
+        {/* Featured on Home Quick Filter Tab */}
+        <button
+          type="button"
+          onClick={() =>
+            setFilters((prev) => ({
+              ...prev,
+              isFeatured: prev.isFeatured === 'true' ? '' : 'true',
+            }))
+          }
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 16px',
+            borderRadius: '10px',
+            border: filters.isFeatured === 'true' ? '1.5px solid #7E22CE' : '1px solid #E5E7EB',
+            backgroundColor: filters.isFeatured === 'true' ? '#FAF5FF' : '#ffffff',
+            color: filters.isFeatured === 'true' ? '#7E22CE' : '#374151',
+            fontSize: '13px',
+            fontWeight: filters.isFeatured === 'true' ? 700 : 500,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            boxShadow: filters.isFeatured === 'true' ? '0 2px 6px rgba(126, 34, 206, 0.15)' : 'none',
+          }}
+        >
+          <Sparkles size={14} color={filters.isFeatured === 'true' ? '#7E22CE' : '#6B7280'} />
+          <span>★ Featured on Home</span>
+        </button>
 
         {[
           { id: 'low_stock', label: '⚠️ Low Stock' },
@@ -1026,13 +1080,14 @@ export default function ProductListPage() {
                 <th style={thStyle}>Price (MRP / Sale)</th>
                 <th style={thStyle}>Stock Status</th>
                 <th style={thStyle}>Status</th>
+                <th style={thStyle}>Home Showcase</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '60px 20px', color: '#6B7280' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '60px 20px', color: '#6B7280' }}>
                     <RefreshCw size={28} style={{ color: '#7E22CE', margin: '0 auto 12px', animation: 'spin 1s linear infinite' }} />
                     <div style={{ fontWeight: 600, fontSize: '14px', color: '#2E1065' }}>Loading Catalog Products...</div>
                     <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '4px' }}>Connecting to inventory database</div>
@@ -1040,7 +1095,7 @@ export default function ProductListPage() {
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '60px 20px', color: '#6B7280' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '60px 20px', color: '#6B7280' }}>
                     <Package size={44} style={{ color: '#C084FC', margin: '0 auto 10px' }} />
                     <h3 style={{ margin: '0 0 6px', color: '#1E1B4B' }}>No Products Found</h3>
                     <p style={{ margin: '0 0 14px', fontSize: '13px' }}>
@@ -1322,6 +1377,42 @@ export default function ProductListPage() {
                           ) : (
                             <span>{product.status === 'PUBLISHED' ? '● Live' : '○ Draft'}</span>
                           )}
+                        </button>
+                      </td>
+
+                      {/* Home Showcase 1-Click Featured Toggle */}
+                      <td style={{ padding: '14px 16px' }}>
+                        <button
+                          type="button"
+                          disabled={togglingFeaturedId === product.id}
+                          onClick={() => handleToggleFeatured(product)}
+                          title={product.isFeatured ? 'Remove from Homepage Product Showcase' : 'Feature in Homepage Product Showcase'}
+                          style={{
+                            padding: '5px 11px',
+                            borderRadius: '20px',
+                            border: product.isFeatured ? '1.5px solid #C084FC' : '1px solid #E5E7EB',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: togglingFeaturedId === product.id ? 'not-allowed' : 'pointer',
+                            backgroundColor: product.isFeatured ? '#FAF5FF' : '#F9FAFB',
+                            color: product.isFeatured ? '#7E22CE' : '#6B7280',
+                            transition: 'all 0.15s ease',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            boxShadow: product.isFeatured ? '0 2px 6px rgba(126, 34, 206, 0.12)' : 'none',
+                          }}
+                        >
+                          {togglingFeaturedId === product.id ? (
+                            <RefreshCw size={11} style={{ animation: 'spin 1s linear infinite' }} />
+                          ) : (
+                            <Sparkles
+                              size={12}
+                              color={product.isFeatured ? '#7E22CE' : '#9CA3AF'}
+                              fill={product.isFeatured ? '#7E22CE' : 'none'}
+                            />
+                          )}
+                          <span>{product.isFeatured ? '★ Featured' : '+ Feature'}</span>
                         </button>
                       </td>
 

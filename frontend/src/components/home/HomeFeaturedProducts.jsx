@@ -175,7 +175,8 @@ export default function HomeFeaturedProducts() {
   }, [cartItems]);
   const wishlistItems = useSelector((state) => state.wishlist?.items || []);
   const likedMap = useSelector((state) => state.wishlist?.likedMap || {});
-  const [products, setProducts] = useState(FALLBACK_10_FEATURED);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -184,51 +185,57 @@ export default function HomeFeaturedProducts() {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
         const res = await fetch(`${apiUrl}/products?isFeatured=true&limit=100`);
         const json = await res.json();
-        if (json.success && Array.isArray(json.data?.products) && json.data.products.length > 0 && isMounted) {
-          const transformed = json.data.products.map((p) => {
-            const primaryImg =
-              p.images?.find((img) => img.isPrimary)?.imageUrl ||
-              p.images?.find((img) => img.isPrimary)?.url ||
-              p.images?.[0]?.imageUrl ||
-              p.images?.[0]?.url ||
-              '/images/storefront/prod-gold-rope.jpg';
-            const catName = p.subcategory?.category?.name || 'Jewellery';
-            const numPrice = Number(p.price) || 0;
-            const numSale = p.salePrice !== undefined && p.salePrice !== null ? Number(p.salePrice) : numPrice;
-            const hasDiscount = numSale < numPrice && numPrice > 0;
-            const sellingPrice = hasDiscount ? numSale : numPrice;
-            const originalPrice = hasDiscount ? numPrice : null;
-            const discount = hasDiscount ? Math.round(((numPrice - numSale) / numPrice) * 100) : 0;
+        if (json.success && Array.isArray(json.data?.products)) {
+          if (json.data.products.length > 0) {
+            const transformed = json.data.products.map((p) => {
+              const primaryImg =
+                p.images?.find((img) => img.isPrimary)?.imageUrl ||
+                p.images?.find((img) => img.isPrimary)?.url ||
+                p.images?.[0]?.imageUrl ||
+                p.images?.[0]?.url ||
+                '/images/storefront/prod-gold-rope.jpg';
+              const catName = p.subcategory?.category?.name || 'Jewellery';
+              const numPrice = Number(p.price) || 0;
+              const numSale = p.salePrice !== undefined && p.salePrice !== null ? Number(p.salePrice) : numPrice;
+              const hasDiscount = numSale < numPrice && numPrice > 0;
+              const sellingPrice = hasDiscount ? numSale : numPrice;
+              const originalPrice = hasDiscount ? numPrice : null;
+              const discount = hasDiscount ? Math.round(((numPrice - numSale) / numPrice) * 100) : 0;
 
-            return {
-              id: p.id,
-              name: p.name,
-              category: catName,
-              price: sellingPrice,
-              originalPrice: originalPrice,
-              discount,
-              rating: Number(p.rating || 4.8),
-              reviews: p.reviewCount || 48,
-              badge: p.badge || (p.isBestSeller ? 'BESTSELLER' : p.isFeatured ? 'FEATURED' : hasDiscount && discount > 0 ? `${discount}% OFF` : ''),
-              badgeColor: (() => {
-                const b = (p.badge || (p.isBestSeller ? 'BESTSELLER' : '')).toUpperCase();
-                if (b.includes('EXCLUSIVE')) return '#059669';
-                if (b.includes('TRENDING')) return '#DB2777';
-                if (b.includes('GIFT')) return '#9333EA';
-                if (b.includes('BEST')) return '#6D28D9';
-                if (b.includes('NEW')) return '#4338CA';
-                if (b.includes('HOT') || b.includes('DEAL')) return '#DC2626';
-                if (b.includes('LIMITED')) return '#0284C7';
-                return p.isBestSeller ? '#6D28D9' : '#DB2777';
-              })(),
-              image: primaryImg,
-              slug: p.slug || p.id,
-            };
-          });
-          setProducts(transformed);
+              return {
+                id: p.id,
+                name: p.name,
+                category: catName,
+                price: sellingPrice,
+                originalPrice: originalPrice,
+                discount,
+                rating: Number(p.rating || 4.8),
+                reviews: p.reviewCount || 48,
+                badge: p.badge || (p.isBestSeller ? 'BESTSELLER' : p.isFeatured ? 'FEATURED' : hasDiscount && discount > 0 ? `${discount}% OFF` : ''),
+                badgeColor: (() => {
+                  const b = (p.badge || (p.isBestSeller ? 'BESTSELLER' : '')).toUpperCase();
+                  if (b.includes('EXCLUSIVE')) return '#059669';
+                  if (b.includes('TRENDING')) return '#DB2777';
+                  if (b.includes('GIFT')) return '#9333EA';
+                  if (b.includes('BEST')) return '#6D28D9';
+                  if (b.includes('NEW')) return '#4338CA';
+                  if (b.includes('HOT') || b.includes('DEAL')) return '#DC2626';
+                  if (b.includes('LIMITED')) return '#0284C7';
+                  return p.isBestSeller ? '#6D28D9' : '#DB2777';
+                })(),
+                image: primaryImg,
+                slug: p.slug || p.id,
+              };
+            });
+            if (isMounted) setProducts(transformed);
+          } else {
+            if (isMounted) setProducts([]);
+          }
         }
       } catch (err) {
         console.warn('Could not load featured products:', err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
     }
     loadFeaturedProducts();
@@ -257,7 +264,7 @@ export default function HomeFeaturedProducts() {
     const prod =
       typeof prodOrId === 'object' && prodOrId !== null
         ? prodOrId
-        : productsList?.find((p) => p.id === prodOrId);
+        : products?.find((p) => p.id === prodOrId);
 
     if (!prod) return;
 
@@ -290,6 +297,11 @@ export default function HomeFeaturedProducts() {
       dispatch(syncAddToCart({ productId: prod.id, quantity: 1, priceSnapshot: salePrice }));
     }
   };
+
+  // If loading finished and admin hasn't marked any featured products, do not display empty section
+  if (!loading && products.length === 0) {
+    return null;
+  }
 
   return (
     <section
@@ -328,7 +340,7 @@ export default function HomeFeaturedProducts() {
           }}
         >
           <Sparkles size={14} color="#7E22CE" />
-          <span>🔥 Hot & Trending Now</span>
+          <span>★ Featured Collection</span>
         </div>
 
         <h2
@@ -340,7 +352,7 @@ export default function HomeFeaturedProducts() {
             letterSpacing: '-0.02em',
           }}
         >
-          Trending Products
+          Featured Products
         </h2>
 
         <p
@@ -352,7 +364,7 @@ export default function HomeFeaturedProducts() {
             lineHeight: 1.5,
           }}
         >
-          Discover our most coveted fine jewellery pieces, romantic gift hampers, and artisanal creations made for your royal moments.
+          Explore our handpicked curation of luxury jewellery, royal statement pieces, and enchanting gift hampers.
         </p>
       </div>
 
