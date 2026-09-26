@@ -25,9 +25,12 @@ export const adminBulkApi = {
     window.URL.revokeObjectURL(url);
   },
 
-  async validateBulkFile(file) {
+  async validateBulkFile(file, images = []) {
     const formData = new FormData();
     formData.append('file', file);
+    if (images && images.length > 0) {
+      Array.from(images).forEach((img) => formData.append('images', img));
+    }
 
     return await request('/admin/products/bulk/validate', {
       method: 'POST',
@@ -36,9 +39,12 @@ export const adminBulkApi = {
     });
   },
 
-  async executeBulkImport(file) {
+  async executeBulkImport(file, images = []) {
     const formData = new FormData();
     formData.append('file', file);
+    if (images && images.length > 0) {
+      Array.from(images).forEach((img) => formData.append('images', img));
+    }
 
     return await request('/admin/products/bulk/import', {
       method: 'POST',

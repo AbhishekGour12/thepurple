@@ -1,3 +1,4 @@
+import ExcelJS from 'exceljs';
 import * as XLSX from 'xlsx';
 import { Op } from 'sequelize';
 import sequelize from '../config/database.js';
@@ -32,125 +33,373 @@ function slugify(text) {
 
 export const bulkImportService = {
   /**
-   * Generate Sample Excel Template for Bulk Product Import
+   * Generate Clean Interactive Excel Template with Product Attributes & Dropdowns (No SEO fields)
    */
-  generateTemplate() {
-    const headers = [
-      'Product Name*',
-      'SKU*',
-      'Category*',
-      'Subcategory*',
-      'MRP*',
-      'Selling Price*',
-      'Stock Quantity*',
-      'Low Stock Threshold',
-      'Short Description',
-      'Full Description',
-      'Brand',
-      'Specifications',
-      'Care Instructions',
-      'Tags (comma separated)',
-      'Primary Image URL',
-      'Status (DRAFT/PUBLISHED/UNPUBLISHED)',
-      'Weight (grams)',
-      'Length (cm)',
-      'Width (cm)',
-      'Height (cm)',
-      'Bulk Selling (TRUE/FALSE)',
-      'Min Order Quantity (MOQ)',
-      'Color Name',
-      'Size Name',
+  async generateTemplate() {
+    // 1. Fetch live categories & subcategories from DB
+    const categories = await Category.findAll({
+      where: { isActive: true },
+      include: [{ model: Subcategory, as: 'subcategories', where: { isActive: true }, required: false }],
+      order: [['name', 'ASC']],
+    });
+
+    const colors = await Color.findAll({ order: [['name', 'ASC']] });
+    const sizes = await Size.findAll({ order: [['name', 'ASC']] });
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'ThePurple Store';
+    workbook.created = new Date();
+
+    // ─── Sheet 1: Main Product Entry Sheet ──────────────────────────────────
+    const sheet = workbook.addWorksheet('Products Import', {
+      views: [{ state: 'frozen', xSplit: 0, ySplit: 1 }],
+    });
+
+    sheet.columns = [
+      { header: 'Product Name*', key: 'name', width: 34 },
+      { header: 'SKU*', key: 'sku', width: 20 },
+      { header: 'Category*', key: 'category', width: 24 },
+      { header: 'Subcategory*', key: 'subcategory', width: 26 },
+      { header: 'MRP*', key: 'mrp', width: 14 },
+      { header: 'Selling Price*', key: 'sellingPrice', width: 16 },
+      { header: 'Tax Rate %', key: 'taxRate', width: 14 },
+      { header: 'HSN Code', key: 'hsnCode', width: 15 },
+      { header: 'Stock Quantity*', key: 'stock', width: 16 },
+      { header: 'Low Stock Alert', key: 'lowStock', width: 16 },
+      { header: 'Brand', key: 'brand', width: 16 },
+      { header: 'Product Badge', key: 'badge', width: 18 },
+      { header: 'Image Filename(s) or URLs', key: 'image', width: 38 },
+      { header: 'Color Name', key: 'color', width: 18 },
+      { header: 'Size Name', key: 'size', width: 18 },
+      { header: 'Short Description', key: 'shortDesc', width: 36 },
+      { header: 'Full Description', key: 'fullDesc', width: 44 },
+      { header: 'Specifications', key: 'specs', width: 32 },
+      { header: 'Care Instructions', key: 'care', width: 32 },
+      { header: 'Tags (comma separated)', key: 'tags', width: 28 },
+      { header: 'Status (DRAFT/PUBLISHED/UNPUBLISHED)', key: 'status', width: 28 },
+      { header: 'Is Active (TRUE/FALSE)', key: 'isActive', width: 22 },
+      { header: 'Is Featured (TRUE/FALSE)', key: 'isFeatured', width: 22 },
+      { header: 'Is Best Seller (TRUE/FALSE)', key: 'isBestSeller', width: 24 },
+      { header: 'Bulk Selling (TRUE/FALSE)', key: 'isBulk', width: 24 },
+      { header: 'Min Order Quantity (MOQ)', key: 'moq', width: 24 },
+      { header: 'Weight (grams)', key: 'weight', width: 16 },
+      { header: 'Length (cm)', key: 'length', width: 14 },
+      { header: 'Width (cm)', key: 'width', width: 14 },
+      { header: 'Height (cm)', key: 'height', width: 14 },
     ];
 
+    // Header styling: Purple Fill with Bold White text
+    const headerRow = sheet.getRow(1);
+    headerRow.height = 32;
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF7E22CE' }, // Brand Royal Purple
+      };
+      cell.font = {
+        name: 'Segoe UI',
+        size: 11,
+        bold: true,
+        color: { argb: 'FFFFFFFF' },
+      };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF6B21A8' } },
+        left: { style: 'thin', color: { argb: 'FF6B21A8' } },
+        bottom: { style: 'medium', color: { argb: 'FF4C1D95' } },
+        right: { style: 'thin', color: { argb: 'FF6B21A8' } },
+      };
+    });
+
+    // Extract names for dropdowns
+    const categoryNames = categories.map((c) => c.name.trim()).filter(Boolean);
+    const allSubcategoryNames = [];
+    categories.forEach((c) => {
+      (c.subcategories || []).forEach((s) => {
+        if (s.name && !allSubcategoryNames.includes(s.name.trim())) {
+          allSubcategoryNames.push(s.name.trim());
+        }
+      });
+    });
+
+    const colorNames = colors.map((c) => c.name.trim()).filter(Boolean);
+    const sizeNames = sizes.map((s) => s.name.trim()).filter(Boolean);
+
+    const sampleCategory = categoryNames[0] || 'Jewellery';
+    const sampleSubcategory = categories[0]?.subcategories?.[0]?.name || 'Necklaces';
+
+    // Sample Demonstration Rows
     const sampleRows = [
       {
-        'Product Name*': 'Gold Plated Floral Pendant Necklace',
-        'SKU*': 'TP-JW-NCK-001',
-        'Category*': 'Jewellery',
-        'Subcategory*': 'Necklaces',
-        'MRP*': 2499,
-        'Selling Price*': 1799,
-        'Stock Quantity*': 45,
-        'Low Stock Threshold': 5,
-        'Short Description': 'Elegant 18K gold plated floral pendant necklace with zircon crystals',
-        'Full Description': 'Crafted with premium brass and dipped in 18K gold. Perfect for festive and casual occasions.',
-        'Brand': 'ThePurple',
-        'Specifications': 'Material: Brass, Finish: 18K Gold Plated, Stone: Cubic Zirconia',
-        'Care Instructions': 'Keep away from moisture, perfumes and chemicals. Store in airtight box.',
-        'Tags (comma separated)': 'jewellery, necklace, floral, gold, pendant',
-        'Primary Image URL': 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80',
-        'Status (DRAFT/PUBLISHED/UNPUBLISHED)': 'PUBLISHED',
-        'Weight (grams)': 35,
-        'Length (cm)': 15,
-        'Width (cm)': 10,
-        'Height (cm)': 3,
-        'Bulk Selling (TRUE/FALSE)': 'FALSE',
-        'Min Order Quantity (MOQ)': 1,
-        'Color Name': 'Gold',
-        'Size Name': 'Free Size',
+        name: 'Gold Plated Floral Pendant Necklace',
+        sku: 'TP-JW-NCK-SAMPLE-01',
+        category: sampleCategory,
+        subcategory: sampleSubcategory,
+        mrp: 2499,
+        sellingPrice: 1799,
+        taxRate: 3,
+        hsnCode: '7113',
+        stock: 45,
+        lowStock: 5,
+        brand: 'ThePurple',
+        badge: 'HOT',
+        image: 'necklace-front.jpg, necklace-model.jpg',
+        color: colorNames[0] || 'Gold',
+        size: sizeNames[0] || 'Free Size',
+        shortDesc: 'Elegant 18K gold plated floral pendant necklace with zircon crystals',
+        fullDesc: 'Crafted with premium brass and dipped in 18K gold. Perfect for festive and casual occasions.',
+        specs: 'Material: Brass, Finish: 18K Gold Plated, Stone: Cubic Zirconia',
+        care: 'Keep away from moisture, perfumes and chemicals. Store in airtight box.',
+        tags: 'jewellery, necklace, floral, gold, pendant',
+        status: 'PUBLISHED',
+        isActive: 'TRUE',
+        isFeatured: 'TRUE',
+        isBestSeller: 'TRUE',
+        isBulk: 'FALSE',
+        moq: 1,
+        weight: 35,
+        length: 15,
+        width: 10,
+        height: 3,
       },
       {
-        'Product Name*': 'Mini Teddy Bear Keychain Plushies (Pack)',
-        'SKU*': 'TP-TOY-TED-001',
-        'Category*': 'Teddy Bears & Plushies',
-        'Subcategory*': 'Cute Keychain & Mini Plushies',
-        'MRP*': 299,
-        'Selling Price*': 149,
-        'Stock Quantity*': 500,
-        'Low Stock Threshold': 50,
-        'Short Description': 'Wholesale mini plush teddy bear keychains for gifting and events',
-        'Full Description': 'Soft fluffy mini teddy bear keychains. Minimum order quantity of 30 pieces applies.',
-        'Brand': 'ThePurple',
-        'Specifications': 'Material: Super soft plush, Filling: PP Cotton, Size: 10cm',
-        'Care Instructions': 'Surface wash only.',
-        'Tags (comma separated)': 'teddy bear, keychain, plushie, bulk, wholesale',
-        'Primary Image URL': 'https://images.unsplash.com/photo-1559454403-b8fb88521f11?auto=format&fit=crop&w=800&q=80',
-        'Status (DRAFT/PUBLISHED/UNPUBLISHED)': 'PUBLISHED',
-        'Weight (grams)': 40,
-        'Length (cm)': 10,
-        'Width (cm)': 8,
-        'Height (cm)': 6,
-        'Bulk Selling (TRUE/FALSE)': 'TRUE',
-        'Min Order Quantity (MOQ)': 30,
-        'Color Name': 'Brown',
-        'Size Name': '10cm',
-      },
-      {
-        'Product Name*': 'Silver Crystal Drop Earrings',
-        'SKU*': 'TP-JW-EAR-002',
-        'Category*': 'Jewellery',
-        'Subcategory*': 'Earrings',
-        'MRP*': 1499,
-        'Selling Price*': 999,
-        'Stock Quantity*': 60,
-        'Low Stock Threshold': 10,
-        'Short Description': 'Sparkling Austrian crystal drop earrings in sterling silver finish',
-        'Full Description': 'Lightweight and hypoallergenic dangling earrings designed for evening parties.',
-        'Brand': 'ThePurple',
-        'Specifications': 'Material: Alloy, Finish: Silver Rhodium, Stone: Austrian Crystal',
-        'Care Instructions': 'Wipe with soft cloth after every wear. Avoid spray perfumes.',
-        'Tags (comma separated)': 'earrings, silver, crystals, partywear',
-        'Primary Image URL': 'https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80',
-        'Status (DRAFT/PUBLISHED/UNPUBLISHED)': 'PUBLISHED',
-        'Weight (grams)': 20,
-        'Length (cm)': 8,
-        'Width (cm)': 6,
-        'Height (cm)': 2,
-        'Color Name': 'Silver',
-        'Size Name': 'Standard',
+        name: 'Mini Teddy Bear Keychain Plushies (Bulk Pack)',
+        sku: 'TP-TOY-TED-SAMPLE-02',
+        category: categories.find((c) => c.name.toLowerCase().includes('teddy') || c.name.toLowerCase().includes('toy'))?.name || sampleCategory,
+        subcategory: categories.find((c) => c.name.toLowerCase().includes('teddy') || c.name.toLowerCase().includes('toy'))?.subcategories?.[0]?.name || sampleSubcategory,
+        mrp: 299,
+        sellingPrice: 149,
+        taxRate: 12,
+        hsnCode: '9503',
+        stock: 500,
+        lowStock: 50,
+        brand: 'ThePurple',
+        badge: 'SALE',
+        image: 'sample-teddy.jpg',
+        color: 'Brown',
+        size: '10cm',
+        shortDesc: 'Wholesale mini plush teddy bear keychains for gifting and events',
+        fullDesc: 'Soft fluffy mini teddy bear keychains. Minimum order quantity of 30 pieces applies.',
+        specs: 'Material: Super soft plush, Filling: PP Cotton, Size: 10cm',
+        care: 'Surface wash only with damp cloth.',
+        tags: 'teddy bear, keychain, plushie, bulk, wholesale',
+        status: 'PUBLISHED',
+        isActive: 'TRUE',
+        isFeatured: 'FALSE',
+        isBestSeller: 'TRUE',
+        isBulk: 'TRUE',
+        moq: 30,
+        weight: 40,
+        length: 10,
+        width: 8,
+        height: 6,
       },
     ];
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(sampleRows, { header: headers });
+    sampleRows.forEach((item) => {
+      const addedRow = sheet.addRow(item);
+      addedRow.alignment = { vertical: 'middle' };
+    });
 
-    // Set column widths
-    const wscols = headers.map((h) => ({ wch: Math.max(h.length + 4, 18) }));
-    ws['!cols'] = wscols;
+    // Apply Data Validation dropdowns for rows 2 to 500
+    for (let r = 2; r <= 500; r++) {
+      // 1. Category Dropdown (Column C)
+      if (categoryNames.length > 0) {
+        sheet.getCell(`C${r}`).dataValidation = {
+          type: 'list',
+          allowBlank: false,
+          formulae: [`'Categories & Subcategories'!$A$2:$A$${categoryNames.length + 1}`],
+          showErrorMessage: true,
+          errorTitle: 'Invalid Category',
+          error: 'Please choose a valid Category from the dropdown list.',
+        };
+      }
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Product Import Template');
+      // 2. Subcategory Dropdown (Column D)
+      if (allSubcategoryNames.length > 0) {
+        sheet.getCell(`D${r}`).dataValidation = {
+          type: 'list',
+          allowBlank: false,
+          formulae: [`'Categories & Subcategories'!$D$2:$D$${allSubcategoryNames.length + 1}`],
+          showErrorMessage: true,
+          errorTitle: 'Invalid Subcategory',
+          error: 'Please select a valid Subcategory from the dropdown list.',
+        };
+      }
 
-    return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      // 3. Tax Rate Dropdown (Column G)
+      sheet.getCell(`G${r}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"0,3,5,12,18,28"'],
+      };
+
+      // 4. Product Badge Dropdown (Column L)
+      sheet.getCell(`L${r}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"NEW,HOT,TRENDING,SALE,BESTSELLER,HANDMADE,EXCLUSIVE"'],
+      };
+
+      // 5. Color Name Dropdown (Column N)
+      if (colorNames.length > 0) {
+        sheet.getCell(`N${r}`).dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: [`'Colors & Sizes Reference'!$A$2:$A$${colorNames.length + 1}`],
+        };
+      }
+
+      // 6. Size Name Dropdown (Column O)
+      if (sizeNames.length > 0) {
+        sheet.getCell(`O${r}`).dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: [`'Colors & Sizes Reference'!$C$2:$C$${sizeNames.length + 1}`],
+        };
+      }
+
+      // 7. Status Dropdown (Column U)
+      sheet.getCell(`U${r}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"PUBLISHED,DRAFT,UNPUBLISHED"'],
+      };
+
+      // 8. Is Active Dropdown (Column V)
+      sheet.getCell(`V${r}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"TRUE,FALSE"'],
+      };
+
+      // 9. Is Featured Dropdown (Column W)
+      sheet.getCell(`W${r}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"TRUE,FALSE"'],
+      };
+
+      // 10. Is Best Seller Dropdown (Column X)
+      sheet.getCell(`X${r}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"TRUE,FALSE"'],
+      };
+
+      // 11. Bulk Selling Dropdown (Column Y)
+      sheet.getCell(`Y${r}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"TRUE,FALSE"'],
+      };
+    }
+
+    // ─── Sheet 2: Categories & Subcategories Reference ─────────────────────
+    const catSheet = workbook.addWorksheet('Categories & Subcategories');
+    catSheet.columns = [
+      { header: 'Category Name (Dropdown List)', key: 'catName', width: 30 },
+      { header: 'Subcategories in Category', key: 'subNames', width: 45 },
+      { header: 'Category Slug', key: 'catSlug', width: 22 },
+      { header: 'All Subcategories (Dropdown List)', key: 'allSubs', width: 34 },
+    ];
+
+    const catHeader = catSheet.getRow(1);
+    catHeader.height = 26;
+    catHeader.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF581C87' }, // Deep Purple
+      };
+      cell.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.alignment = { vertical: 'middle' };
+    });
+
+    const maxCatRows = Math.max(categories.length, allSubcategoryNames.length, 1);
+    for (let i = 0; i < maxCatRows; i++) {
+      const cat = categories[i];
+      const subs = cat ? (cat.subcategories || []).map((s) => s.name).join(', ') : '';
+      catSheet.addRow({
+        catName: cat ? cat.name : '',
+        subNames: subs || '',
+        catSlug: cat ? cat.slug : '',
+        allSubs: allSubcategoryNames[i] || '',
+      });
+    }
+
+    // ─── Sheet 3: Colors & Sizes Reference ─────────────────────────────────
+    const attrSheet = workbook.addWorksheet('Colors & Sizes Reference');
+    attrSheet.columns = [
+      { header: 'Color Name', key: 'colorName', width: 22 },
+      { header: 'Hex Code', key: 'hexCode', width: 16 },
+      { header: 'Size Name', key: 'sizeName', width: 22 },
+    ];
+
+    const attrHeader = attrSheet.getRow(1);
+    attrHeader.height = 26;
+    attrHeader.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF581C87' },
+      };
+      cell.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.alignment = { vertical: 'middle' };
+    });
+
+    const maxAttrLen = Math.max(colors.length, sizes.length, 1);
+    for (let i = 0; i < maxAttrLen; i++) {
+      attrSheet.addRow({
+        colorName: colors[i]?.name || '',
+        hexCode: colors[i]?.hexCode || '',
+        sizeName: sizes[i]?.name || '',
+      });
+    }
+
+    // ─── Sheet 4: Instructions & Image Guide ──────────────────────────────
+    const guideSheet = workbook.addWorksheet('Instructions & Guide');
+    guideSheet.columns = [
+      { header: 'Field / Topic', key: 'topic', width: 30 },
+      { header: 'Instructions & Guidelines (English & Hindi)', key: 'desc', width: 75 },
+    ];
+
+    const guideHeader = guideSheet.getRow(1);
+    guideHeader.height = 26;
+    guideHeader.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF3B0764' },
+      };
+      cell.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.alignment = { vertical: 'middle' };
+    });
+
+    const guideRows = [
+      {
+        topic: '1. Category & Subcategory Select',
+        desc: 'Excel me Category aur Subcategory dono column par click karte hi Dropdown Select option aayega. Aap dropdown se category aur subcategory chun sakte hain.',
+      },
+      {
+        topic: '2. Product Images (Automatic Match & Upload)',
+        desc: 'Excel ke "Image Filename(s) or URLs" column me image file ka naam likhein (e.g. "necklace.jpg" ya multiple: "front.jpg, back.jpg"). Phir Admin modal me Excel aur Image files dono ek sath upload kar dein. Backend automatic images ko match karke Cloudflare R2 pe WebP format me upload kar dega.',
+      },
+      {
+        topic: '3. Dropdowns for Badges, Colors & Sizes',
+        desc: 'Product Badge (HOT, NEW, SALE, etc.), Color Name, Size Name, Tax Rate, Status, Featured, Best Seller sabhi ke liye Excel me interactive dropdown options diye gaye hain.',
+      },
+      {
+        topic: '4. Clean Product Form',
+        desc: 'All core product details (pricing, stock, descriptions, tags, dimensions) are included. SEO titles and descriptions are auto-generated automatically.',
+      },
+    ];
+
+    guideRows.forEach((r) => guideSheet.addRow(r));
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   },
 
   /**
@@ -174,7 +423,7 @@ export const bulkImportService = {
   /**
    * Validate uploaded rows against schema and database constraints
    */
-  async validateRows(rows) {
+  async validateRows(rows, imageFiles = []) {
     if (!Array.isArray(rows) || rows.length === 0) {
       throw AppError.badRequest('The uploaded file contains no data rows');
     }
@@ -183,6 +432,18 @@ export const bulkImportService = {
     const warnings = [];
     const validRows = [];
     const seenSkusInFile = new Set();
+
+    // Map uploaded images by filename (e.g., 'necklace.jpg' -> file)
+    const uploadedImagesMap = new Map();
+    if (Array.isArray(imageFiles) && imageFiles.length > 0) {
+      imageFiles.forEach((img) => {
+        const orig = (img.originalname || '').toLowerCase().trim();
+        uploadedImagesMap.set(orig, img);
+        // Also map without extension (e.g., 'necklace' -> file)
+        const nameWithoutExt = orig.substring(0, orig.lastIndexOf('.')) || orig;
+        uploadedImagesMap.set(nameWithoutExt, img);
+      });
+    }
 
     // Cache existing Categories & Subcategories
     const categories = await Category.findAll({
@@ -199,40 +460,54 @@ export const bulkImportService = {
       attributes: ['sku'],
       paranoid: false,
     });
-    const dbSkuSet = new Set(existingProducts.map((p) => p.sku.toUpperCase().trim()));
+    const dbSkuSet = new Set(existingProducts.map((p) => (p.sku || '').toUpperCase().trim()));
 
     for (let index = 0; index < rows.length; index++) {
       const row = rows[index];
       const rowNumber = index + 2; // +1 for header, +1 for 1-indexing
       const rowErrors = [];
 
-      // Extract fields with multiple possible header aliases
+      // Extract all product fields
       const name = (row['Product Name*'] || row['Product Name'] || row['name'] || '').toString().trim();
       const sku = (row['SKU*'] || row['SKU'] || row['sku'] || '').toString().trim().toUpperCase();
       const categoryName = (row['Category*'] || row['Category'] || row['category'] || '').toString().trim();
       const subcategoryName = (row['Subcategory*'] || row['Subcategory'] || row['subcategory'] || '').toString().trim();
       const mrpRaw = row['MRP*'] || row['MRP'] || row['price'] || row['Price'] || '';
       const salePriceRaw = row['Selling Price*'] || row['Selling Price'] || row['salePrice'] || row['Sale Price'] || '';
+      const taxRateRaw = row['Tax Rate %'] || row['Tax Rate'] || row['taxRate'] || '0';
+      const hsnCode = (row['HSN Code'] || row['hsnCode'] || '').toString().trim();
       const stockRaw = row['Stock Quantity*'] || row['Stock Quantity'] || row['Stock'] || row['stock'] || '0';
-      const lowStockRaw = row['Low Stock Threshold'] || row['lowStockThreshold'] || '5';
+      const lowStockRaw = row['Low Stock Alert'] || row['Low Stock Threshold'] || row['lowStockThreshold'] || '5';
+      const brand = (row['Brand'] || row['brand'] || 'ThePurple').toString().trim();
+      const badge = (row['Product Badge'] || row['Badge'] || row['badge'] || '').toString().trim();
+      const rawImage = (row['Image Filename(s) or URLs'] || row['Image URL or Filename'] || row['Primary Image URL'] || row['imageUrl'] || row['Image URL'] || '').toString().trim();
+      const colorName = (row['Color Name'] || row['Color'] || row['color'] || '').toString().trim();
+      const sizeName = (row['Size Name'] || row['Size'] || row['size'] || '').toString().trim();
       const shortDescription = (row['Short Description'] || row['shortDescription'] || '').toString().trim();
       const description = (row['Full Description'] || row['Description'] || row['description'] || '').toString().trim();
-      const brand = (row['Brand'] || row['brand'] || 'ThePurple').toString().trim();
       const specifications = (row['Specifications'] || row['specifications'] || '').toString().trim();
       const careInstructions = (row['Care Instructions'] || row['careInstructions'] || '').toString().trim();
       const tagsRaw = (row['Tags (comma separated)'] || row['Tags'] || row['tags'] || '').toString();
-      const primaryImageUrl = (row['Primary Image URL'] || row['imageUrl'] || row['Image URL'] || '').toString().trim();
       const statusRaw = (row['Status (DRAFT/PUBLISHED/UNPUBLISHED)'] || row['Status'] || row['status'] || 'DRAFT').toString().trim().toUpperCase();
-      const weightRaw = row['Weight (grams)'] || row['weightGrams'] || '';
-      const lengthRaw = row['Length (cm)'] || row['lengthCm'] || '';
-      const widthRaw = row['Width (cm)'] || row['widthCm'] || '';
-      const heightRaw = row['Height (cm)'] || row['heightCm'] || '';
+      
+      const isActiveRaw = (row['Is Active (TRUE/FALSE)'] || row['Is Active'] || row['isActive'] || 'TRUE').toString().trim().toUpperCase();
+      const isActive = isActiveRaw !== 'FALSE' && isActiveRaw !== '0';
+
+      const isFeaturedRaw = (row['Is Featured (TRUE/FALSE)'] || row['Is Featured'] || row['isFeatured'] || 'FALSE').toString().trim().toUpperCase();
+      const isFeatured = isFeaturedRaw === 'TRUE' || isFeaturedRaw === '1' || isFeaturedRaw === 'YES';
+
+      const isBestSellerRaw = (row['Is Best Seller (TRUE/FALSE)'] || row['Is Best Seller'] || row['isBestSeller'] || 'FALSE').toString().trim().toUpperCase();
+      const isBestSeller = isBestSellerRaw === 'TRUE' || isBestSellerRaw === '1' || isBestSellerRaw === 'YES';
+
       const isBulkRaw = (row['Bulk Selling (TRUE/FALSE)'] || row['Bulk Selling'] || row['isBulk'] || row['is_bulk'] || '').toString().trim().toUpperCase();
       const isBulk = isBulkRaw === 'TRUE' || isBulkRaw === '1' || isBulkRaw === 'YES';
       const minOrderRaw = row['Min Order Quantity (MOQ)'] || row['Min Order Quantity'] || row['minOrderQuantity'] || row['min_order_quantity'] || '1';
       const minOrderQuantity = Math.max(1, parseInt(minOrderRaw, 10) || 1);
-      const colorName = (row['Color Name'] || row['Color'] || row['color'] || '').toString().trim();
-      const sizeName = (row['Size Name'] || row['Size'] || row['size'] || '').toString().trim();
+
+      const weightRaw = row['Weight (grams)'] || row['weightGrams'] || '';
+      const lengthRaw = row['Length (cm)'] || row['lengthCm'] || '';
+      const widthRaw = row['Width (cm)'] || row['widthCm'] || '';
+      const heightRaw = row['Height (cm)'] || row['heightCm'] || '';
 
       // Required field checks
       if (!name) rowErrors.push('Product Name is required');
@@ -260,7 +535,7 @@ export const bulkImportService = {
       if (categoryName) {
         matchedCategory = categoryMap.get(categoryName.toLowerCase());
         if (!matchedCategory) {
-          rowErrors.push(`Category "${categoryName}" does not exist`);
+          rowErrors.push(`Category "${categoryName}" does not exist in store`);
         } else if (subcategoryName) {
           matchedSubcategory = matchedCategory.subcategories?.find(
             (s) => s.name.toLowerCase().trim() === subcategoryName.toLowerCase()
@@ -274,6 +549,7 @@ export const bulkImportService = {
       // Pricing validation
       const mrp = parseFloat(mrpRaw);
       const salePrice = salePriceRaw !== '' ? parseFloat(salePriceRaw) : mrp;
+      const taxRate = parseFloat(taxRateRaw) || 0;
 
       if (isNaN(mrp) || mrp < 0) {
         rowErrors.push('MRP must be a valid positive number');
@@ -299,6 +575,49 @@ export const bulkImportService = {
         warnings.push({ row: rowNumber, sku, warning: `Unrecognized status "${statusRaw}", defaulting to DRAFT` });
       }
 
+      // Multi-Image detection & matching
+      const imageItems = rawImage
+        ? rawImage
+            .split(/[,;]+/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+
+      const matchedImageFiles = [];
+      const remoteUrls = [];
+      let imageMatchStatus = 'No image provided (optional)';
+
+      for (const item of imageItems) {
+        if (item.startsWith('http://') || item.startsWith('https://')) {
+          remoteUrls.push(item);
+        } else if (uploadedImagesMap.has(item.toLowerCase())) {
+          matchedImageFiles.push(uploadedImagesMap.get(item.toLowerCase()));
+        } else {
+          warnings.push({ row: rowNumber, sku, warning: `Attached image "${item}" not found in upload batch` });
+        }
+      }
+
+      // Also check SKU matching if none matched
+      if (matchedImageFiles.length === 0 && remoteUrls.length === 0 && sku) {
+        if (uploadedImagesMap.has(sku.toLowerCase())) {
+          matchedImageFiles.push(uploadedImagesMap.get(sku.toLowerCase()));
+        }
+        if (uploadedImagesMap.has(`${sku.toLowerCase()}-1`)) {
+          matchedImageFiles.push(uploadedImagesMap.get(`${sku.toLowerCase()}-1`));
+        }
+        if (uploadedImagesMap.has(`${sku.toLowerCase()}-2`)) {
+          matchedImageFiles.push(uploadedImagesMap.get(`${sku.toLowerCase()}-2`));
+        }
+      }
+
+      if (matchedImageFiles.length > 0 && remoteUrls.length > 0) {
+        imageMatchStatus = `✓ ${matchedImageFiles.length} file(s) + ${remoteUrls.length} URL(s)`;
+      } else if (matchedImageFiles.length > 0) {
+        imageMatchStatus = `✓ ${matchedImageFiles.length} File(s): ${matchedImageFiles.map((f) => f.originalname).join(', ')}`;
+      } else if (remoteUrls.length > 0) {
+        imageMatchStatus = `✓ ${remoteUrls.length} Remote Web URL(s)`;
+      }
+
       if (rowErrors.length > 0) {
         errors.push({
           row: rowNumber,
@@ -319,28 +638,40 @@ export const bulkImportService = {
           name,
           sku,
           slug: slugify(name),
-          subcategoryId: matchedSubcategory.id,
+          categoryName,
+          subcategoryName,
+          subcategoryId: matchedSubcategory?.id,
           price: mrp,
           salePrice,
+          taxRate,
+          hsnCode: hsnCode || null,
           discountPercent: mrp > 0 ? Math.round(((mrp - salePrice) / mrp) * 100) : 0,
           stock,
           lowStockThreshold: parseInt(lowStockRaw, 10) || 5,
+          brand: brand || 'ThePurple',
+          badge: badge || null,
           shortDescription: shortDescription || null,
           description: description || null,
-          brand: brand || 'ThePurple',
           specifications: specifications || null,
           careInstructions: careInstructions || null,
           tags,
-          primaryImageUrl: primaryImageUrl || null,
+          primaryImageUrl: remoteUrls[0] || null,
+          allImageUrls: [...remoteUrls],
+          rawImage,
+          matchedImageFiles,
+          imageMatchStatus,
           status,
-          weightGrams: weightRaw ? parseFloat(weightRaw) : null,
-          lengthCm: lengthRaw ? parseFloat(lengthRaw) : null,
-          widthCm: widthRaw ? parseFloat(widthRaw) : null,
-          heightCm: heightRaw ? parseFloat(heightRaw) : null,
+          isActive,
+          isFeatured,
+          isBestSeller,
           isBulk,
           minOrderQuantity: isBulk ? minOrderQuantity : 1,
           colorName: colorName || null,
           sizeName: sizeName || null,
+          weightGrams: weightRaw ? parseFloat(weightRaw) : null,
+          lengthCm: lengthRaw ? parseFloat(lengthRaw) : null,
+          widthCm: widthRaw ? parseFloat(widthRaw) : null,
+          heightCm: heightRaw ? parseFloat(heightRaw) : null,
         });
       }
     }
@@ -402,20 +733,26 @@ export const bulkImportService = {
             shortDescription: row.shortDescription,
             description: row.description,
             brand: row.brand,
+            badge: row.badge,
             specifications: row.specifications,
             careInstructions: row.careInstructions,
             price: row.price,
             salePrice: row.salePrice,
+            taxRate: row.taxRate,
+            hsnCode: row.hsnCode,
             discountPercent: row.discountPercent,
             stock: row.stock,
             lowStockThreshold: row.lowStockThreshold,
             status: row.status,
             publishedAt: row.status === PRODUCT_STATUS.PUBLISHED ? new Date() : null,
-            isActive: row.status === PRODUCT_STATUS.PUBLISHED,
+            isActive: row.isActive,
+            isFeatured: row.isFeatured,
+            isBestSeller: row.isBestSeller,
             isBulk: Boolean(row.isBulk),
             minOrderQuantity: row.minOrderQuantity || 1,
             seoTitle: row.name,
             seoDescription: row.shortDescription || row.name,
+            seoKeywords: row.tags?.join(', ') || null,
             tags: row.tags,
             weightGrams: row.weightGrams,
             lengthCm: row.lengthCm,
@@ -425,15 +762,20 @@ export const bulkImportService = {
           { transaction }
         );
 
-        // Add primary image if provided
-        if (row.primaryImageUrl) {
+        // Add all images (primary + gallery)
+        const imagesToCreate = (row.allImageUrls || []).filter(Boolean);
+        if (imagesToCreate.length === 0 && row.primaryImageUrl) {
+          imagesToCreate.push(row.primaryImageUrl);
+        }
+
+        for (let imgIdx = 0; imgIdx < imagesToCreate.length; imgIdx++) {
           await ProductImage.create(
             {
               productId: product.id,
-              imageUrl: row.primaryImageUrl,
-              isPrimary: true,
-              displayOrder: 0,
-              altText: product.name,
+              imageUrl: imagesToCreate[imgIdx],
+              isPrimary: imgIdx === 0,
+              displayOrder: imgIdx,
+              altText: `${product.name} - Image ${imgIdx + 1}`,
             },
             { transaction }
           );
@@ -461,7 +803,7 @@ export const bulkImportService = {
               mrp: product.price,
               salePrice: product.salePrice,
               stock: product.stock,
-              imageUrl: row.primaryImageUrl || null,
+              imageUrl: imagesToCreate[0] || null,
               isActive: true,
               displayOrder: 0,
             },
