@@ -223,7 +223,7 @@ export const orderApi = {
   },
 
   /**
-   * Admin: Sync Live Status from Shiprocket API
+   * Admin: Sync Live Status from Shiprocket API for single order
    */
   async adminSyncShiprocket(id) {
     const res = await fetch(`${API_BASE_URL}/admin/orders/${id}/sync-shiprocket`, {
@@ -233,6 +233,19 @@ export const orderApi = {
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || 'Failed to sync with Shiprocket');
     return json.data;
+  },
+
+  /**
+   * Admin: Batch Sync All Active Shipments with Shiprocket
+   */
+  async adminSyncAllActiveShiprocket() {
+    const res = await fetch(`${API_BASE_URL}/admin/orders/sync-active`, {
+      method: 'POST',
+      headers: getAdminAuthHeaders(),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to batch sync with Shiprocket');
+    return json;
   },
 
   /**

@@ -40,6 +40,7 @@ export default function AdminOrdersPage() {
   const [actionNotice, setActionNotice] = useState(null);
 
   const [syncingOrderId, setSyncingOrderId] = useState(null);
+  const [batchSyncing, setBatchSyncing] = useState(false);
   const [trackingModalOrder, setTrackingModalOrder] = useState(null);
   const [trackingData, setTrackingData] = useState(null);
   const [trackingLoading, setTrackingLoading] = useState(false);
@@ -82,6 +83,24 @@ export default function AdminOrdersPage() {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     loadData(true);
+  };
+
+  const handleBatchSyncShiprocket = async () => {
+    try {
+      setBatchSyncing(true);
+      setActionNotice('Connecting to Shiprocket API & syncing all active shipments...');
+      const res = await orderApi.adminSyncAllActiveShiprocket();
+      const stats = res?.data || {};
+      setActionNotice(
+        `Shiprocket Live Sync: ${stats.synced || 0}/${stats.totalFound || 0} active shipments checked (${stats.statusChanged || 0} updated)`
+      );
+      await loadData(false);
+    } catch (err) {
+      alert(err.message || 'Could not sync all active shipments');
+      setActionNotice(null);
+    } finally {
+      setBatchSyncing(false);
+    }
   };
 
   const handleOpenTrackingModal = async (order) => {
@@ -165,11 +184,35 @@ export default function AdminOrdersPage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#15803D', backgroundColor: '#DCFCE7', padding: '5px 10px', borderRadius: '20px', fontWeight: 700, border: '1px solid #BBF7D0' }}>
             <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#16A34A', display: 'inline-block' }} />
-            Live Polling (10s)
+            Webhook & Cron Active
           </span>
+
+          <button
+            type="button"
+            onClick={handleBatchSyncShiprocket}
+            disabled={batchSyncing}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 16px',
+              borderRadius: '8px',
+              backgroundColor: '#4338CA',
+              border: '1px solid #3730A3',
+              color: '#FFFFFF',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: batchSyncing ? 'not-allowed' : 'pointer',
+              opacity: batchSyncing ? 0.7 : 1,
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+            }}
+          >
+            <Truck size={14} className={batchSyncing ? 'animate-spin' : ''} />
+            <span>{batchSyncing ? 'Syncing Active...' : 'Sync All Shiprocket'}</span>
+          </button>
 
           <button
             type="button"

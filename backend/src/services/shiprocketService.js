@@ -361,6 +361,257 @@ class ShiprocketService {
       return { success: false, message: err.message };
     }
   }
+
+  /**
+   * Map raw Shiprocket status string or status ID to local Order & Shipment statuses
+   * @param {string|number} rawStatus
+   * @param {number|string} [statusId]
+   */
+  mapShiprocketStatus(rawStatus, statusId = null) {
+    const raw = String(rawStatus || '').toUpperCase().trim();
+    const id = Number(statusId);
+
+    let orderStatus = 'IN_TRANSIT';
+    let shipmentStatus = 'IN_TRANSIT';
+
+    if (id === 7 || raw.includes('DELIVERED') && !raw.includes('RTO')) {
+      orderStatus = 'DELIVERED';
+      shipmentStatus = 'DELIVERED';
+    } else if (id === 17 || raw.includes('OUT FOR DELIVERY')) {
+      orderStatus = 'IN_TRANSIT';
+      shipmentStatus = 'OUT_FOR_DELIVERY';
+    } else if (id === 18 || id === 19 || raw.includes('IN TRANSIT') || raw.includes('REACHED') || raw.includes('HUB') || raw.includes('DISPATCHED')) {
+      orderStatus = 'IN_TRANSIT';
+      shipmentStatus = 'IN_TRANSIT';
+    } else if (id === 6 || id === 42 || raw.includes('PICKED UP') || raw.includes('HANDED OVER') || raw.includes('SHIPPED')) {
+      orderStatus = 'SHIPROCKET_PICKUP';
+      shipmentStatus = 'PICKED_UP';
+    } else if (id === 3 || id === 52 || raw.includes('PICKUP SCHEDULED')) {
+      orderStatus = 'SHIPROCKET_PICKUP';
+      shipmentStatus = 'PICKUP_SCHEDULED';
+    } else if (id === 1 || id === 2 || raw.includes('AWB ASSIGNED') || raw.includes('LABEL GENERATED')) {
+      orderStatus = 'SHIPROCKET_PICKUP';
+      shipmentStatus = 'AWB_ASSIGNED';
+    } else if (id === 8 || raw.includes('CANCEL')) {
+      orderStatus = 'CANCELLED';
+      shipmentStatus = 'CANCELLED';
+    } else if (id === 9 || id === 10 || id === 13 || raw.includes('RTO') || raw.includes('RETURN') || raw.includes('UNDELIVERED')) {
+      orderStatus = 'RETURNED';
+      shipmentStatus = id === 10 || raw.includes('RTO DELIVERED') ? 'RTO_DELIVERED' : 'RTO_INITIATED';
+    }
+
+    return { orderStatus, shipmentStatus, rawStatus: raw };
+  }
+
+  /**
+   * Process incoming Shiprocket Webhook payload
+   * Supports standard tracking update, scans timeline, status updates, and RTO events.
+   * @param {Object} payload
+   */
+  async processTrackingWebhook(payload = {}) {
+    try {
+      if (!payload || typeof payload !== 'object') {
+        return { success: false, message: 'Invalid payload received' };
+      }
+
+      // 1. Extract possible identifiers from various Shiprocket webhook schemas
+      const awb = payload.awb || payload.awb_code || payload.tracking_data?.awb || payload.data?.awb;
+      const orderNumber = payload.order_id || payload.channel_order_id || payload.order_no || payload.data?.order_id;
+      const srOrderId = payload.sr_order_id || payload.shiprocket_order_id || payload.data?.sr_order_id;
+      const srShipmentId = payload.shipment_id || payload.shiprocket_shipment_id || payload.data?.shipment_id;
+      const courierName = payload.courier_name || payload.courier || payload.data?.courier_name;
+      const etd = payload.etd || payload.expected_delivery_date || payload.data?.etd;
+      const trackingUrl = payload.sr_tracking_url || payload.courier_tracking_url || (awb ? `https://shiprocket.co/tracking/${awb}` : null);
+
+      // Extract raw status / activities
+      const rawStatus = payload.current_status || payload.shipment_status || payload.status || payload.tracking_data?.shipment_status || payload.data?.current_status || 'IN_TRANSIT';
+      const statusId = payload.current_status_id || payload.shipment_status_id || payload.status_id || payload.data?.current_status_id;
+      const scans = payload.scans || payload.tracking_data?.shipment_track_activities || payload.activities || [];
+
+      // Lazy import models to avoid circular reference
+      const { Order, Shipment } = await import('../models/index.js');
+      const { Op } = await import('sequelize');
+
+      // 2. Locate order in DB
+      const whereConditions = [];
+      if (orderNumber) whereConditions.push({ orderNumber: String(orderNumber).trim() });
+      if (awb) whereConditions.push({ awbCode: String(awb).trim() });
+      if (srOrderId) whereConditions.push({ shiprocketOrderId: String(srOrderId).trim() });
+      if (srShipmentId) whereConditions.push({ shiprocketShipmentId: String(srShipmentId).trim() });
+
+      if (whereConditions.length === 0) {
+        return { success: false, message: 'No identifying orderNumber, awb, or shiprocketOrderId found in webhook payload' };
+      }
+
+      const order = await Order.findOne({
+        where: { [Op.or]: whereConditions },
+        include: [{ model: Shipment, as: 'shipment' }],
+      });
+
+      if (!order) {
+        return {
+          success: false,
+          message: `Order matching criteria not found in database (awb=${awb}, order=${orderNumber})`,
+        };
+      }
+
+      // 3. Map status
+      const { orderStatus, shipmentStatus } = this.mapShiprocketStatus(rawStatus, statusId);
+
+      // 4. Update Order
+      const updateData = {
+        status: orderStatus,
+      };
+      if (awb && !order.awbCode) updateData.awbCode = String(awb);
+      if (courierName && (!order.courierName || order.courierName === 'Shiprocket Express')) {
+        updateData.courierName = courierName;
+      }
+      if (trackingUrl) updateData.trackingUrl = trackingUrl;
+      if (srOrderId && !order.shiprocketOrderId) updateData.shiprocketOrderId = String(srOrderId);
+      if (srShipmentId && !order.shiprocketShipmentId) updateData.shiprocketShipmentId = String(srShipmentId);
+
+      await order.update(updateData);
+
+      // 5. Update or Create Shipment record
+      const trackingUpdateData = {
+        currentStatus: rawStatus,
+        statusId: statusId,
+        courierName: courierName || order.courierName,
+        awb: awb || order.awbCode,
+        trackUrl: trackingUrl || order.trackingUrl,
+        expectedDate: etd,
+        activities: scans,
+        receivedAt: new Date().toISOString(),
+      };
+
+      if (order.shipment) {
+        await order.shipment.update({
+          status: shipmentStatus,
+          awbCode: awb || order.shipment.awbCode,
+          courierName: courierName || order.shipment.courierName,
+          trackingUrl: trackingUrl || order.shipment.trackingUrl,
+          estimatedDeliveryDate: etd ? new Date(etd) : order.shipment.estimatedDeliveryDate,
+          lastTrackingUpdate: trackingUpdateData,
+        });
+      } else {
+        await Shipment.create({
+          orderId: order.id,
+          courierName: courierName || 'Shiprocket',
+          shiprocketShipmentId: srShipmentId ? String(srShipmentId) : order.shiprocketShipmentId,
+          shiprocketOrderId: srOrderId ? String(srOrderId) : order.shiprocketOrderId,
+          awbCode: awb || order.awbCode,
+          status: shipmentStatus,
+          trackingUrl: trackingUrl,
+          estimatedDeliveryDate: etd ? new Date(etd) : null,
+          lastTrackingUpdate: trackingUpdateData,
+        });
+      }
+
+      return {
+        success: true,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        newStatus: orderStatus,
+        shipmentStatus: shipmentStatus,
+        rawStatus: rawStatus,
+      };
+    } catch (error) {
+      console.error('Shiprocket Webhook Processing Exception:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Sync tracking status for a single order by querying Shiprocket live API
+   * @param {Object|string} orderOrId
+   */
+  async syncOrderTracking(orderOrId) {
+    try {
+      const { Order, Shipment } = await import('../models/index.js');
+      const { Op } = await import('sequelize');
+
+      let order = typeof orderOrId === 'object' && orderOrId?.id ? orderOrId : null;
+      if (!order) {
+        order = await Order.findOne({
+          where: {
+            [Op.or]: [
+              { id: String(orderOrId) },
+              { orderNumber: String(orderOrId) },
+            ],
+          },
+          include: [{ model: Shipment, as: 'shipment' }],
+        });
+      } else if (!order.shipment) {
+        order = await Order.findByPk(order.id, {
+          include: [{ model: Shipment, as: 'shipment' }],
+        });
+      }
+
+      if (!order) {
+        return { success: false, message: 'Order not found' };
+      }
+
+      if (!order.awbCode) {
+        return { success: false, message: 'Order has no AWB assigned yet. Please generate label first.' };
+      }
+
+      const trackInfo = await this.trackShipment(order.awbCode);
+      if (!trackInfo.success || !trackInfo.currentStatus) {
+        return {
+          success: false,
+          message: trackInfo.message || 'Tracking details not yet updated by courier',
+          liveTracking: null,
+        };
+      }
+
+      const { orderStatus, shipmentStatus } = this.mapShiprocketStatus(trackInfo.currentStatus);
+
+      await order.update({
+        status: orderStatus,
+        trackingUrl: trackInfo.trackUrl || order.trackingUrl,
+      });
+
+      const trackingPayload = {
+        currentStatus: trackInfo.currentStatus,
+        trackUrl: trackInfo.trackUrl || order.trackingUrl,
+        expectedDate: trackInfo.expectedDate,
+        activities: trackInfo.activities || [],
+        syncedAt: new Date().toISOString(),
+      };
+
+      if (order.shipment) {
+        await order.shipment.update({
+          status: shipmentStatus,
+          trackingUrl: trackInfo.trackUrl || order.shipment.trackingUrl,
+          estimatedDeliveryDate: trackInfo.expectedDate ? new Date(trackInfo.expectedDate) : order.shipment.estimatedDeliveryDate,
+          lastTrackingUpdate: trackingPayload,
+        });
+      } else {
+        await Shipment.create({
+          orderId: order.id,
+          courierName: order.courierName || 'Shiprocket',
+          shiprocketShipmentId: order.shiprocketShipmentId,
+          shiprocketOrderId: order.shiprocketOrderId,
+          awbCode: order.awbCode,
+          status: shipmentStatus,
+          trackingUrl: trackInfo.trackUrl || order.trackingUrl,
+          estimatedDeliveryDate: trackInfo.expectedDate ? new Date(trackInfo.expectedDate) : null,
+          lastTrackingUpdate: trackingPayload,
+        });
+      }
+
+      return {
+        success: true,
+        order,
+        liveTracking: trackInfo,
+        mappedStatus: orderStatus,
+        shipmentStatus: shipmentStatus,
+      };
+    } catch (err) {
+      console.error('Shiprocket Single Order Sync Error:', err);
+      return { success: false, message: err.message };
+    }
+  }
 }
 
 export const shiprocketService = new ShiprocketService();

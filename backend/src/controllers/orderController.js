@@ -551,47 +551,19 @@ export const orderController = {
       }
 
       if (!order.awbCode) {
-        return ApiResponse.success(res, order, 'No AWB assigned yet. Live tracking will be available after dispatch.');
+        return ApiResponse.success(res, { order, liveTracking: null }, 'No AWB assigned yet. Live tracking will be available after dispatch.');
       }
 
-      const trackInfo = await shiprocketService.trackShipment(order.awbCode);
-      if (trackInfo.success && trackInfo.currentStatus) {
-        const rawStatus = String(trackInfo.currentStatus).toUpperCase().trim();
-        let mappedStatus = order.status;
-
-        if (rawStatus.includes('DELIVERED')) {
-          mappedStatus = 'DELIVERED';
-        } else if (rawStatus.includes('OUT FOR DELIVERY') || rawStatus.includes('IN TRANSIT') || rawStatus.includes('REACHED')) {
-          mappedStatus = 'IN_TRANSIT';
-        } else if (rawStatus.includes('PICKED UP') || rawStatus.includes('HANDED OVER') || rawStatus.includes('SHIPPED')) {
-          mappedStatus = 'SHIPROCKET_PICKUP';
-        } else if (rawStatus.includes('CANCEL')) {
-          mappedStatus = 'CANCELLED';
-        } else if (rawStatus.includes('RTO')) {
-          mappedStatus = 'RETURNED';
-        }
-
-        await order.update({
-          status: mappedStatus,
-          trackingUrl: trackInfo.trackUrl || order.trackingUrl,
-        });
-
-        if (order.shipment) {
-          await order.shipment.update({
-            status: mappedStatus === 'DELIVERED' ? 'DELIVERED' : mappedStatus === 'IN_TRANSIT' ? 'IN_TRANSIT' : 'PICKED_UP',
-            trackingUrl: trackInfo.trackUrl || order.shipment.trackingUrl,
-            lastTrackingUpdate: trackInfo,
-          });
-        }
-      }
+      const syncResult = await shiprocketService.syncOrderTracking(order);
 
       return ApiResponse.success(
         res,
         {
-          order,
-          liveTracking: trackInfo,
+          order: syncResult.order || order,
+          liveTracking: syncResult.liveTracking,
+          mappedStatus: syncResult.mappedStatus,
         },
-        'Shiprocket live status synced successfully'
+        syncResult.message || 'Shiprocket live status synced successfully'
       );
     } catch (error) {
       next(error);

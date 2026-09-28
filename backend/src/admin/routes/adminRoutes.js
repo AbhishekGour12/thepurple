@@ -477,6 +477,12 @@ router.post(
   adminOrderController.generateShiprocketLabel
 );
 router.post(
+  '/orders/sync-active',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_UPDATE),
+  adminOrderController.syncAllActiveShipments
+);
+router.post(
   '/orders/:id/sync-shiprocket',
   authenticateAdmin,
   authorize(PERMISSIONS.ORDER_UPDATE),

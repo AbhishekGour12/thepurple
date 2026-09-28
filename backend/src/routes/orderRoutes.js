@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import orderController from '../controllers/orderController.js';
+import webhookController from '../controllers/webhookController.js';
 import { authenticateUser, authenticateOptionalUser } from '../user/middlewares/authenticateUser.js';
 
 const router = Router();
+
+// Shiprocket Webhook Alias
+router.post('/webhook/shiprocket', webhookController.handleShiprocketWebhook);
 
 // 1. Dynamic Shipping Calculation (Public)
 router.post('/calculate-shipping', orderController.calculateShipping);

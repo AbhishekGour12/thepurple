@@ -7,6 +7,7 @@ import { checkMeiliHealth } from './config/meilisearch.js';
 import { workerService } from './services/workerService.js';
 import { queueService } from './services/queueService.js';
 import { redisService } from './services/redisService.js';
+import { shiprocketCronService } from './services/shiprocketCronService.js';
 import bootstrapSuperAdmin from './seeders/bootstrapAdmin.js';
 import { syncProductDiscounts } from './utils/syncProductDiscounts.js';
 import { ProductInterest, ContactQuery } from './models/index.js';
@@ -79,6 +80,13 @@ const startServer = async () => {
     logger.warn('Redis is offline or unreachable; BullMQ background workers paused.');
   }
 
+  // Initialize Shiprocket tracking periodic cron sync service
+  try {
+    shiprocketCronService.startCronJob();
+  } catch (cronErr) {
+    logger.warn(`Could not initialize Shiprocket background sync cron: ${cronErr.message}`);
+  }
+
   const server = app.listen(env.PORT, () => {
     logger.info(`ThePurple API Server running at http://localhost:${env.PORT}`);
     logger.info(`Health check available at http://localhost:${env.PORT}/api/v1/health`);
@@ -90,6 +98,12 @@ const startServer = async () => {
 
     server.close(async () => {
       logger.info('HTTP server closed.');
+
+      try {
+        shiprocketCronService.stopCronJob();
+      } catch (e) {
+        logger.warn(`Error stopping Shiprocket cron: ${e.message}`);
+      }
 
       try {
         await workerService.closeAll();

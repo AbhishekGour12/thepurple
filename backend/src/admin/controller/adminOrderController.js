@@ -1,5 +1,6 @@
 import { Order, OrderItem, Payment, Shipment, Product, ProductImage, User, sequelize } from '../../models/index.js';
 import shiprocketService from '../../services/shiprocketService.js';
+import shiprocketCronService from '../../services/shiprocketCronService.js';
 import ApiResponse from '../../utils/apiResponse.js';
 
 const isUuid = (val) => Boolean(val && typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim()));
@@ -292,46 +293,19 @@ export const adminOrderController = {
         return ApiResponse.error(res, 'No AWB assigned to this order yet. Please generate label first.', 400);
       }
 
-      const trackInfo = await shiprocketService.trackShipment(order.awbCode);
-      if (trackInfo.success && trackInfo.currentStatus) {
-        const rawStatus = String(trackInfo.currentStatus).toUpperCase().trim();
-        let mappedStatus = order.status;
+      const syncResult = await shiprocketService.syncOrderTracking(order);
 
-        if (rawStatus.includes('DELIVERED')) {
-          mappedStatus = 'DELIVERED';
-        } else if (rawStatus.includes('OUT FOR DELIVERY') || rawStatus.includes('IN TRANSIT') || rawStatus.includes('REACHED')) {
-          mappedStatus = 'IN_TRANSIT';
-        } else if (rawStatus.includes('PICKED UP') || rawStatus.includes('HANDED OVER') || rawStatus.includes('SHIPPED')) {
-          mappedStatus = 'SHIPROCKET_PICKUP';
-        } else if (rawStatus.includes('CANCEL')) {
-          mappedStatus = 'CANCELLED';
-        } else if (rawStatus.includes('RTO')) {
-          mappedStatus = 'RETURNED';
-        }
-
-        await order.update({
-          status: mappedStatus,
-          trackingUrl: trackInfo.trackUrl || order.trackingUrl,
-        });
-
-        if (order.shipment) {
-          await order.shipment.update({
-            status: mappedStatus === 'DELIVERED' ? 'DELIVERED' : mappedStatus === 'IN_TRANSIT' ? 'IN_TRANSIT' : 'PICKED_UP',
-            trackingUrl: trackInfo.trackUrl || order.shipment.trackingUrl,
-            lastTrackingUpdate: trackInfo,
-          });
-        }
-
+      if (syncResult.success) {
         return ApiResponse.success(
           res,
           {
             orderId: order.id,
-            status: mappedStatus,
+            status: syncResult.mappedStatus || order.status,
             awbCode: order.awbCode,
             trackingUrl: order.trackingUrl,
-            liveTracking: trackInfo,
+            liveTracking: syncResult.liveTracking,
           },
-          `Shiprocket live status synced: "${mappedStatus}"`
+          `Shiprocket live status synced: "${syncResult.mappedStatus || order.status}"`
         );
       }
 
@@ -341,9 +315,25 @@ export const adminOrderController = {
           orderId: order.id,
           status: order.status,
           awbCode: order.awbCode,
-          liveTracking: trackInfo,
+          liveTracking: syncResult.liveTracking,
         },
-        'Shiprocket status polled (no new milestones yet)'
+        syncResult.message || 'Shiprocket status polled (no new milestones yet)'
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * 4c. Batch Sync All Active Orders with Shiprocket (Admin on-demand)
+   */
+  async syncAllActiveShipments(req, res, next) {
+    try {
+      const result = await shiprocketCronService.syncAllActiveShipments();
+      return ApiResponse.success(
+        res,
+        result,
+        `Shiprocket batch sync completed: ${result.synced || 0}/${result.totalFound || 0} orders synced (${result.statusChanged || 0} statuses updated)`
       );
     } catch (error) {
       next(error);
