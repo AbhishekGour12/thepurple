@@ -614,7 +614,8 @@ export const orderController = {
 
   /**
    * 6. Cancel Order (Customer Cancellation Request)
-   * Rule: User can cancel ONLY before label/AWB generation or shipment.
+   * Rule: User can cancel ONLY before label/AWB generation, pickup, or dispatch.
+   * Cancels order in local DB, cancels in Shiprocket API automatically, restocks inventory, and initiates refund if prepaid.
    */
   async cancelOrder(req, res, next) {
     try {
@@ -623,6 +624,10 @@ export const orderController = {
 
       const order = await Order.findOne({
         where: getOrderWhereClause(id),
+        include: [
+          { model: Shipment, as: 'shipment' },
+          { model: OrderItem, as: 'items' },
+        ],
       });
 
       if (!order) {
@@ -634,27 +639,60 @@ export const orderController = {
         return ApiResponse.error(res, 'This order is already cancelled', 400);
       }
 
-      if (order.isLabelGenerated || order.awbCode || ['SHIPROCKET_PICKUP', 'IN_TRANSIT', 'DELIVERED'].includes(order.status)) {
+      if (
+        order.isLabelGenerated ||
+        order.awbCode ||
+        ['SHIPROCKET_PICKUP', 'IN_TRANSIT', 'DELIVERED', 'RETURNED'].includes(order.status)
+      ) {
         return ApiResponse.error(
           res,
-          'Cannot cancel order. The shipping label has already been generated or the order has been dispatched for delivery. Please contact support.',
+          'Cannot cancel order. The shipping label has already been generated or courier pickup has been scheduled/dispatched. Please contact support.',
           400
         );
       }
 
-      // Update Order Status to CANCELLED
+      const isPrepaidPaid = order.paymentMethod === 'RAZORPAY' && order.paymentStatus === 'PAID';
+
+      // 1. Update Order Status to CANCELLED
       await order.update({
         status: 'CANCELLED',
         cancelledAt: new Date(),
         cancellationReason: reason,
-        refundStatus: 'REQUESTED',
-        refundReason: `Order cancelled by customer: ${reason}`,
-        refundAmount: order.totalAmount,
+        refundStatus: isPrepaidPaid ? 'REQUESTED' : 'NONE',
+        refundReason: isPrepaidPaid ? `Order cancelled by customer: ${reason}` : null,
+        refundAmount: isPrepaidPaid ? order.totalAmount : 0,
       });
 
-      // Trigger Shiprocket order cancellation if already created
-      if (order.shiprocketOrderId) {
-        await shiprocketService.cancelOrder(order.shiprocketOrderId);
+      // 2. Update Shipment Record if present
+      if (order.shipment) {
+        await order.shipment.update({
+          status: 'CANCELLED',
+        });
+      }
+
+      // 3. Trigger Shiprocket order cancellation automatically if created in Shiprocket
+      if (order.shiprocketOrderId || order.awbCode) {
+        try {
+          await shiprocketService.cancelOrder(order.shiprocketOrderId, order.awbCode);
+        } catch (srErr) {
+          console.warn(`Shiprocket order cancellation API notice for #${order.orderNumber}:`, srErr.message);
+        }
+      }
+
+      // 4. Restock inventory
+      if (order.items && order.items.length > 0) {
+        for (const item of order.items) {
+          if (item.productId && item.quantity > 0) {
+            try {
+              await Product.increment('stockQuantity', {
+                by: item.quantity,
+                where: { id: item.productId },
+              });
+            } catch (stockErr) {
+              console.warn(`Failed to restock product ${item.productId}:`, stockErr.message);
+            }
+          }
+        }
       }
 
       return ApiResponse.success(
@@ -663,10 +701,12 @@ export const orderController = {
           orderId: order.id,
           orderNumber: order.orderNumber,
           status: 'CANCELLED',
-          refundStatus: 'REQUESTED',
-          refundAmount: order.totalAmount,
+          refundStatus: isPrepaidPaid ? 'REQUESTED' : 'NONE',
+          refundAmount: isPrepaidPaid ? order.totalAmount : 0,
         },
-        'Order has been cancelled successfully. Your refund request has been initiated.'
+        isPrepaidPaid
+          ? 'Order has been cancelled successfully. Your refund request has been initiated.'
+          : 'Order has been cancelled successfully.'
       );
     } catch (error) {
       next(error);

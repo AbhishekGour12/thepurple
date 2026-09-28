@@ -271,14 +271,32 @@ class ShiprocketService {
   /**
    * Cancel an order in Shiprocket
    * @param {string|number} shiprocketOrderId
+   * @param {string} [awbCode]
    */
-  async cancelOrder(shiprocketOrderId) {
+  async cancelOrder(shiprocketOrderId, awbCode = null) {
     try {
-      if (!shiprocketOrderId) return { success: false, message: 'No Shiprocket order ID' };
+      if (!shiprocketOrderId && !awbCode) {
+        return { success: false, message: 'No Shiprocket order ID or AWB code provided for cancellation' };
+      }
+
+      const payload = {};
+      if (shiprocketOrderId) {
+        const parsedId = parseInt(shiprocketOrderId, 10);
+        if (!isNaN(parsedId)) {
+          payload.ids = [parsedId];
+        }
+      }
+      if (awbCode) {
+        payload.awbs = [String(awbCode)];
+      }
+
+      if (!payload.ids && !payload.awbs) {
+        return { success: false, message: 'Invalid Shiprocket order ID or AWB for cancellation' };
+      }
 
       const res = await this.request('/orders/cancel', {
         method: 'POST',
-        body: JSON.stringify({ ids: [parseInt(shiprocketOrderId, 10)] }),
+        body: JSON.stringify(payload),
       });
 
       return {

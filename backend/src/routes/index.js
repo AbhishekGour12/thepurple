@@ -8,6 +8,7 @@ import bannerRoutes from './bannerRoutes.js';
 import interestRoutes from './interestRoutes.js';
 import contactRoutes from './contactRoutes.js';
 import cartRoutes from './cartRoutes.js';
+import orderRoutes from './orderRoutes.js';
 import reviewRoutes from './reviewRoutes.js';
 import webhookRoutes from './webhookRoutes.js';
 import adminRoutes from '../admin/routes/adminRoutes.js';
