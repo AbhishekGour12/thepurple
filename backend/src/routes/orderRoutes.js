@@ -5,8 +5,9 @@ import { authenticateUser, authenticateOptionalUser } from '../user/middlewares/
 
 const router = Router();
 
-// Shiprocket Webhook Alias
-router.post('/webhook/shiprocket', webhookController.handleShiprocketWebhook);
+// Webhook Aliases
+router.all('/webhook/tracking', webhookController.handleShiprocketWebhook);
+router.all('/webhook/shiprocket', webhookController.handleShiprocketWebhook);
 
 // 1. Dynamic Shipping Calculation (Public)
 router.post('/calculate-shipping', orderController.calculateShipping);
