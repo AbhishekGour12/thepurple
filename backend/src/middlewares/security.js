@@ -12,6 +12,8 @@ export const configureSecurityHeaders = () => {
 export const configureCors = () => {
   const allowedOrigins = [
     env.FRONTEND_URL,
+    'https://nowthepurple.com',
+    'https://www.nowthepurple.com',
     'https://thepurple.vercel.app',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -25,6 +27,9 @@ export const configureCors = () => {
       const isAllowed =
         !env.isProduction ||
         allowedOrigins.includes(origin) ||
+        origin === 'https://nowthepurple.com' ||
+        origin === 'https://www.nowthepurple.com' ||
+        origin.includes('nowthepurple.com') ||
         origin === 'https://thepurple.vercel.app' ||
         origin.endsWith('.vercel.app') ||
         origin.includes('localhost') ||
