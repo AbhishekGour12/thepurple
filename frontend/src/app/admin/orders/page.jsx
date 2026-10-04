@@ -150,6 +150,25 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const handleAdminCancelOrder = async (order) => {
+    const reason = window.prompt(
+      `Cancel Order #${order.orderNumber}?\nThis will automatically cancel the order and any AWB shipment on Shiprocket.\n\nEnter cancellation reason:`,
+      'Cancelled by Administrator'
+    );
+    if (reason === null) return;
+
+    try {
+      setActionNotice(`Cancelling Order #${order.orderNumber} on Shiprocket...`);
+      const res = await orderApi.adminCancelOrder(order.id, reason || 'Cancelled by Administrator');
+      const srNotice = res?.shiprocketCancellation?.success ? ' and cancelled in Shiprocket' : '';
+      setActionNotice(`Order #${order.orderNumber} cancelled successfully${srNotice}!`);
+      loadData(false);
+    } catch (err) {
+      alert(err.message || 'Could not cancel order');
+      setActionNotice(null);
+    }
+  };
+
   const getStatusPill = (status) => {
     switch (status) {
       case 'ORDER_CREATED':
@@ -615,6 +634,30 @@ export default function AdminOrdersPage() {
                             <Eye size={12} />
                             <span>View</span>
                           </Link>
+
+                          {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleAdminCancelOrder(order)}
+                              title="Cancel Order & Void Shiprocket Shipment"
+                              style={{
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                backgroundColor: '#FEF2F2',
+                                border: '1px solid #FECACA',
+                                color: '#DC2626',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                            >
+                              <XCircle size={12} />
+                              <span>Cancel</span>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

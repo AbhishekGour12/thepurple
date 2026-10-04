@@ -269,39 +269,155 @@ class ShiprocketService {
   }
 
   /**
-   * Cancel an order in Shiprocket
-   * @param {string|number} shiprocketOrderId
-   * @param {string} [awbCode]
+   * Find Order in Shiprocket by channel order ID / orderNumber (e.g. TP-81322216)
+   * @param {string} orderNumber
    */
-  async cancelOrder(shiprocketOrderId, awbCode = null) {
+  async findOrderByNumber(orderNumber) {
     try {
-      if (!shiprocketOrderId && !awbCode) {
-        return { success: false, message: 'No Shiprocket order ID or AWB code provided for cancellation' };
-      }
-
-      const payload = {};
-      if (shiprocketOrderId) {
-        const parsedId = parseInt(shiprocketOrderId, 10);
-        if (!isNaN(parsedId)) {
-          payload.ids = [parsedId];
+      if (!orderNumber) return null;
+      const res = await this.request(`/orders?search=${encodeURIComponent(orderNumber)}`, {
+        method: 'GET',
+      });
+      if (res.success && res.data?.data && Array.isArray(res.data.data)) {
+        const found =
+          res.data.data.find(
+            (o) =>
+              String(o.channel_order_id || o.order_id || '')
+                .trim()
+                .toUpperCase() === String(orderNumber).trim().toUpperCase()
+          ) || res.data.data[0];
+        if (found) {
+          const firstShipment = found.shipments && found.shipments.length > 0 ? found.shipments[0] : null;
+          return {
+            shiprocketOrderId: String(found.id),
+            shiprocketShipmentId: firstShipment ? String(firstShipment.id) : null,
+            awbCode: firstShipment?.awb || found.awb_code || null,
+            status: found.status,
+            statusCode: found.status_code,
+          };
         }
       }
-      if (awbCode) {
-        payload.awbs = [String(awbCode)];
+      return null;
+    } catch (err) {
+      console.warn(`Shiprocket lookup for #${orderNumber} failed:`, err.message);
+      return null;
+    }
+  }
+
+  /**
+   * Cancel an order in Shiprocket
+   * Cancels shipment/AWB if generated, and cancels the order in Shiprocket.
+   * @param {string|number|Object} orderIdOrOptions - shiprocketOrderId or options object
+   * @param {string} [awbCode]
+   * @param {string|number} [shipmentId]
+   * @param {string} [orderNumber]
+   */
+  async cancelOrder(orderIdOrOptions, awbCode = null, shipmentId = null, orderNumber = null) {
+    try {
+      let srOrderId = null;
+      let awb = null;
+      let shipId = null;
+      let ordNum = null;
+
+      if (typeof orderIdOrOptions === 'object' && orderIdOrOptions !== null) {
+        srOrderId = orderIdOrOptions.shiprocketOrderId || orderIdOrOptions.orderId || orderIdOrOptions.id;
+        awb = orderIdOrOptions.awbCode || orderIdOrOptions.awb;
+        shipId = orderIdOrOptions.shipmentId || orderIdOrOptions.shiprocketShipmentId;
+        ordNum = orderIdOrOptions.orderNumber;
+      } else {
+        srOrderId = orderIdOrOptions;
+        awb = awbCode;
+        shipId = shipmentId;
+        ordNum = orderNumber;
       }
 
-      if (!payload.ids && !payload.awbs) {
-        return { success: false, message: 'Invalid Shiprocket order ID or AWB for cancellation' };
+      // If no shiprocketOrderId is present, attempt lookup by channel order number
+      if (!srOrderId && ordNum) {
+        const found = await this.findOrderByNumber(ordNum);
+        if (found) {
+          srOrderId = found.shiprocketOrderId;
+          if (!awb && found.awbCode) awb = found.awbCode;
+          if (!shipId && found.shiprocketShipmentId) shipId = found.shiprocketShipmentId;
+        }
       }
 
-      const res = await this.request('/orders/cancel', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
+      if (!srOrderId && !awb && !shipId) {
+        return {
+          success: false,
+          message: 'No Shiprocket order ID, Shipment ID, or AWB code provided for cancellation',
+        };
+      }
+
+      const actions = [];
+      let anySuccess = false;
+
+      // 1. Cancel AWB if assigned
+      if (awb) {
+        try {
+          const awbCancelRes = await this.request('/orders/cancel/shipment/awbs', {
+            method: 'POST',
+            body: JSON.stringify({ awbs: [String(awb)] }),
+          });
+          actions.push({ step: 'cancel_awb', awb, success: awbCancelRes.success, response: awbCancelRes.data });
+          if (awbCancelRes.success) anySuccess = true;
+        } catch (awbErr) {
+          console.warn(`[Shiprocket] Failed to cancel AWB ${awb}:`, awbErr.message);
+          actions.push({ step: 'cancel_awb', awb, success: false, error: awbErr.message });
+        }
+      }
+
+      // 2. Cancel Shipment if shipmentId present
+      if (shipId) {
+        const parsedShipId = parseInt(shipId, 10);
+        if (!isNaN(parsedShipId)) {
+          try {
+            const shipCancelRes = await this.request('/shipments/cancel', {
+              method: 'POST',
+              body: JSON.stringify({ ids: [parsedShipId] }),
+            });
+            actions.push({
+              step: 'cancel_shipment',
+              shipmentId: parsedShipId,
+              success: shipCancelRes.success,
+              response: shipCancelRes.data,
+            });
+            if (shipCancelRes.success) anySuccess = true;
+          } catch (shipErr) {
+            console.warn(`[Shiprocket] Failed to cancel Shipment ${parsedShipId}:`, shipErr.message);
+            actions.push({ step: 'cancel_shipment', shipmentId: parsedShipId, success: false, error: shipErr.message });
+          }
+        }
+      }
+
+      // 3. Cancel Order in Shiprocket
+      let orderCancelRes = null;
+      if (srOrderId) {
+        const parsedOrderId = parseInt(srOrderId, 10);
+        if (!isNaN(parsedOrderId)) {
+          orderCancelRes = await this.request('/orders/cancel', {
+            method: 'POST',
+            body: JSON.stringify({ ids: [parsedOrderId] }),
+          });
+          actions.push({
+            step: 'cancel_order',
+            orderId: parsedOrderId,
+            success: orderCancelRes.success,
+            response: orderCancelRes.data,
+          });
+          if (orderCancelRes.success) anySuccess = true;
+        }
+      }
+
+      const mainSuccess = Boolean(orderCancelRes?.success || anySuccess);
+      const message =
+        orderCancelRes?.data?.message ||
+        (mainSuccess ? 'Order cancelled in Shiprocket successfully' : 'Shiprocket order cancellation request completed');
 
       return {
-        success: res.success,
-        data: res.data,
+        success: mainSuccess,
+        message,
+        actions,
+        data: orderCancelRes?.data || null,
       };
     } catch (err) {
       console.error('Shiprocket Cancel Order Exception:', err);

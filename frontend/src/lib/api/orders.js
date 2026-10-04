@@ -210,6 +210,20 @@ export const orderApi = {
   },
 
   /**
+   * Admin: Cancel Order & Void in Shiprocket
+   */
+  async adminCancelOrder(id, reason) {
+    const res = await fetch(`${API_BASE_URL}/admin/orders/${id}/cancel`, {
+      method: 'POST',
+      headers: getAdminAuthHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to cancel order');
+    return json.data;
+  },
+
+  /**
    * Admin: Generate Shiprocket Label & AWB
    */
   async adminGenerateLabel(id) {

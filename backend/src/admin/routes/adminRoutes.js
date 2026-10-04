@@ -471,6 +471,12 @@ router.patch(
   adminOrderController.updateOrderStatus
 );
 router.post(
+  '/orders/:id/cancel',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_UPDATE),
+  adminOrderController.cancelOrder
+);
+router.post(
   '/orders/:id/generate-label',
   authenticateAdmin,
   authorize(PERMISSIONS.ORDER_UPDATE),

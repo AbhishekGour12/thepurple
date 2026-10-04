@@ -1,6 +1,7 @@
 import { Order, OrderItem, Payment, Shipment, Product, ProductImage, User, sequelize } from '../../models/index.js';
 import shiprocketService from '../../services/shiprocketService.js';
 import shiprocketCronService from '../../services/shiprocketCronService.js';
+import mailService from '../../services/mailService.js';
 import ApiResponse from '../../utils/apiResponse.js';
 
 const isUuid = (val) => Boolean(val && typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim()));
@@ -173,23 +174,201 @@ export const adminOrderController = {
         return ApiResponse.error(res, `Invalid status value. Must be one of: ${validStatuses.join(', ')}`, 400);
       }
 
-      const order = await Order.findOne({ where: getOrderWhereClause(id) });
+      const order = await Order.findOne({
+        where: getOrderWhereClause(id),
+        include: [
+          { model: Shipment, as: 'shipment' },
+          { model: OrderItem, as: 'items' },
+        ],
+      });
+
       if (!order) {
         return ApiResponse.error(res, 'Order not found', 404);
       }
 
+      const wasAlreadyCancelled = order.status === 'CANCELLED';
       const updates = { status };
       if (notes) updates.notes = notes;
 
-      if (status === 'CANCELLED' && !order.cancelledAt) {
-        updates.cancelledAt = new Date();
-        updates.refundStatus = 'REQUESTED';
-        updates.refundAmount = order.totalAmount;
+      let shiprocketCancelResult = null;
+
+      if (status === 'CANCELLED') {
+        if (!order.cancelledAt) {
+          updates.cancelledAt = new Date();
+        }
+        if (notes) {
+          updates.cancellationReason = notes;
+        }
+
+        const isPrepaid = order.paymentMethod === 'RAZORPAY' && order.paymentStatus === 'PAID';
+        if (isPrepaid && (!order.refundStatus || order.refundStatus === 'NONE')) {
+          updates.refundStatus = 'REQUESTED';
+          updates.refundAmount = order.totalAmount;
+          updates.refundReason = notes ? `Admin cancelled: ${notes}` : 'Order cancelled by admin';
+        }
+
+        // 1. Update Shipment record if present
+        if (order.shipment) {
+          await order.shipment.update({ status: 'CANCELLED' });
+        }
+
+        // 2. Trigger Shiprocket cancellation automatically
+        try {
+          shiprocketCancelResult = await shiprocketService.cancelOrder({
+            shiprocketOrderId: order.shiprocketOrderId,
+            awbCode: order.awbCode,
+            shipmentId: order.shiprocketShipmentId || order.shipment?.shiprocketShipmentId,
+            orderNumber: order.orderNumber,
+          });
+          console.log(`[Admin Update] Shiprocket cancellation result for #${order.orderNumber}:`, shiprocketCancelResult);
+        } catch (srErr) {
+          console.warn(`[Admin Update] Shiprocket cancellation failed for #${order.orderNumber}:`, srErr.message);
+          shiprocketCancelResult = { success: false, message: srErr.message };
+        }
+
+        // 3. Restock inventory if not already cancelled before
+        if (!wasAlreadyCancelled && order.items && order.items.length > 0) {
+          for (const item of order.items) {
+            if (item.productId && item.quantity > 0) {
+              try {
+                await Product.increment('stockQuantity', {
+                  by: item.quantity,
+                  where: { id: item.productId },
+                });
+              } catch (stockErr) {
+                console.warn(`Failed to restock product ${item.productId}:`, stockErr.message);
+              }
+            }
+          }
+        }
       }
 
       await order.update(updates);
 
-      return ApiResponse.success(res, order, `Order status updated to ${status}`);
+      if (status === 'CANCELLED' && order.customerEmail) {
+        mailService
+          .sendOrderCancellationEmail({
+            order,
+            customerEmail: order.customerEmail,
+            customerName: order.customerName,
+            reason: notes || 'Cancelled by admin',
+          })
+          .catch((mErr) => console.warn(`[Mail] Admin cancellation email failed for #${order.orderNumber}:`, mErr.message));
+      }
+
+      return ApiResponse.success(
+        res,
+        {
+          ...order.toJSON(),
+          shiprocketCancellation: shiprocketCancelResult,
+        },
+        `Order status updated to ${status}${
+          status === 'CANCELLED' && shiprocketCancelResult?.success ? ' & cancelled on Shiprocket' : ''
+        }`
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * 3b. Dedicated Cancel Order (Admin)
+   */
+  async cancelOrder(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { reason = 'Cancelled by administrator' } = req.body;
+
+      const order = await Order.findOne({
+        where: getOrderWhereClause(id),
+        include: [
+          { model: Shipment, as: 'shipment' },
+          { model: OrderItem, as: 'items' },
+        ],
+      });
+
+      if (!order) {
+        return ApiResponse.error(res, 'Order not found', 404);
+      }
+
+      if (order.status === 'CANCELLED') {
+        return ApiResponse.error(res, 'This order is already cancelled', 400);
+      }
+
+      const isPrepaid = order.paymentMethod === 'RAZORPAY' && order.paymentStatus === 'PAID';
+
+      // 1. Update Order Status to CANCELLED
+      await order.update({
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancellationReason: reason,
+        refundStatus: isPrepaid ? (order.refundStatus === 'PROCESSED' ? 'PROCESSED' : 'REQUESTED') : 'NONE',
+        refundReason: isPrepaid ? `Admin cancelled: ${reason}` : null,
+        refundAmount: isPrepaid ? order.totalAmount : 0,
+      });
+
+      // 2. Update Shipment Record
+      if (order.shipment) {
+        await order.shipment.update({ status: 'CANCELLED' });
+      }
+
+      // 3. Cancel on Shiprocket
+      let shiprocketCancelResult = null;
+      try {
+        shiprocketCancelResult = await shiprocketService.cancelOrder({
+          shiprocketOrderId: order.shiprocketOrderId,
+          awbCode: order.awbCode,
+          shipmentId: order.shiprocketShipmentId || order.shipment?.shiprocketShipmentId,
+          orderNumber: order.orderNumber,
+        });
+        console.log(`[Admin Cancel Order] Shiprocket cancellation result for #${order.orderNumber}:`, shiprocketCancelResult);
+      } catch (srErr) {
+        console.warn(`[Admin Cancel Order] Shiprocket cancellation notice for #${order.orderNumber}:`, srErr.message);
+        shiprocketCancelResult = { success: false, message: srErr.message };
+      }
+
+      // 4. Restock inventory
+      if (order.items && order.items.length > 0) {
+        for (const item of order.items) {
+          if (item.productId && item.quantity > 0) {
+            try {
+              await Product.increment('stockQuantity', {
+                by: item.quantity,
+                where: { id: item.productId },
+              });
+            } catch (stockErr) {
+              console.warn(`Failed to restock product ${item.productId}:`, stockErr.message);
+            }
+          }
+        }
+      }
+
+      // Send Order Cancellation Email via ZeptoMail
+      if (order.customerEmail) {
+        mailService
+          .sendOrderCancellationEmail({
+            order,
+            customerEmail: order.customerEmail,
+            customerName: order.customerName,
+            reason,
+          })
+          .catch((mErr) => console.warn(`[Mail] Admin cancel email failed for #${order.orderNumber}:`, mErr.message));
+      }
+
+      return ApiResponse.success(
+        res,
+        {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          status: 'CANCELLED',
+          refundStatus: order.refundStatus,
+          refundAmount: order.refundAmount,
+          shiprocketCancellation: shiprocketCancelResult,
+        },
+        `Order #${order.orderNumber} has been cancelled successfully${
+          shiprocketCancelResult?.success ? ' and cancelled in Shiprocket' : ''
+        }`
+      );
     } catch (error) {
       next(error);
     }

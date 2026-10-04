@@ -57,14 +57,45 @@ export default function AdminOrderDetailPage() {
 
   const handleUpdateStatus = async (e) => {
     e.preventDefault();
+    if (selectedStatus === 'CANCELLED') {
+      const confirmCancel = window.confirm(
+        'Are you sure you want to mark this order as CANCELLED? This will also automatically trigger cancellation on Shiprocket (cancelling order & AWB).'
+      );
+      if (!confirmCancel) return;
+    }
     try {
       setUpdating(true);
-      await orderApi.adminUpdateStatus(orderId, { status: selectedStatus, notes: statusNote });
-      setNotice(`Order status updated to "${selectedStatus}"`);
+      const res = await orderApi.adminUpdateStatus(orderId, { status: selectedStatus, notes: statusNote });
+      const srNotice = res?.shiprocketCancellation?.success
+        ? ' (Shiprocket shipment voided & cancelled)'
+        : '';
+      setNotice(`Order status updated to "${selectedStatus}"${srNotice}`);
       setStatusNote('');
       loadOrder();
     } catch (err) {
       alert(err.message || 'Could not update status');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    const reason = window.prompt(
+      'Enter reason for cancelling this order (this will also cancel the order on Shiprocket):',
+      'Cancelled by Administrator'
+    );
+    if (reason === null) return;
+
+    try {
+      setUpdating(true);
+      const res = await orderApi.adminCancelOrder(orderId, reason || 'Cancelled by Administrator');
+      const srNotice = res?.shiprocketCancellation?.success
+        ? ' and cancelled on Shiprocket'
+        : '';
+      setNotice(`Order #${order?.orderNumber || orderId} has been cancelled${srNotice}.`);
+      loadOrder();
+    } catch (err) {
+      alert(err.message || 'Could not cancel order');
     } finally {
       setUpdating(false);
     }

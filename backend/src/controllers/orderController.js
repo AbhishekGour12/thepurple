@@ -1,6 +1,7 @@
 import { Order, OrderItem, Payment, Shipment, Product, ProductImage, Coupon, Cart, CartItem, sequelize } from '../models/index.js';
 import razorpayService from '../services/razorpayService.js';
 import shiprocketService from '../services/shiprocketService.js';
+import mailService from '../services/mailService.js';
 import ApiResponse from '../utils/apiResponse.js';
 import AppError from '../utils/customError.js';
 
@@ -433,6 +434,17 @@ export const orderController = {
         console.error(`[Shiprocket] Async Order Creation error for #${newOrder.orderNumber}:`, shipErr.message);
       }
 
+      // Send Order Confirmation Email via ZeptoMail
+      if (newOrder.customerEmail) {
+        mailService
+          .sendOrderConfirmationEmail({
+            order: newOrder,
+            customerEmail: newOrder.customerEmail,
+            customerName: newOrder.customerName,
+          })
+          .catch((mErr) => console.warn(`[Mail] Confirmation email failed for #${newOrder.orderNumber}:`, mErr.message));
+      }
+
       return ApiResponse.success(
         res,
         {
@@ -670,13 +682,19 @@ export const orderController = {
         });
       }
 
-      // 3. Trigger Shiprocket order cancellation automatically if created in Shiprocket
-      if (order.shiprocketOrderId || order.awbCode) {
-        try {
-          await shiprocketService.cancelOrder(order.shiprocketOrderId, order.awbCode);
-        } catch (srErr) {
-          console.warn(`Shiprocket order cancellation API notice for #${order.orderNumber}:`, srErr.message);
-        }
+      // 3. Trigger Shiprocket order cancellation automatically
+      let shiprocketCancelResult = null;
+      try {
+        shiprocketCancelResult = await shiprocketService.cancelOrder({
+          shiprocketOrderId: order.shiprocketOrderId,
+          awbCode: order.awbCode,
+          shipmentId: order.shiprocketShipmentId || order.shipment?.shiprocketShipmentId,
+          orderNumber: order.orderNumber,
+        });
+        console.log(`[Customer Cancel Order] Shiprocket cancellation result for #${order.orderNumber}:`, shiprocketCancelResult);
+      } catch (srErr) {
+        console.warn(`[Customer Cancel Order] Shiprocket order cancellation API notice for #${order.orderNumber}:`, srErr.message);
+        shiprocketCancelResult = { success: false, message: srErr.message };
       }
 
       // 4. Restock inventory
@@ -695,6 +713,18 @@ export const orderController = {
         }
       }
 
+      // Send Order Cancellation Email via ZeptoMail
+      if (order.customerEmail) {
+        mailService
+          .sendOrderCancellationEmail({
+            order,
+            customerEmail: order.customerEmail,
+            customerName: order.customerName,
+            reason,
+          })
+          .catch((mErr) => console.warn(`[Mail] Cancellation email failed for #${order.orderNumber}:`, mErr.message));
+      }
+
       return ApiResponse.success(
         res,
         {
@@ -703,6 +733,7 @@ export const orderController = {
           status: 'CANCELLED',
           refundStatus: isPrepaidPaid ? 'REQUESTED' : 'NONE',
           refundAmount: isPrepaidPaid ? order.totalAmount : 0,
+          shiprocketCancellation: shiprocketCancelResult,
         },
         isPrepaidPaid
           ? 'Order has been cancelled successfully. Your refund request has been initiated.'

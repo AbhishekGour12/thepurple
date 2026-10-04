@@ -11,10 +11,13 @@ import {
   Attribute,
   AttributeValue,
   ProductAttributeValue,
+  CartItem,
+  ProductInterest,
   AuditLog,
 } from '../../models/index.js';
 import { PRODUCT_STATUS } from '../../models/Product.js';
 import meiliService from '../../services/meiliService.js';
+import r2Service from '../../services/r2Service.js';
 import AppError from '../../utils/customError.js';
 import logger from '../../config/logger.js';
 
@@ -806,34 +809,49 @@ export const productService = {
   },
 
   /**
-   * Soft delete / Archive product & remove images from Cloudflare R2
+   * Soft delete / Archive product & clean up associated images and cache
    */
-  async deleteProduct(id, { adminId, ipAddress }) {
+  async deleteProduct(id, { adminId, ipAddress } = {}) {
     const product = await Product.findByPk(id);
     if (!product) throw AppError.notFound('Product not found');
 
-    // Fetch and remove product images from Cloudflare R2
-    const productImages = await ProductImage.findAll({ where: { productId: id } });
-    if (productImages.length > 0) {
-      r2Service
-        .deleteMultipleImages(productImages.map((img) => img.r2Key || img.imageUrl))
-        .catch((e) => logger.warn(`R2 product image deletion notice: ${e.message}`));
-      await ProductImage.destroy({ where: { productId: id } });
+    // 1. Clean up product images from Cloudflare R2 safely
+    try {
+      const productImages = await ProductImage.findAll({ where: { productId: id } });
+      if (productImages.length > 0) {
+        if (r2Service?.deleteMultipleImages) {
+          await r2Service.deleteMultipleImages(productImages.map((img) => img.r2Key || img.imageUrl));
+        }
+        await ProductImage.destroy({ where: { productId: id } });
+      }
+    } catch (imgErr) {
+      logger.warn(`Notice while cleaning images for product ${id}: ${imgErr.message}`);
     }
 
-    // Paranoid soft delete (sets deletedAt timestamp)
+    // 2. Clean up any related cart items, wishlist/interests, variants and attribute values
+    try {
+      await CartItem.destroy({ where: { productId: id } }).catch(() => {});
+      await ProductInterest.destroy({ where: { productId: id } }).catch(() => {});
+      await ProductVariant.destroy({ where: { productId: id } }).catch(() => {});
+      await ProductAttributeValue.destroy({ where: { productId: id } }).catch(() => {});
+    } catch (cleanupErr) {
+      logger.warn(`Notice while cleaning dependent relations for product ${id}: ${cleanupErr.message}`);
+    }
+
+    // 3. Delete / Soft-delete product from database
     await product.destroy();
 
-    await AuditLog.create({
-      adminId,
+    // 4. Record audit log
+    AuditLog.create({
+      adminId: adminId || null,
       action: 'PRODUCT_DELETED_ARCHIVED',
       entity: 'Product',
       entityId: id,
       metadata: { name: product.name, sku: product.sku },
       ipAddress: ipAddress || null,
-    });
+    }).catch(() => {});
 
-    // Remove from Meilisearch index
+    // 5. Remove from Meilisearch index
     try {
       const client = meiliService.getClient();
       if (client) {
@@ -844,13 +862,13 @@ export const productService = {
       logger.warn(`Failed to delete product ${id} from Meilisearch: ${err.message}`);
     }
 
-    return { message: 'Product archived and removed from public catalog successfully' };
+    return { message: `Product "${product.name}" deleted successfully` };
   },
 
   /**
    * Bulk soft-delete products or delete all products & clean up R2 images
    */
-  async bulkDeleteProducts({ ids = [], all = false, adminId, ipAddress }) {
+  async bulkDeleteProducts({ ids = [], all = false, adminId, ipAddress } = {}) {
     let targetIds = [];
     if (all) {
       const allProducts = await Product.findAll({ attributes: ['id'] });
@@ -865,33 +883,48 @@ export const productService = {
       return { message: 'No products to delete', count: 0 };
     }
 
-    // Clean up images from Cloudflare R2
-    const allImages = await ProductImage.findAll({
-      where: { productId: { [Op.in]: targetIds } },
-    });
-    if (allImages.length > 0) {
-      r2Service
-        .deleteMultipleImages(allImages.map((img) => img.r2Key || img.imageUrl))
-        .catch((e) => logger.warn(`R2 bulk product image deletion notice: ${e.message}`));
-      await ProductImage.destroy({ where: { productId: { [Op.in]: targetIds } } });
+    // 1. Clean up images from Cloudflare R2 safely
+    try {
+      const allImages = await ProductImage.findAll({
+        where: { productId: { [Op.in]: targetIds } },
+      });
+      if (allImages.length > 0) {
+        if (r2Service?.deleteMultipleImages) {
+          await r2Service.deleteMultipleImages(allImages.map((img) => img.r2Key || img.imageUrl));
+        }
+        await ProductImage.destroy({ where: { productId: { [Op.in]: targetIds } } });
+      }
+    } catch (imgErr) {
+      logger.warn(`Notice while cleaning bulk images: ${imgErr.message}`);
     }
 
+    // 2. Clean up dependencies
+    try {
+      await CartItem.destroy({ where: { productId: { [Op.in]: targetIds } } }).catch(() => {});
+      await ProductInterest.destroy({ where: { productId: { [Op.in]: targetIds } } }).catch(() => {});
+      await ProductVariant.destroy({ where: { productId: { [Op.in]: targetIds } } }).catch(() => {});
+      await ProductAttributeValue.destroy({ where: { productId: { [Op.in]: targetIds } } }).catch(() => {});
+    } catch (depErr) {
+      logger.warn(`Notice while cleaning bulk dependent relations: ${depErr.message}`);
+    }
+
+    // 3. Delete products
     const count = await Product.destroy({
       where: {
         id: { [Op.in]: targetIds },
       },
     });
 
-    // Record audit log asynchronously
+    // 4. Record audit log asynchronously
     AuditLog.create({
-      adminId,
+      adminId: adminId || null,
       action: 'PRODUCTS_BULK_DELETED',
       entity: 'Product',
       metadata: { count, targetIdsCount: targetIds.length, all },
       ipAddress: ipAddress || null,
-    }).catch(() => { });
+    }).catch(() => {});
 
-    // Batch delete from Meilisearch
+    // 5. Batch delete from Meilisearch
     try {
       const client = meiliService.getClient();
       if (client) {

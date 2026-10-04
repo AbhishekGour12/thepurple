@@ -2,31 +2,129 @@ import nodemailer from 'nodemailer';
 import env from '../config/env.js';
 import logger from '../config/logger.js';
 
-let transporter = null;
+let smtpTransporter = null;
 
-function getMailTransporter() {
-  if (transporter) return transporter;
+/**
+ * Get or initialize ZeptoMail SMTP Transporter (Fallback)
+ */
+function getSmtpTransporter() {
+  if (smtpTransporter) return smtpTransporter;
 
   if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD) {
-    transporter = nodemailer.createTransport({
+    smtpTransporter = nodemailer.createTransport({
       host: env.SMTP_HOST,
       port: env.SMTP_PORT || 587,
       secure: env.SMTP_PORT === 465,
       auth: {
         user: env.SMTP_USER.trim(),
-        pass: env.SMTP_PASSWORD.replace(/\s+/g, ''),
+        pass: env.SMTP_PASSWORD.trim(),
       },
     });
-    logger.info(`Configured SMTP transporter with host: ${env.SMTP_HOST}`);
-  } else {
-    // In dev / test when SMTP is not configured, create a mock transporter or etherial
-    logger.info('SMTP credentials not configured; mail service operating in fallback logger mode.');
+    logger.info(`[MailService] Configured ZeptoMail SMTP with host: ${env.SMTP_HOST}:${env.SMTP_PORT}`);
+  }
+  return smtpTransporter;
+}
+
+/**
+ * Send email directly via Zoho ZeptoMail / CPaaS REST API (Primary)
+ */
+async function sendViaZeptoMailApi({ to, toName, subject, html, text, fromAddress, fromName }) {
+  const apiKey = env.ZEPTOMAIL_API_KEY;
+  if (!apiKey) return { success: false, message: 'ZeptoMail API key not configured' };
+
+  const authHeader = apiKey.startsWith('Zoho-enczapikey') ? apiKey : `Zoho-enczapikey ${apiKey.trim()}`;
+  const host = env.ZEPTOMAIL_HOST || 'cpaas.zoho.in';
+  const url = `https://${host}/v1.1/email`;
+
+  const senderAddress = fromAddress || env.ZEPTOMAIL_FROM_ADDRESS || 'noreply@thepurple.online';
+  const senderName = fromName || env.ZEPTOMAIL_FROM_NAME || 'ThePurple';
+
+  const payload = {
+    from: {
+      address: senderAddress,
+      name: senderName,
+    },
+    to: [
+      {
+        email_address: {
+          address: to,
+          name: toName || to.split('@')[0],
+        },
+      },
+    ],
+    subject,
+    htmlbody: html,
+  };
+
+  if (text) {
+    payload.textbody = text;
   }
 
-  return transporter;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: authHeader,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      logger.info(`[ZeptoMail REST] Email successfully delivered to ${to} (Subject: "${subject}")`);
+      return { success: true, data };
+    }
+
+    logger.warn(
+      `[ZeptoMail REST API returned ${res.status}] ${data.message || JSON.stringify(data.error || data)}. Falling back to SMTP...`
+    );
+    return { success: false, status: res.status, data };
+  } catch (err) {
+    logger.warn(`[ZeptoMail REST API Exception] ${err.message}. Falling back to SMTP...`);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Unified sendMail dispatcher with automatic REST API -> SMTP fallback
+ */
+export async function sendMail({ to, toName, subject, html, text, fromAddress, fromName }) {
+  // 1. Try ZeptoMail REST API (cpaas.zoho.in)
+  if (env.ZEPTOMAIL_API_KEY) {
+    const apiResult = await sendViaZeptoMailApi({ to, toName, subject, html, text, fromAddress, fromName });
+    if (apiResult.success) {
+      return { sent: true, provider: 'zeptomail_rest', data: apiResult.data };
+    }
+  }
+
+  // 2. Try ZeptoMail SMTP fallback
+  const transporter = getSmtpTransporter();
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({
+        from: env.SMTP_FROM || `"${fromName || 'ThePurple'}" <${fromAddress || 'noreply@thepurple.online'}>`,
+        to: toName ? `"${toName}" <${to}>` : to,
+        subject,
+        html,
+        text,
+      });
+      logger.info(`[ZeptoMail SMTP] Email sent to ${to} (MessageId: ${info.messageId})`);
+      return { sent: true, provider: 'zeptomail_smtp', info };
+    } catch (smtpErr) {
+      logger.error(`[ZeptoMail SMTP Error] Failed to send email to ${to}: ${smtpErr.message}`);
+    }
+  }
+
+  // 3. Fallback log for development/test
+  logger.info(`[MAIL LOG ONLY] To: ${to} | Subject: "${subject}"`);
+  return { sent: false, provider: 'mock' };
 }
 
 export const mailService = {
+  sendMail,
+
   /**
    * Send Password Reset Link to Admin
    */
@@ -54,24 +152,12 @@ export const mailService = {
       </div>
     `;
 
-    const transport = getMailTransporter();
-    if (transport) {
-      try {
-        await transport.sendMail({
-          from: env.SMTP_FROM,
-          to: toEmail,
-          subject,
-          html,
-        });
-        logger.info(`Password reset email sent to ${toEmail}`);
-      } catch (err) {
-        logger.error(`Failed to send password reset email via SMTP: ${err.message}`);
-      }
-    } else {
-      logger.info(`[MAIL MOCK] Password Reset Email for ${toEmail}: Reset URL = ${resetUrl}`);
-    }
-
-    return { sent: true, resetUrl };
+    return sendMail({
+      to: toEmail,
+      toName: adminName,
+      subject,
+      html,
+    });
   },
 
   /**
@@ -106,24 +192,12 @@ export const mailService = {
       </div>
     `;
 
-    const transport = getMailTransporter();
-    if (transport) {
-      try {
-        await transport.sendMail({
-          from: env.SMTP_FROM,
-          to: toEmail,
-          subject,
-          html,
-        });
-        logger.info(`Welcome email with temporary password sent to ${toEmail}`);
-      } catch (err) {
-        logger.error(`Failed to send welcome email via SMTP: ${err.message}`);
-      }
-    } else {
-      logger.info(`[MAIL MOCK] Welcome Email for ${toEmail} (${role}): Temp Password = ${temporaryPassword}`);
-    }
-
-    return { sent: true };
+    return sendMail({
+      to: toEmail,
+      toName: adminName,
+      subject,
+      html,
+    });
   },
 
   /**
@@ -139,10 +213,8 @@ export const mailService = {
     queryId,
   }) {
     const emailSubject = `Response to your inquiry: ${originalSubject || 'ThePurple Support'}`;
-    const formattedReply = (replyMessage || '')
-      .replace(/\n/g, '<br/>');
-    const formattedOriginal = (originalMessage || '')
-      .replace(/\n/g, '<br/>');
+    const formattedReply = (replyMessage || '').replace(/\n/g, '<br/>');
+    const formattedOriginal = (originalMessage || '').replace(/\n/g, '<br/>');
 
     const html = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 620px; margin: 0 auto; padding: 28px 20px; background-color: #FAF5FF; border: 1px solid #E9D5FF; border-radius: 16px;">
@@ -192,24 +264,12 @@ export const mailService = {
       </div>
     `;
 
-    const transport = getMailTransporter();
-    if (transport) {
-      try {
-        await transport.sendMail({
-          from: env.SMTP_FROM,
-          to: toEmail,
-          subject: emailSubject,
-          html,
-        });
-        logger.info(`Contact query reply email sent successfully to ${toEmail}`);
-      } catch (err) {
-        logger.error(`Failed to send contact query reply email via SMTP: ${err.message}`);
-      }
-    } else {
-      logger.info(`[MAIL MOCK] Contact Query Reply for ${toEmail}: Subject="${emailSubject}", Message="${replyMessage}"`);
-    }
-
-    return { sent: true };
+    return sendMail({
+      to: toEmail,
+      toName: recipientName,
+      subject: emailSubject,
+      html,
+    });
   },
 
   /**
@@ -239,24 +299,94 @@ export const mailService = {
       </div>
     `;
 
-    const transport = getMailTransporter();
-    if (transport) {
-      try {
-        await transport.sendMail({
-          from: env.SMTP_FROM,
-          to: toEmail,
-          subject: emailSubject,
-          html,
-        });
-        logger.info(`Contact received confirmation sent to ${toEmail}`);
-      } catch (err) {
-        logger.error(`Failed to send contact confirmation email via SMTP: ${err.message}`);
-      }
-    } else {
-      logger.info(`[MAIL MOCK] Contact Query Received Confirmation for ${toEmail}`);
-    }
+    return sendMail({
+      to: toEmail,
+      toName: recipientName,
+      subject: emailSubject,
+      html,
+    });
+  },
 
-    return { sent: true };
+  /**
+   * Send Order Confirmation Email
+   */
+  async sendOrderConfirmationEmail({ order, customerEmail, customerName }) {
+    if (!customerEmail || !order) return { sent: false };
+
+    const emailSubject = `Order Confirmed: #${order.orderNumber} — ThePurple`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #E9D5FF; border-radius: 12px; background-color: #FAF5FF;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h1 style="color: #6B21A8; margin: 0; font-size: 24px;">ThePurple</h1>
+          <p style="color: #581C87; margin: 4px 0 0; font-size: 13px; font-weight: bold; text-transform: uppercase;">Order Confirmation</p>
+        </div>
+        <div style="background-color: #ffffff; padding: 24px; border-radius: 8px; border: 1px solid #E9D5FF;">
+          <h2 style="color: #2E1065; font-size: 18px; margin-top: 0;">Thank You for Your Order!</h2>
+          <p style="color: #374151; line-height: 1.5;">Hello ${customerName || 'Valued Customer'},</p>
+          <p style="color: #374151; line-height: 1.5;">Your order <strong>#${order.orderNumber}</strong> has been confirmed and is being prepared for packaging and shipping.</p>
+          
+          <div style="background-color: #FAF5FF; padding: 16px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 0 0 6px 0; color: #2E1065;"><strong>Order Total:</strong> ₹${parseFloat(order.totalAmount || 0).toLocaleString('en-IN')}</p>
+            <p style="margin: 0; color: #2E1065;"><strong>Payment Method:</strong> ${order.paymentMethod || 'Prepaid'}</p>
+          </div>
+
+          <p style="color: #6B7280; font-size: 13px;">You will receive live Shiprocket tracking updates as soon as your parcel is dispatched from our warehouse.</p>
+        </div>
+        <div style="text-align: center; margin-top: 20px; color: #9CA3AF; font-size: 12px;">
+          &copy; ${new Date().getFullYear()} ThePurple. All rights reserved.
+        </div>
+      </div>
+    `;
+
+    return sendMail({
+      to: customerEmail,
+      toName: customerName,
+      subject: emailSubject,
+      html,
+    });
+  },
+
+  /**
+   * Send Order Cancellation Email
+   */
+  async sendOrderCancellationEmail({ order, customerEmail, customerName, reason }) {
+    if (!customerEmail || !order) return { sent: false };
+
+    const emailSubject = `Order Cancelled: #${order.orderNumber} — ThePurple`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #FECACA; border-radius: 12px; background-color: #FEF2F2;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h1 style="color: #991B1B; margin: 0; font-size: 24px;">ThePurple</h1>
+          <p style="color: #B91C1C; margin: 4px 0 0; font-size: 13px; font-weight: bold; text-transform: uppercase;">Order Cancellation Notice</p>
+        </div>
+        <div style="background-color: #ffffff; padding: 24px; border-radius: 8px; border: 1px solid #FECACA;">
+          <h2 style="color: #991B1B; font-size: 18px; margin-top: 0;">Order #${order.orderNumber} Cancelled</h2>
+          <p style="color: #374151; line-height: 1.5;">Hello ${customerName || 'Valued Customer'},</p>
+          <p style="color: #374151; line-height: 1.5;">Your order <strong>#${order.orderNumber}</strong> has been cancelled.</p>
+          
+          <div style="background-color: #FEF2F2; padding: 16px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 0 0 6px 0; color: #991B1B;"><strong>Cancellation Reason:</strong> ${reason || 'Cancelled per customer/admin request'}</p>
+            ${
+              order.refundStatus === 'REQUESTED'
+                ? `<p style="margin: 0; color: #B45309;"><strong>Refund Status:</strong> A refund of ₹${parseFloat(order.totalAmount || 0).toLocaleString('en-IN')} has been initiated.</p>`
+                : ''
+            }
+          </div>
+
+          <p style="color: #6B7280; font-size: 13px;">If you have questions or need assistance, please reply to this email or reach out to our concierge.</p>
+        </div>
+        <div style="text-align: center; margin-top: 20px; color: #9CA3AF; font-size: 12px;">
+          &copy; ${new Date().getFullYear()} ThePurple. All rights reserved.
+        </div>
+      </div>
+    `;
+
+    return sendMail({
+      to: customerEmail,
+      toName: customerName,
+      subject: emailSubject,
+      html,
+    });
   },
 };
 
