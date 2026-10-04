@@ -455,10 +455,9 @@ export const bulkImportService = {
       categoryMap.set(cat.name.toLowerCase().trim(), cat);
     }
 
-    // Cache existing SKUs from DB
+    // Cache existing active SKUs from DB (only active products, not deleted ones)
     const existingProducts = await Product.findAll({
       attributes: ['sku'],
-      paranoid: false,
     });
     const dbSkuSet = new Set(existingProducts.map((p) => (p.sku || '').toUpperCase().trim()));
 
@@ -723,6 +722,15 @@ export const bulkImportService = {
         if (existingSlug) {
           finalSlug = `${finalSlug}-${Date.now().toString().slice(-4)}-${i}`;
         }
+
+        // Clean up any lingering soft-deleted product with matching SKU or slug so MySQL unique key won't collide
+        await Product.destroy({
+          where: {
+            [Op.or]: [{ sku: row.sku }, { slug: finalSlug }],
+            deletedAt: { [Op.ne]: null },
+          },
+          force: true,
+        }).catch(() => {});
 
         const product = await Product.create(
           {

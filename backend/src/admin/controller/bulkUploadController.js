@@ -18,7 +18,7 @@ const upload = multer({
 
 export const bulkFileUploadMiddleware = upload.fields([
   { name: 'file', maxCount: 1 },
-  { name: 'images', maxCount: 100 },
+  { name: 'images', maxCount: 250 },
 ]);
 
 function extractUploadFiles(req) {
@@ -118,7 +118,7 @@ export const executeBulkImport = asyncHandler(async (req, res) => {
     throw AppError.badRequest('No valid rows found in the uploaded file. Please review the errors.');
   }
 
-  // Upload any attached image files to Cloudflare R2 / S3 before processing
+  // Upload any attached image files to Cloudflare R2 before processing
   if (imageFiles.length > 0) {
     logger.info(`Bulk import: Uploading ${imageFiles.length} attached images to Cloudflare R2...`);
     const imageUploadMap = new Map();
@@ -126,10 +126,14 @@ export const executeBulkImport = asyncHandler(async (req, res) => {
     for (const img of imageFiles) {
       try {
         const uploadResult = await r2Service.uploadImage(img.buffer, img.originalname, img.mimetype, 'products');
-        const orig = (img.originalname || '').toLowerCase().trim();
-        imageUploadMap.set(orig, uploadResult.publicUrl);
-        const withoutExt = orig.substring(0, orig.lastIndexOf('.')) || orig;
-        imageUploadMap.set(withoutExt, uploadResult.publicUrl);
+        const url = uploadResult?.imageUrl || uploadResult?.publicUrl || uploadResult?.url;
+        if (url) {
+          const orig = (img.originalname || '').toLowerCase().trim();
+          imageUploadMap.set(orig, url);
+          const withoutExt = orig.substring(0, orig.lastIndexOf('.')) || orig;
+          imageUploadMap.set(withoutExt, url);
+          logger.info(`[Bulk Import R2] Uploaded image "${img.originalname}" -> ${url}`);
+        }
       } catch (err) {
         logger.warn(`Failed to upload attached image ${img.originalname}: ${err.message}`);
       }
@@ -139,13 +143,52 @@ export const executeBulkImport = asyncHandler(async (req, res) => {
     validationResult.validRows.forEach((row) => {
       const allUrls = [...(row.allImageUrls || [])];
 
+      // 1. Matched image files
       if (row.matchedImageFiles && row.matchedImageFiles.length > 0) {
         row.matchedImageFiles.forEach((f) => {
-          const url = imageUploadMap.get((f.originalname || '').toLowerCase().trim());
+          const orig = (f.originalname || '').toLowerCase().trim();
+          const withoutExt = orig.substring(0, orig.lastIndexOf('.')) || orig;
+          const url = imageUploadMap.get(orig) || imageUploadMap.get(withoutExt);
           if (url && !allUrls.includes(url)) {
             allUrls.push(url);
           }
         });
+      }
+
+      // 2. Filenames specified in Excel column
+      if (row.rawImage) {
+        const items = String(row.rawImage)
+          .split(/[,;\n|]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        items.forEach((item) => {
+          if (item.startsWith('http://') || item.startsWith('https://')) {
+            if (!allUrls.includes(item)) allUrls.push(item);
+          } else {
+            const key = item.toLowerCase();
+            const withoutExt = key.substring(0, key.lastIndexOf('.')) || key;
+            const url = imageUploadMap.get(key) || imageUploadMap.get(withoutExt);
+            if (url && !allUrls.includes(url)) {
+              allUrls.push(url);
+            }
+          }
+        });
+      }
+
+      // 3. Match SKU filename
+      if (row.sku) {
+        const skuKey = String(row.sku).toLowerCase().trim();
+        const skuUrl = imageUploadMap.get(skuKey);
+        if (skuUrl && !allUrls.includes(skuUrl)) {
+          allUrls.push(skuUrl);
+        }
+        for (let idx = 1; idx <= 10; idx++) {
+          const variantSkuUrl = imageUploadMap.get(`${skuKey}-${idx}`);
+          if (variantSkuUrl && !allUrls.includes(variantSkuUrl)) {
+            allUrls.push(variantSkuUrl);
+          }
+        }
       }
 
       if (allUrls.length > 0) {

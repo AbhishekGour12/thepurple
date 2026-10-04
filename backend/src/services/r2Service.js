@@ -86,6 +86,8 @@ export const r2Service = {
         logger.info(`Uploaded optimized file to Cloudflare R2: ${publicUrl}`);
         return {
           imageUrl: publicUrl,
+          publicUrl,
+          url: publicUrl,
           r2Key: key,
           format: ext.replace('.', ''),
           sizeBytes: finalBuffer.length,
@@ -101,6 +103,8 @@ export const r2Service = {
     logger.info(`[R2 DEV FALLBACK] Generated media reference: ${fallbackUrl}`);
     return {
       imageUrl: fallbackUrl,
+      publicUrl: fallbackUrl,
+      url: fallbackUrl,
       r2Key: key,
       format: ext.replace('.', ''),
       sizeBytes: finalBuffer.length,

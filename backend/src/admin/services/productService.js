@@ -394,6 +394,15 @@ export const productService = {
       finalSlug = `${finalSlug}-${Math.random().toString(36).substring(2, 7)}`;
     }
 
+    // Purge any existing soft-deleted product with matching SKU or slug so MySQL unique index won't collide
+    await Product.destroy({
+      where: {
+        [Op.or]: [{ sku: cleanSku }, { slug: finalSlug }],
+        deletedAt: { [Op.ne]: null },
+      },
+      force: true,
+    }).catch(() => {});
+
     const transaction = await sequelize.transaction();
 
     try {
@@ -838,13 +847,13 @@ export const productService = {
       logger.warn(`Notice while cleaning dependent relations for product ${id}: ${cleanupErr.message}`);
     }
 
-    // 3. Delete / Soft-delete product from database
-    await product.destroy();
+    // 3. Delete product permanently from database (force: true so SKU/slug is free for re-import)
+    await product.destroy({ force: true });
 
     // 4. Record audit log
     AuditLog.create({
       adminId: adminId || null,
-      action: 'PRODUCT_DELETED_ARCHIVED',
+      action: 'PRODUCT_DELETED',
       entity: 'Product',
       entityId: id,
       metadata: { name: product.name, sku: product.sku },
@@ -866,7 +875,7 @@ export const productService = {
   },
 
   /**
-   * Bulk soft-delete products or delete all products & clean up R2 images
+   * Bulk delete products or delete all products & clean up R2 images
    */
   async bulkDeleteProducts({ ids = [], all = false, adminId, ipAddress } = {}) {
     let targetIds = [];
@@ -908,11 +917,12 @@ export const productService = {
       logger.warn(`Notice while cleaning bulk dependent relations: ${depErr.message}`);
     }
 
-    // 3. Delete products
+    // 3. Delete products permanently (force: true so SKUs and slugs can be re-imported freely)
     const count = await Product.destroy({
       where: {
         id: { [Op.in]: targetIds },
       },
+      force: true,
     });
 
     // 4. Record audit log asynchronously
