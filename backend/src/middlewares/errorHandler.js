@@ -11,6 +11,19 @@ export const errorHandler = (err, req, res, next) => {
   let errorCode = err.errorCode || 'INTERNAL_ERROR';
   let errors = err.details || null;
 
+  // Handle Multer upload errors
+  if (err.name === 'MulterError') {
+    statusCode = 400;
+    errorCode = 'FILE_UPLOAD_ERROR';
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      message = 'Uploaded file exceeds the maximum allowed size (100MB limit)';
+    } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      message = `Unexpected upload field "${err.field}". Allowed fields are "file" and "images".`;
+    } else {
+      message = err.message || 'File upload error';
+    }
+  }
+
   // Handle Sequelize validation errors
   if (err.name === 'SequelizeValidationError' || err.name === 'SequelizeUniqueConstraintError') {
     statusCode = 400;

@@ -15,7 +15,7 @@ export const configureCors = () => {
     'https://thepurple.vercel.app',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-  ];
+  ].filter(Boolean);
 
   return cors({
     origin: (origin, callback) => {
@@ -23,18 +23,20 @@ export const configureCors = () => {
       if (!origin) return callback(null, true);
       
       const isAllowed =
+        !env.isProduction ||
         allowedOrigins.includes(origin) ||
         origin === 'https://thepurple.vercel.app' ||
         origin.endsWith('.vercel.app') ||
-        !env.isProduction;
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1');
 
       if (isAllowed) {
         return callback(null, true);
       }
-      return callback(new Error(`CORS policy blocked access from origin ${origin}`));
+      return callback(null, false);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
     allowedHeaders: [
       'Content-Type',
       'Authorization',
@@ -48,5 +50,7 @@ export const configureCors = () => {
       'Cache-Control',
       'Accept-Language',
     ],
+    exposedHeaders: ['Content-Disposition', 'Content-Length'],
+    maxAge: 86400,
   });
 };

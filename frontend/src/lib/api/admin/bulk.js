@@ -26,6 +26,7 @@ export const adminBulkApi = {
   },
 
   async validateBulkFile(file, images = []) {
+    const token = getStoredAdminToken();
     const formData = new FormData();
     formData.append('file', file);
     if (images && images.length > 0) {
@@ -35,11 +36,13 @@ export const adminBulkApi = {
     return await request('/admin/products/bulk/validate', {
       method: 'POST',
       formData,
+      token,
       silent: false,
     });
   },
 
   async executeBulkImport(file, images = []) {
+    const token = getStoredAdminToken();
     const formData = new FormData();
     formData.append('file', file);
     if (images && images.length > 0) {
@@ -49,20 +52,25 @@ export const adminBulkApi = {
     return await request('/admin/products/bulk/import', {
       method: 'POST',
       formData,
+      token,
       silent: false,
     });
   },
 
   async getImportJobStatus(jobId) {
+    const token = getStoredAdminToken();
     return await request(`/admin/products/bulk/jobs/${jobId}`, {
       method: 'GET',
+      token,
       silent: true,
     });
   },
 
   async listImportHistory() {
+    const token = getStoredAdminToken();
     return await request('/admin/products/bulk/history', {
       method: 'GET',
+      token,
       silent: true,
     });
   },

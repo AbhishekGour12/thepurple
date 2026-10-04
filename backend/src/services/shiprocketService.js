@@ -331,7 +331,14 @@ class ShiprocketService {
         ordNum = orderNumber;
       }
 
-      // If no shiprocketOrderId is present, attempt lookup by channel order number
+      // Check if srOrderId is actually an alphanumeric order number (like TP-81322216)
+      const isNumericSrId = srOrderId && /^\d+$/.test(String(srOrderId).trim());
+      if (!isNumericSrId && srOrderId && !ordNum) {
+        ordNum = String(srOrderId).trim();
+        srOrderId = null;
+      }
+
+      // If no valid numeric shiprocketOrderId, look it up in Shiprocket by channel orderNumber
       if (!srOrderId && ordNum) {
         const found = await this.findOrderByNumber(ordNum);
         if (found) {
@@ -341,10 +348,30 @@ class ShiprocketService {
         }
       }
 
+      // If we have numeric srOrderId but missing AWB or shipId, query order detail from Shiprocket
+      if (srOrderId && (!awb || !shipId)) {
+        try {
+          const detailRes = await this.request(`/orders/show/${srOrderId}`, { method: 'GET' });
+          if (detailRes.success && detailRes.data?.data) {
+            const d = detailRes.data.data;
+            const shipments = d.shipments || [];
+            if (shipments.length > 0) {
+              const firstShip = shipments[0];
+              if (!shipId && firstShip.id) shipId = firstShip.id;
+              if (!awb && firstShip.awb) awb = firstShip.awb;
+            }
+            if (!awb && d.awb_code) awb = d.awb_code;
+          }
+        } catch (detailErr) {
+          console.warn(`[Shiprocket] Could not fetch order details for srOrderId ${srOrderId}:`, detailErr.message);
+        }
+      }
+
       if (!srOrderId && !awb && !shipId) {
+        console.warn('[Shiprocket] cancelOrder: No Shiprocket order ID, Shipment ID, or AWB found for order:', ordNum || orderIdOrOptions);
         return {
           success: false,
-          message: 'No Shiprocket order ID, Shipment ID, or AWB code provided for cancellation',
+          message: 'No Shiprocket order ID, Shipment ID, or AWB code found for cancellation in Shiprocket',
         };
       }
 
@@ -356,7 +383,7 @@ class ShiprocketService {
         try {
           const awbCancelRes = await this.request('/orders/cancel/shipment/awbs', {
             method: 'POST',
-            body: JSON.stringify({ awbs: [String(awb)] }),
+            body: JSON.stringify({ awbs: [String(awb).trim()] }),
           });
           actions.push({ step: 'cancel_awb', awb, success: awbCancelRes.success, response: awbCancelRes.data });
           if (awbCancelRes.success) anySuccess = true;
@@ -411,7 +438,13 @@ class ShiprocketService {
       const mainSuccess = Boolean(orderCancelRes?.success || anySuccess);
       const message =
         orderCancelRes?.data?.message ||
-        (mainSuccess ? 'Order cancelled in Shiprocket successfully' : 'Shiprocket order cancellation request completed');
+        (mainSuccess ? 'Order cancelled in Shiprocket successfully' : 'Shiprocket order cancellation processed');
+
+      console.log(`[Shiprocket cancelOrder Result] (Order #${ordNum || srOrderId}):`, {
+        mainSuccess,
+        message,
+        actions,
+      });
 
       return {
         success: mainSuccess,

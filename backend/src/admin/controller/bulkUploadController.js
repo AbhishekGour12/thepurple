@@ -118,25 +118,31 @@ export const executeBulkImport = asyncHandler(async (req, res) => {
     throw AppError.badRequest('No valid rows found in the uploaded file. Please review the errors.');
   }
 
-  // Upload any attached image files to Cloudflare R2 before processing
+  // Upload any attached image files to Cloudflare R2 before processing (concurrent chunked upload)
   if (imageFiles.length > 0) {
     logger.info(`Bulk import: Uploading ${imageFiles.length} attached images to Cloudflare R2...`);
     const imageUploadMap = new Map();
 
-    for (const img of imageFiles) {
-      try {
-        const uploadResult = await r2Service.uploadImage(img.buffer, img.originalname, img.mimetype, 'products');
-        const url = uploadResult?.imageUrl || uploadResult?.publicUrl || uploadResult?.url;
-        if (url) {
-          const orig = (img.originalname || '').toLowerCase().trim();
-          imageUploadMap.set(orig, url);
-          const withoutExt = orig.substring(0, orig.lastIndexOf('.')) || orig;
-          imageUploadMap.set(withoutExt, url);
-          logger.info(`[Bulk Import R2] Uploaded image "${img.originalname}" -> ${url}`);
-        }
-      } catch (err) {
-        logger.warn(`Failed to upload attached image ${img.originalname}: ${err.message}`);
-      }
+    const chunkSize = 6;
+    for (let i = 0; i < imageFiles.length; i += chunkSize) {
+      const chunk = imageFiles.slice(i, i + chunkSize);
+      await Promise.all(
+        chunk.map(async (img) => {
+          try {
+            const uploadResult = await r2Service.uploadImage(img.buffer, img.originalname, img.mimetype, 'products');
+            const url = uploadResult?.imageUrl || uploadResult?.publicUrl || uploadResult?.url;
+            if (url) {
+              const orig = (img.originalname || '').toLowerCase().trim();
+              imageUploadMap.set(orig, url);
+              const withoutExt = orig.substring(0, orig.lastIndexOf('.')) || orig;
+              imageUploadMap.set(withoutExt, url);
+              logger.info(`[Bulk Import R2] Uploaded image "${img.originalname}" -> ${url}`);
+            }
+          } catch (err) {
+            logger.warn(`Failed to upload attached image ${img.originalname}: ${err.message}`);
+          }
+        })
+      );
     }
 
     // Attach uploaded public URLs to valid rows
