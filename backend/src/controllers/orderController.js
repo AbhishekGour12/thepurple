@@ -27,15 +27,14 @@ export const orderController = {
         return ApiResponse.error(res, 'Valid 6-digit Pincode is required', 400);
       }
 
-      const numSubtotal = parseFloat(subtotal) || 0;
-
-      // 1. Fetch live courier serviceability & cheapest rate from Shiprocket
+      // 1. Fetch live courier serviceability & rate from Shiprocket
       const rateInfo = await shiprocketService.checkServiceability({
         deliveryPincode: String(pincode).trim(),
         weight: 0.35,
       });
 
-      const effectiveRate = rateInfo.rate;
+      // Temporary Free Shipping (₹0 charge for customer checkout)
+      const effectiveRate = 0;
 
       return ApiResponse.success(
         res,
@@ -44,11 +43,11 @@ export const orderController = {
           courierName: rateInfo.courierName,
           courierCompanyId: rateInfo.courierCompanyId,
           estimatedDays: rateInfo.estimatedDays,
-          shippingAmount: effectiveRate,
-          actualCourierRate: rateInfo.rate,
+          shippingAmount: 0,
+          actualCourierRate: rateInfo.rate || 0,
           availableCouriers: rateInfo.allCouriers || [],
         },
-        `Shiprocket rate: ₹${effectiveRate} via ${rateInfo.courierName}`
+        `Shiprocket rate: Free Delivery (₹0) via ${rateInfo.courierName}`
       );
     } catch (error) {
       next(error);
@@ -146,11 +145,11 @@ export const orderController = {
         }
       }
 
-      // 5. Calculate Shipping Charge (Dynamic Shiprocket rate)
+      // 5. Calculate Shipping Charge (Temporarily 0 / Free Shipping)
       const rateInfo = await shiprocketService.checkServiceability({
         deliveryPincode: cleanPincode,
       });
-      const shippingAmount = rateInfo.rate || 99;
+      const shippingAmount = 0;
 
       const finalTotal = Math.max(0, subtotal - discountAmount + shippingAmount);
 

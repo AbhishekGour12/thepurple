@@ -6,8 +6,8 @@
 class ShiprocketService {
   constructor() {
     this.baseUrl = 'https://apiv2.shiprocket.in/v1/external';
-    this.email = process.env.SHIPROCKET_EMAIL || 'solutions@abhi.services'
-    this.password = process.env.SHIPROCKET_PASSWORD || '!b79u2ybjMD5AYpv!7DqGNH@ecD1^p4A';
+    this.email = process.env.SHIPROCKET_EMAIL || 'nowthepurple25@gmail.com';
+    this.password = process.env.SHIPROCKET_PASSWORD || 'kHdSgx@kqGlvw7iFL04bB2O#n&nBVmui';
     this.token = null;
     this.tokenExpiry = null;
     this.primaryPickupPincode = '140301';

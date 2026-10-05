@@ -153,7 +153,7 @@ export default function CheckoutPage() {
           }
         } catch {
           if (isSubscribed) {
-            setShippingInfo({ serviceable: true, shippingAmount: 99, courierName: 'Express Courier' });
+            setShippingInfo({ serviceable: true, shippingAmount: 0, courierName: 'Express Courier' });
           }
         } finally {
           if (isSubscribed) setIsCalculatingShipping(false);
@@ -702,11 +702,11 @@ export default function CheckoutPage() {
                         </div>
 
                         <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '14.5px', fontWeight: 900, color: '#1E1B4B' }}>
-                            ₹{shippingInfo.shippingAmount ?? shippingCharge}
+                          <span style={{ fontSize: '14.5px', fontWeight: 900, color: (shippingInfo.shippingAmount ?? shippingCharge) === 0 ? '#16A34A' : '#1E1B4B' }}>
+                            {(shippingInfo.shippingAmount ?? shippingCharge) === 0 ? 'FREE (₹0)' : `₹${shippingInfo.shippingAmount ?? shippingCharge}`}
                           </span>
-                          <div style={{ fontSize: '10.5px', color: '#7E22CE', fontWeight: 700 }}>
-                            Live Express Rate
+                          <div style={{ fontSize: '10.5px', color: '#16A34A', fontWeight: 700 }}>
+                            {(shippingInfo.shippingAmount ?? shippingCharge) === 0 ? 'Complimentary Delivery' : 'Live Express Rate'}
                           </div>
                         </div>
                       </div>
@@ -829,12 +829,12 @@ export default function CheckoutPage() {
                   )}
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563', alignItems: 'center' }}>
-                    <span>Shiprocket Delivery</span>
-                    <span style={{ fontWeight: 800, color: shippingCharge !== null ? '#1E1B4B' : '#6B7280', fontSize: shippingCharge !== null ? '13px' : '11.5px' }}>
+                    <span>Delivery Charges</span>
+                    <span style={{ fontWeight: 800, color: shippingCharge !== null ? (shippingCharge === 0 ? '#16A34A' : '#1E1B4B') : '#6B7280', fontSize: shippingCharge !== null ? '13px' : '11.5px' }}>
                       {isCalculatingShipping ? (
                         'Calculating...'
                       ) : shippingCharge !== null ? (
-                        `₹${shippingCharge}`
+                        shippingCharge === 0 ? 'FREE (₹0)' : `₹${shippingCharge}`
                       ) : (
                         'Enter Pincode'
                       )}
