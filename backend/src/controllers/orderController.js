@@ -1,7 +1,8 @@
-import { Order, OrderItem, Payment, Shipment, Product, ProductImage, Coupon, Cart, CartItem, sequelize } from '../models/index.js';
+import { Order, OrderItem, Payment, Shipment, Product, ProductImage, Coupon, Cart, CartItem, User, sequelize } from '../models/index.js';
 import razorpayService from '../services/razorpayService.js';
 import shiprocketService from '../services/shiprocketService.js';
 import mailService from '../services/mailService.js';
+import productService from '../admin/services/productService.js';
 import ApiResponse from '../utils/apiResponse.js';
 import AppError from '../utils/customError.js';
 
@@ -21,20 +22,65 @@ export const orderController = {
    */
   async calculateShipping(req, res, next) {
     try {
-      const { pincode, subtotal = 0 } = req.body;
+      const { pincode, subtotal = 0, couponCode } = req.body;
 
       if (!pincode || String(pincode).trim().length !== 6) {
         return ApiResponse.error(res, 'Valid 6-digit Pincode is required', 400);
       }
 
+      const cleanPin = String(pincode).trim();
+      const numSubtotal = parseFloat(subtotal) || 0;
+
       // 1. Fetch live courier serviceability & rate from Shiprocket
       const rateInfo = await shiprocketService.checkServiceability({
-        deliveryPincode: String(pincode).trim(),
+        deliveryPincode: cleanPin,
         weight: 0.35,
       });
 
-      // Temporary Free Shipping (₹0 charge for customer checkout)
-      const effectiveRate = 0;
+      const actualRate = parseFloat(rateInfo.rate || 70);
+
+      // 2. Check for active Free Shipping coupon or Auto-apply Free Shipping rule
+      const now = new Date();
+      let isFreeShipping = false;
+      let appliedOfferReason = null;
+
+      // Check explicit couponCode if sent
+      if (couponCode && String(couponCode).trim()) {
+        const coupon = await Coupon.findOne({
+          where: {
+            code: String(couponCode).trim().toUpperCase(),
+            isActive: true,
+            startDate: { [sequelize.Sequelize.Op.lte]: now },
+            endDate: { [sequelize.Sequelize.Op.gte]: now },
+          },
+        });
+        if (coupon && coupon.discountType === 'FREE_SHIPPING' && numSubtotal >= parseFloat(coupon.minOrderAmount || 0)) {
+          isFreeShipping = true;
+          appliedOfferReason = `Free Shipping coupon "${coupon.code}" applied`;
+        }
+      }
+
+      // Check any active auto-applied FREE_SHIPPING coupon where subtotal >= minOrderAmount
+      if (!isFreeShipping) {
+        const autoCoupon = await Coupon.findOne({
+          where: {
+            discountType: 'FREE_SHIPPING',
+            isAutoApply: true,
+            isActive: true,
+            startDate: { [sequelize.Sequelize.Op.lte]: now },
+            endDate: { [sequelize.Sequelize.Op.gte]: now },
+            minOrderAmount: { [sequelize.Sequelize.Op.lte]: numSubtotal },
+          },
+          order: [['minOrderAmount', 'ASC']],
+        });
+
+        if (autoCoupon) {
+          isFreeShipping = true;
+          appliedOfferReason = `Free Shipping unlocked on orders above ₹${autoCoupon.minOrderAmount} (Code: ${autoCoupon.code})`;
+        }
+      }
+
+      const effectiveRate = isFreeShipping ? 0 : actualRate;
 
       return ApiResponse.success(
         res,
@@ -43,11 +89,15 @@ export const orderController = {
           courierName: rateInfo.courierName,
           courierCompanyId: rateInfo.courierCompanyId,
           estimatedDays: rateInfo.estimatedDays,
-          shippingAmount: 0,
-          actualCourierRate: rateInfo.rate || 0,
+          shippingAmount: effectiveRate,
+          actualCourierRate: actualRate,
+          isFreeShipping,
+          appliedOfferReason,
           availableCouriers: rateInfo.allCouriers || [],
         },
-        `Shiprocket rate: Free Delivery (₹0) via ${rateInfo.courierName}`
+        isFreeShipping
+          ? `${appliedOfferReason || 'Free Delivery unlocked'} (Courier: ${rateInfo.courierName})`
+          : `Shiprocket rate: ₹${effectiveRate} via ${rateInfo.courierName}`
       );
     } catch (error) {
       next(error);
@@ -108,7 +158,7 @@ export const orderController = {
         return ApiResponse.error(res, 'Please provide a valid 6-digit Pincode', 400);
       }
 
-      // 3. Calculate Subtotal
+      // 3. Calculate Subtotal & Validate Product Stock Availability
       let subtotal = 0;
       for (const item of items) {
         const itemPrice = parseFloat(item.price || 0);
@@ -116,11 +166,28 @@ export const orderController = {
         if (itemPrice <= 0 || itemQty <= 0) {
           return ApiResponse.error(res, `Invalid price or quantity for product "${item.productName || 'Item'}"`, 400);
         }
+
+        const prodId = item.productId || item.id;
+        if (prodId && isUuid(String(prodId))) {
+          const product = await Product.findByPk(prodId);
+          if (!product) {
+            return ApiResponse.error(res, `Product "${item.productName || 'Selected Item'}" is no longer available`, 400);
+          }
+          if (product.stock < itemQty) {
+            return ApiResponse.error(
+              res,
+              `Insufficient stock for "${product.name}". Only ${product.stock} item(s) available in inventory.`,
+              400
+            );
+          }
+        }
+
         subtotal += itemPrice * itemQty;
       }
 
       // 4. Calculate Coupon Discount if applied
       let discountAmount = 0;
+      let isCouponFreeShipping = false;
       let validCoupon = null;
       if (couponCode && String(couponCode).trim()) {
         const cleanCode = String(couponCode).trim().toUpperCase();
@@ -137,6 +204,9 @@ export const orderController = {
                 calc = parseFloat(validCoupon.maxDiscountAmount);
               }
               discountAmount = calc;
+            } else if (validCoupon.discountType === 'FREE_SHIPPING') {
+              isCouponFreeShipping = true;
+              discountAmount = 0;
             } else {
               // Flat Discount
               discountAmount = Math.min(subtotal, parseFloat(validCoupon.discountValue || 0));
@@ -145,11 +215,33 @@ export const orderController = {
         }
       }
 
-      // 5. Calculate Shipping Charge (Temporarily 0 / Free Shipping)
+      // Check auto-applied FREE_SHIPPING coupon if not already free
+      if (!isCouponFreeShipping) {
+        const now = new Date();
+        const autoCoupon = await Coupon.findOne({
+          where: {
+            discountType: 'FREE_SHIPPING',
+            isAutoApply: true,
+            isActive: true,
+            startDate: { [sequelize.Sequelize.Op.lte]: now },
+            endDate: { [sequelize.Sequelize.Op.gte]: now },
+            minOrderAmount: { [sequelize.Sequelize.Op.lte]: subtotal },
+          },
+          order: [['minOrderAmount', 'ASC']],
+        });
+        if (autoCoupon) {
+          isCouponFreeShipping = true;
+          if (!validCoupon) validCoupon = autoCoupon;
+        }
+      }
+
+      // 5. Calculate Real Shiprocket Shipping Charge
       const rateInfo = await shiprocketService.checkServiceability({
         deliveryPincode: cleanPincode,
+        weight: 0.35,
       });
-      const shippingAmount = 0;
+      const actualCourierRate = parseFloat(rateInfo.rate || 70);
+      const shippingAmount = isCouponFreeShipping ? 0 : actualCourierRate;
 
       const finalTotal = Math.max(0, subtotal - discountAmount + shippingAmount);
 
@@ -336,17 +428,19 @@ export const orderController = {
         { transaction }
       );
 
-      // 3. Create OrderItems
+      // 3. Create OrderItems and Deduct Product Stock
       const orderItemRecords = [];
+      const updatedProductIds = [];
       for (const item of items) {
         const itemQty = parseInt(item.quantity || 1, 10);
         const itemPrice = parseFloat(item.price || 0);
         const itemLineTotal = itemPrice * itemQty;
+        const prodId = item.productId || item.id || null;
 
         const record = await OrderItem.create(
           {
             orderId: newOrder.id,
-            productId: item.productId || item.id || null,
+            productId: prodId,
             productName: item.productName || item.name || 'Jewellery Item',
             sku: item.slug || `SKU-${item.productId || Date.now()}`,
             price: itemPrice,
@@ -356,6 +450,16 @@ export const orderController = {
           { transaction }
         );
         orderItemRecords.push(record);
+
+        // Deduct inventory stock from Product
+        if (prodId && isUuid(String(prodId))) {
+          const product = await Product.findByPk(prodId, { transaction });
+          if (product) {
+            const newStock = Math.max(0, (product.stock || 0) - itemQty);
+            await product.update({ stock: newStock }, { transaction });
+            updatedProductIds.push(prodId);
+          }
+        }
       }
 
       // 4. Create Payment Record
@@ -402,6 +506,13 @@ export const orderController = {
 
       // Commit DB transaction first
       await transaction.commit();
+
+      // Asynchronously synchronize updated inventory stock to Meilisearch
+      for (const pId of updatedProductIds) {
+        productService.syncProductToMeilisearch(pId).catch((err) => {
+          console.warn(`[OrderController] Meilisearch sync notice for product ${pId}:`, err.message);
+        });
+      }
 
       // 7. Trigger Shiprocket Order Creation
       let shiprocketResult = null;
@@ -696,15 +807,16 @@ export const orderController = {
         shiprocketCancelResult = { success: false, message: srErr.message };
       }
 
-      // 4. Restock inventory
+      // 4. Restock inventory automatically
       if (order.items && order.items.length > 0) {
         for (const item of order.items) {
           if (item.productId && item.quantity > 0) {
             try {
-              await Product.increment('stockQuantity', {
+              await Product.increment('stock', {
                 by: item.quantity,
                 where: { id: item.productId },
               });
+              productService.syncProductToMeilisearch(item.productId).catch(() => {});
             } catch (stockErr) {
               console.warn(`Failed to restock product ${item.productId}:`, stockErr.message);
             }

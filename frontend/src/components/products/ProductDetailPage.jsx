@@ -161,6 +161,79 @@ export default function ProductDetailPage({ slug }) {
     return str.split('/')[0].split('(')[0].trim() || str;
   };
 
+  // Smart Specifications & Material Notes Parser
+  const parseSpecifications = (specInput) => {
+    if (!specInput) return [];
+
+    // Case 1: Already an Object / Array
+    if (typeof specInput === 'object' && specInput !== null) {
+      if (Array.isArray(specInput)) {
+        return specInput
+          .map((item, i) => {
+            if (typeof item === 'object' && item !== null) {
+              return {
+                label: item.label || item.key || item.name || `Spec ${i + 1}`,
+                value: String(item.value || item.val || item.text || ''),
+              };
+            }
+            return { label: `Spec ${i + 1}`, value: String(item) };
+          })
+          .filter((s) => Boolean(s.value));
+      }
+      return Object.entries(specInput)
+        .map(([key, val]) => ({
+          label: key,
+          value: typeof val === 'object' ? JSON.stringify(val) : String(val),
+        }))
+        .filter((s) => Boolean(s.value));
+    }
+
+    const str = String(specInput).trim();
+    if (!str) return [];
+
+    // Case 2: JSON formatted string e.g. { "Product Type": "...", "Flower Type": "..." }
+    if ((str.startsWith('{') && str.endsWith('}')) || (str.startsWith('[') && str.endsWith(']'))) {
+      try {
+        const parsed = JSON.parse(str);
+        return parseSpecifications(parsed);
+      } catch {
+        // If JSON parsing fails, continue to text parsing
+      }
+    }
+
+    // Case 3: Multiline string or delimited string (e.g. "Key: Value\nKey: Value")
+    const lines = str.split(/[\r\n]+|;(?!\s*\d)/).map((l) => l.trim()).filter(Boolean);
+    const result = [];
+
+    for (const line of lines) {
+      const colonIdx = line.indexOf(':');
+      if (colonIdx > 0 && colonIdx < line.length - 1) {
+        const label = line.slice(0, colonIdx).trim().replace(/^[-*•#\s]+/, '');
+        const value = line.slice(colonIdx + 1).trim();
+        if (label && value) {
+          result.push({ label, value });
+          continue;
+        }
+      }
+      const dashIdx = line.indexOf(' - ');
+      if (dashIdx > 0 && dashIdx < line.length - 3) {
+        const label = line.slice(0, dashIdx).trim().replace(/^[-*•#\s]+/, '');
+        const value = line.slice(dashIdx + 3).trim();
+        if (label && value) {
+          result.push({ label, value });
+          continue;
+        }
+      }
+
+      const cleanLine = line.replace(/^[-*•#\s]+/, '').trim();
+      if (cleanLine) {
+        result.push({ label: 'Details', value: cleanLine });
+      }
+    }
+
+    return result.length > 0 ? result : [{ label: 'Material & Craftsmanship', value: str }];
+  };
+
   // Fetch Product by Slug or ID
   useEffect(() => {
     let isMounted = true;
@@ -271,6 +344,11 @@ export default function ProductDetailPage({ slug }) {
   const currentMrp = parseFloat(activeVariant?.mrp || product?.mrp || (currentSalePrice * 1.5) || 0);
   const discountPercent = currentMrp > currentSalePrice ? Math.round(((currentMrp - currentSalePrice) / currentMrp) * 100) : product?.discountPercent || 0;
   const currentStock = activeVariant?.stock !== undefined ? activeVariant.stock : (product?.stock || 50);
+
+  // Parsed Material & Craftsmanship Specifications
+  const parsedMaterialSpecs = useMemo(() => {
+    return parseSpecifications(product?.specifications);
+  }, [product?.specifications]);
 
   // Gallery Navigation (Next / Prev)
   const handlePrevImage = (e) => {
@@ -1461,22 +1539,132 @@ export default function ProductDetailPage({ slug }) {
             )}
 
             {activeTab === 'specifications' && (
-              <div className="pdp-specs-grid">
-                {[
-                  { label: 'SKU / Model', value: activeVariant?.sku || product.sku },
-                  { label: 'Subcategory', value: product.subcategory?.name || 'Chains' },
-                  { label: 'Category', value: product.subcategory?.category?.name || 'Jewellery' },
-                  { label: 'Material Notes', value: product.specifications || '22K Gold Plated / Solid 925 Sterling Silver' },
-                  { label: 'Weight', value: product.weightGrams ? `${product.weightGrams} grams` : '15 - 25 grams' },
-                  { label: 'Package Dimensions', value: `${product.lengthCm || 10} × ${product.widthCm || 8} × ${product.heightCm || 4} cm` },
-                  { label: 'HSN Code', value: product.hsnCode || '71131930' },
-                  { label: 'Tax Rate', value: `${product.taxRate || 3}% GST` },
-                ].map((spec, sIdx) => (
-                  <div key={sIdx} style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: '#FAF5FF', border: '1px solid #E9D5FF' }}>
-                    <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>{spec.label}</div>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#1E1B4B' }}>{spec.value}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '850px' }}>
+                {/* 1. Material, Craftsmanship & Product Specs */}
+                {parsedMaterialSpecs.length > 0 && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: '#FAF5FF', color: '#7E22CE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Sparkles size={16} />
+                      </div>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1E1B4B', margin: 0 }}>
+                        Material &amp; Craftsmanship Specifications
+                      </h3>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                        gap: '12px',
+                      }}
+                    >
+                      {parsedMaterialSpecs.map((spec, sIdx) => (
+                        <div
+                          key={sIdx}
+                          style={{
+                            padding: '14px 16px',
+                            borderRadius: '12px',
+                            backgroundColor: '#FFFFFF',
+                            border: '1px solid #E9D5FF',
+                            boxShadow: '0 2px 10px rgba(126, 34, 206, 0.04)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#7E22CE' }} />
+                            <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              {spec.label}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#1E1B4B', lineHeight: '1.4', paddingLeft: '12px' }}>
+                            {spec.value}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
+
+                {/* 2. Technical & Packaging Specifications */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: '#FAF5FF', color: '#7E22CE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Tag size={16} />
+                    </div>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1E1B4B', margin: 0 }}>
+                      Product Identification &amp; Dimensions
+                    </h3>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                      gap: '10px',
+                    }}
+                  >
+                    {[
+                      { label: 'SKU / Model', value: activeVariant?.sku || product.sku },
+                      { label: 'Brand', value: product.brand || 'ThePurple' },
+                      { label: 'Category', value: product.subcategory?.category?.name || 'Handcrafted' },
+                      { label: 'Subcategory', value: product.subcategory?.name || 'General' },
+                      { label: 'Weight', value: product.weightGrams ? `${product.weightGrams} grams` : 'Standard' },
+                      { label: 'Package Dimensions', value: `${product.lengthCm || 10} × ${product.widthCm || 8} × ${product.heightCm || 4} cm` },
+                      { label: 'HSN Code', value: product.hsnCode || '71131930' },
+                      { label: 'Applicable GST', value: `${product.taxRate || 3}% GST` },
+                    ]
+                      .filter((s) => Boolean(s.value))
+                      .map((tech, tIdx) => (
+                        <div
+                          key={tIdx}
+                          style={{
+                            padding: '12px 14px',
+                            borderRadius: '10px',
+                            backgroundColor: '#FAF5FF',
+                            border: '1px solid #E9D5FF',
+                          }}
+                        >
+                          <div style={{ fontSize: '11px', color: '#7E22CE', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                            {tech.label}
+                          </div>
+                          <div style={{ fontSize: '13px', fontWeight: 800, color: '#1E1B4B', marginTop: '2px' }}>
+                            {tech.value}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* 3. Custom Attributes (if any) */}
+                {Array.isArray(product.attributeValues) && product.attributeValues.length > 0 && (
+                  <div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#1E1B4B', marginBottom: '10px' }}>
+                      Additional Attributes
+                    </h3>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {product.attributeValues.map((av, avIdx) => (
+                        <div
+                          key={avIdx}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '20px',
+                            backgroundColor: '#F3E8FF',
+                            border: '1px solid #D8B4FE',
+                            fontSize: '12px',
+                            color: '#581C87',
+                            fontWeight: 700,
+                          }}
+                        >
+                          {av.attribute?.name ? `${av.attribute.name}: ` : ''}{av.value || av.name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

@@ -262,10 +262,27 @@ export default function CartPage() {
         return acc + itemPrice * itemQty;
       }, 0),
     [selectedItems]
-  );
+  // Auto-apply eligible coupons (e.g. Free shipping or auto-apply promo when subtotal matches criteria)
+  useEffect(() => {
+    if (!loadingCoupons && availableCoupons.length > 0 && subtotal > 0) {
+      // Find eligible auto-apply coupon
+      const autoCoupon = availableCoupons.find(
+        (c) => c.isAutoApply && subtotal >= (parseFloat(c.minOrderAmount) || 0)
+      );
+
+      if (autoCoupon && (!appliedCoupon || appliedCoupon.isAutoApplied)) {
+        if (!appliedCoupon || appliedCoupon.code !== autoCoupon.code) {
+          dispatch(syncApplyCoupon({ code: autoCoupon.code, subtotal }));
+        }
+      }
+    }
+  }, [availableCoupons, subtotal, loadingCoupons, appliedCoupon, dispatch]);
 
   const discountAmount = useMemo(() => {
     if (!appliedCoupon || subtotal === 0) return 0;
+    if (appliedCoupon.discountType === 'FREE_SHIPPING' || appliedCoupon.isFreeShipping) {
+      return 0; // Free shipping discounts delivery charge at checkout, not subtotal
+    }
     if (appliedCoupon.discountType === 'PERCENTAGE' || (appliedCoupon.discountPercent > 0 && !appliedCoupon.discountType)) {
       const pct = appliedCoupon.discountPercent || appliedCoupon.discountValue || 10;
       let calculated = Math.round((subtotal * pct) / 100);
@@ -1264,11 +1281,18 @@ export default function CartPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <CheckCircle2 size={16} color="#7E22CE" />
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: 900, color: '#581C87' }}>
-                          {appliedCoupon.code}
+                        <div style={{ fontSize: '13px', fontWeight: 900, color: '#581C87', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>{appliedCoupon.code}</span>
+                          {appliedCoupon.isFreeShipping && (
+                            <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#ECFDF5', color: '#047857', fontWeight: 800 }}>
+                              FREE SHIPPING
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: '11px', color: '#15803D', fontWeight: 700 }}>
-                          Coupon applied! You save ₹{discountAmount.toLocaleString('en-IN')} 🎉
+                          {appliedCoupon.isFreeShipping || appliedCoupon.discountType === 'FREE_SHIPPING'
+                            ? 'Coupon applied! Free Delivery unlocked on your order 🎉'
+                            : `Coupon applied! You save ₹${discountAmount.toLocaleString('en-IN')} 🎉`}
                         </div>
                       </div>
                     </div>
@@ -1334,6 +1358,7 @@ export default function CartPage() {
                         .slice(0, showAllOffers ? availableCoupons.length : 3)
                         .map((c) => {
                           const isCurrentApplied = appliedCoupon?.code === c.code;
+                          const isFreeShipping = c.discountType === 'FREE_SHIPPING';
                           const isPercentage = c.discountType === 'PERCENTAGE';
                           const minReq = parseFloat(c.minOrderAmount || 0);
 
@@ -1353,7 +1378,7 @@ export default function CartPage() {
                               }}
                             >
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px', flexWrap: 'wrap' }}>
                                   <span
                                     style={{
                                       fontSize: '12px',
@@ -1368,14 +1393,28 @@ export default function CartPage() {
                                     style={{
                                       padding: '1px 6px',
                                       borderRadius: '4px',
-                                      backgroundColor: isPercentage ? '#ECFDF5' : '#EEF2FF',
-                                      color: isPercentage ? '#047857' : '#4338CA',
+                                      backgroundColor: isFreeShipping ? '#ECFDF5' : isPercentage ? '#ECFDF5' : '#EEF2FF',
+                                      color: isFreeShipping ? '#047857' : isPercentage ? '#047857' : '#4338CA',
                                       fontSize: '10px',
                                       fontWeight: 800,
                                     }}
                                   >
-                                    {isPercentage ? `${c.discountValue}% OFF` : `₹${c.discountValue} FLAT`}
+                                    {isFreeShipping ? 'FREE DELIVERY (₹0)' : isPercentage ? `${c.discountValue}% OFF` : `₹${c.discountValue} FLAT`}
                                   </span>
+                                  {c.isAutoApply && (
+                                    <span
+                                      style={{
+                                        padding: '1px 5px',
+                                        borderRadius: '4px',
+                                        backgroundColor: '#FEF3C7',
+                                        color: '#B45309',
+                                        fontSize: '9.5px',
+                                        fontWeight: 800,
+                                      }}
+                                    >
+                                      ⚡ Auto-Apply
+                                    </span>
+                                  )}
                                 </div>
 
                                 <div style={{ fontSize: '11px', color: '#6B7280' }}>

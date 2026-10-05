@@ -137,15 +137,10 @@ const initialState = {
   items: [],
   cartId: null,
   loading: false,
-  appliedCoupon: {
-    code: 'WELCOME10',
-    discountAmount: 0,
-    discountPercent: 10,
-    isApplied: true,
-  },
+  appliedCoupon: null,
   isCouponLoading: false,
   couponError: null,
-  couponSuccess: 'Special Offer Just For You! Get 10% OFF on your first order. Use Code: WELCOME10',
+  couponSuccess: null,
 };
 
 // ─── Slice Definition ─────────────────────────────────────────────────────────
@@ -433,15 +428,19 @@ export const cartSlice = createSlice({
       .addCase(syncApplyCoupon.fulfilled, (state, action) => {
         state.isCouponLoading = false;
         if (action.payload) {
+          const isFreeShipping = action.payload.isFreeShipping || action.payload.discountType === 'FREE_SHIPPING';
           state.appliedCoupon = {
             code: action.payload.code,
             discountAmount: parseFloat(action.payload.discountAmount) || 0,
             discountPercent: action.payload.discountType === 'PERCENTAGE' ? parseFloat(action.payload.discountValue) : 0,
             discountType: action.payload.discountType || 'PERCENTAGE',
             discountValue: parseFloat(action.payload.discountValue) || 0,
+            isFreeShipping: isFreeShipping,
             isApplied: true,
           };
-          state.couponSuccess = `Coupon "${action.payload.code}" applied! Saved ₹${action.payload.discountAmount}.`;
+          state.couponSuccess = isFreeShipping
+            ? `Coupon "${action.payload.code}" applied! Free Delivery unlocked on your order 🎉`
+            : `Coupon "${action.payload.code}" applied! Saved ₹${action.payload.discountAmount}.`;
           state.couponError = null;
         }
       })

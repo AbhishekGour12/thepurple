@@ -90,18 +90,19 @@ export const couponController = {
   createCoupon: asyncHandler(async (req, res, next) => {
     const {
       code,
-      discountType,
-      discountValue,
+      discountType = 'PERCENTAGE',
+      discountValue = 0,
       minOrderAmount = 0,
       maxDiscountAmount = null,
       startDate,
       endDate,
       usageLimit = 1000,
+      isAutoApply = false,
       isActive = true,
     } = req.body;
 
-    if (!code || !discountType || discountValue === undefined) {
-      return next(AppError.badRequest('Code, discountType, and discountValue are required'));
+    if (!code || !discountType) {
+      return next(AppError.badRequest('Code and discountType are required'));
     }
 
     const cleanCode = code.trim().toUpperCase();
@@ -123,13 +124,14 @@ export const couponController = {
     const coupon = await Coupon.create({
       code: cleanCode,
       discountType,
-      discountValue: parseFloat(discountValue),
+      discountValue: discountType === 'FREE_SHIPPING' ? 0 : parseFloat(discountValue || 0),
       minOrderAmount: parseFloat(minOrderAmount || 0),
       maxDiscountAmount: maxDiscountAmount ? parseFloat(maxDiscountAmount) : null,
       startDate: start,
       endDate: end,
       usageLimit: parseInt(usageLimit || 1000, 10),
       usedCount: 0,
+      isAutoApply: Boolean(isAutoApply),
       isActive: Boolean(isActive),
     });
 
@@ -152,6 +154,7 @@ export const couponController = {
       startDate,
       endDate,
       usageLimit,
+      isAutoApply,
       isActive,
     } = req.body;
 
@@ -171,8 +174,15 @@ export const couponController = {
       }
     }
 
-    if (discountType !== undefined) coupon.discountType = discountType;
-    if (discountValue !== undefined) coupon.discountValue = parseFloat(discountValue);
+    if (discountType !== undefined) {
+      coupon.discountType = discountType;
+      if (discountType === 'FREE_SHIPPING') {
+        coupon.discountValue = 0;
+      }
+    }
+    if (discountValue !== undefined && coupon.discountType !== 'FREE_SHIPPING') {
+      coupon.discountValue = parseFloat(discountValue);
+    }
     if (minOrderAmount !== undefined) coupon.minOrderAmount = parseFloat(minOrderAmount || 0);
     if (maxDiscountAmount !== undefined) {
       coupon.maxDiscountAmount = maxDiscountAmount ? parseFloat(maxDiscountAmount) : null;
@@ -180,6 +190,7 @@ export const couponController = {
     if (startDate !== undefined) coupon.startDate = new Date(startDate);
     if (endDate !== undefined) coupon.endDate = new Date(endDate);
     if (usageLimit !== undefined) coupon.usageLimit = parseInt(usageLimit, 10);
+    if (isAutoApply !== undefined) coupon.isAutoApply = Boolean(isAutoApply);
     if (isActive !== undefined) coupon.isActive = Boolean(isActive);
 
     await coupon.save();

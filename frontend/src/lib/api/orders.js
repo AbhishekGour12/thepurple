@@ -37,11 +37,11 @@ export const orderApi = {
   /**
    * 1. Calculate Shipping Rate via Shiprocket
    */
-  async calculateShipping({ pincode, subtotal }) {
+  async calculateShipping({ pincode, subtotal, couponCode }) {
     const res = await fetch(`${API_BASE_URL}/orders/calculate-shipping`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ pincode, subtotal }),
+      body: JSON.stringify({ pincode, subtotal, couponCode }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || 'Failed to calculate shipping');

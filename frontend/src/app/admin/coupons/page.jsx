@@ -42,13 +42,14 @@ export default function AdminCouponsPage() {
     isEdit: false,
     id: null,
     code: '',
-    discountType: 'PERCENTAGE', // PERCENTAGE | FLAT
+    discountType: 'PERCENTAGE', // PERCENTAGE | FLAT | FREE_SHIPPING
     discountValue: '',
     minOrderAmount: '',
     maxDiscountAmount: '',
     startDate: '',
     endDate: '',
     usageLimit: '1000',
+    isAutoApply: false,
     isActive: true,
   });
 
@@ -123,6 +124,7 @@ export default function AdminCouponsPage() {
       startDate: formatDateForInput(today),
       endDate: formatDateForInput(nextMonth),
       usageLimit: '1000',
+      isAutoApply: false,
       isActive: true,
     });
   };
@@ -147,6 +149,7 @@ export default function AdminCouponsPage() {
       startDate: formatDateForInput(coupon.startDate),
       endDate: formatDateForInput(coupon.endDate),
       usageLimit: String(coupon.usageLimit || '1000'),
+      isAutoApply: Boolean(coupon.isAutoApply),
       isActive: Boolean(coupon.isActive),
     });
   };
@@ -182,7 +185,7 @@ export default function AdminCouponsPage() {
       showToast('Coupon code is required', 'error');
       return;
     }
-    if (!modal.discountValue || parseFloat(modal.discountValue) <= 0) {
+    if (modal.discountType !== 'FREE_SHIPPING' && (!modal.discountValue || parseFloat(modal.discountValue) <= 0)) {
       showToast('Please enter a valid discount value', 'error');
       return;
     }
@@ -192,12 +195,13 @@ export default function AdminCouponsPage() {
       const payload = {
         code: modal.code.trim().toUpperCase(),
         discountType: modal.discountType,
-        discountValue: parseFloat(modal.discountValue),
+        discountValue: modal.discountType === 'FREE_SHIPPING' ? 0 : parseFloat(modal.discountValue || 0),
         minOrderAmount: parseFloat(modal.minOrderAmount || 0),
         maxDiscountAmount: modal.maxDiscountAmount ? parseFloat(modal.maxDiscountAmount) : null,
         startDate: modal.startDate ? new Date(modal.startDate) : new Date(),
         endDate: modal.endDate ? new Date(modal.endDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         usageLimit: parseInt(modal.usageLimit || 1000, 10),
+        isAutoApply: Boolean(modal.isAutoApply),
         isActive: Boolean(modal.isActive),
       };
 
@@ -395,6 +399,7 @@ export default function AdminCouponsPage() {
             <option value="all">All Discount Types</option>
             <option value="PERCENTAGE">Percentage (%)</option>
             <option value="FLAT">Flat Rupees (₹)</option>
+            <option value="FREE_SHIPPING">Free Shipping (₹0 Delivery)</option>
           </select>
 
           <button
@@ -513,19 +518,48 @@ export default function AdminCouponsPage() {
 
                       {/* Discount Value */}
                       <td style={{ padding: '16px 18px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
                           <span
                             style={{
                               padding: '4px 9px',
                               borderRadius: '6px',
-                              backgroundColor: isPercentage ? '#ECFDF5' : '#EEF2FF',
-                              color: isPercentage ? '#047857' : '#4338CA',
+                              backgroundColor:
+                                coupon.discountType === 'FREE_SHIPPING'
+                                  ? '#ECFDF5'
+                                  : isPercentage
+                                  ? '#FAF5FF'
+                                  : '#EEF2FF',
+                              color:
+                                coupon.discountType === 'FREE_SHIPPING'
+                                  ? '#059669'
+                                  : isPercentage
+                                  ? '#7E22CE'
+                                  : '#4338CA',
                               fontSize: '12px',
                               fontWeight: 800,
                             }}
                           >
-                            {isPercentage ? `${coupon.discountValue}% OFF` : `FLAT ₹${coupon.discountValue} OFF`}
+                            {coupon.discountType === 'FREE_SHIPPING'
+                              ? '🚚 FREE DELIVERY (₹0)'
+                              : isPercentage
+                              ? `${coupon.discountValue}% OFF`
+                              : `FLAT ₹${coupon.discountValue} OFF`}
                           </span>
+
+                          {coupon.isAutoApply && (
+                            <span
+                              style={{
+                                fontSize: '10.5px',
+                                fontWeight: 700,
+                                color: '#7E22CE',
+                                backgroundColor: '#F3E8FF',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                              }}
+                            >
+                              ⚡ Auto-Applies on Cart
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -736,18 +770,18 @@ export default function AdminCouponsPage() {
                   </span>
                 </div>
 
-                {/* 2. Discount Type: Percentage vs Flat Rupees */}
+                {/* 2. Discount Type: Percentage vs Flat vs Free Shipping */}
                 <div>
                   <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 800, color: '#374151', marginBottom: '8px' }}>
                     Discount Type <span style={{ color: '#DC2626' }}>*</span>
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                     <label
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '10px',
-                        padding: '12px 14px',
+                        gap: '8px',
+                        padding: '10px 12px',
                         borderRadius: '10px',
                         border: modal.discountType === 'PERCENTAGE' ? '2px solid #7E22CE' : '1px solid #E5E7EB',
                         backgroundColor: modal.discountType === 'PERCENTAGE' ? '#FAF5FF' : '#FFFFFF',
@@ -762,8 +796,8 @@ export default function AdminCouponsPage() {
                         style={{ accentColor: '#7E22CE' }}
                       />
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#1E1B4B' }}>Percentage (%)</div>
-                        <div style={{ fontSize: '11px', color: '#6B7280' }}>e.g. 10%, 20% off</div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#1E1B4B' }}>Percentage (%)</div>
+                        <div style={{ fontSize: '10.5px', color: '#6B7280' }}>e.g. 10%, 20% off</div>
                       </div>
                     </label>
 
@@ -771,8 +805,8 @@ export default function AdminCouponsPage() {
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '10px',
-                        padding: '12px 14px',
+                        gap: '8px',
+                        padding: '10px 12px',
                         borderRadius: '10px',
                         border: modal.discountType === 'FLAT' ? '2px solid #7E22CE' : '1px solid #E5E7EB',
                         backgroundColor: modal.discountType === 'FLAT' ? '#FAF5FF' : '#FFFFFF',
@@ -787,8 +821,33 @@ export default function AdminCouponsPage() {
                         style={{ accentColor: '#7E22CE' }}
                       />
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#1E1B4B' }}>Flat Rupees (₹)</div>
-                        <div style={{ fontSize: '11px', color: '#6B7280' }}>e.g. Flat ₹500 off</div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#1E1B4B' }}>Flat Rupees (₹)</div>
+                        <div style={{ fontSize: '10.5px', color: '#6B7280' }}>e.g. Flat ₹500 off</div>
+                      </div>
+                    </label>
+
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: modal.discountType === 'FREE_SHIPPING' ? '2px solid #059669' : '1px solid #E5E7EB',
+                        backgroundColor: modal.discountType === 'FREE_SHIPPING' ? '#ECFDF5' : '#FFFFFF',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="discountType"
+                        checked={modal.discountType === 'FREE_SHIPPING'}
+                        onChange={() => setModal({ ...modal, discountType: 'FREE_SHIPPING', discountValue: '0' })}
+                        style={{ accentColor: '#059669' }}
+                      />
+                      <div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#065F46' }}>Free Shipping (₹0)</div>
+                        <div style={{ fontSize: '10.5px', color: '#047857' }}>Free Delivery Offer</div>
                       </div>
                     </label>
                   </div>
@@ -913,8 +972,8 @@ export default function AdminCouponsPage() {
                   </div>
                 </div>
 
-                {/* 6. Usage Limit & Active Switch */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', alignItems: 'center' }}>
+                {/* 6. Usage Limit, Auto-Apply on Cart & Active Switch */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 800, color: '#374151', marginBottom: '6px' }}>
                       Max Redemptions Limit
@@ -937,8 +996,25 @@ export default function AdminCouponsPage() {
                     />
                   </div>
 
-                  <div style={{ paddingTop: '20px' }}>
+                  <div style={{ padding: '14px', backgroundColor: '#FAF5FF', border: '1px solid #E9D5FF', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={modal.isAutoApply}
+                        onChange={(e) => setModal({ ...modal, isAutoApply: e.target.checked })}
+                        style={{ width: '18px', height: '18px', accentColor: '#7E22CE', cursor: 'pointer' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: '13px', fontWeight: 800, color: '#1E1B4B' }}>
+                          ⚡ Auto-Apply Offer on Cart (No coupon code typing required)
+                        </span>
+                        <div style={{ fontSize: '11.5px', color: '#6B7280' }}>
+                          When customer cart subtotal reaches ₹{modal.minOrderAmount || '0'}, this {modal.discountType === 'FREE_SHIPPING' ? 'Free Shipping' : 'discount'} offer will apply automatically!
+                        </div>
+                      </div>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderTop: '1px solid #F3E8FF', paddingTop: '8px' }}>
                       <input
                         type="checkbox"
                         checked={modal.isActive}
@@ -946,7 +1022,7 @@ export default function AdminCouponsPage() {
                         style={{ width: '18px', height: '18px', accentColor: '#7E22CE', cursor: 'pointer' }}
                       />
                       <span style={{ fontSize: '13px', fontWeight: 800, color: '#1E1B4B' }}>
-                        Activate Coupon Immediately
+                        Activate Offer Immediately
                       </span>
                     </label>
                   </div>

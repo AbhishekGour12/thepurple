@@ -396,6 +396,7 @@ export const getAvailableCoupons = async (req, res) => {
         'discountValue',
         'minOrderAmount',
         'maxDiscountAmount',
+        'isAutoApply',
         'startDate',
         'endDate',
       ],
@@ -437,6 +438,7 @@ export const applyCoupon = async (req, res) => {
           discountType: 'PERCENTAGE',
           discountValue: 10,
           discountAmount: discount,
+          isFreeShipping: false,
         },
       });
     }
@@ -467,24 +469,32 @@ export const applyCoupon = async (req, res) => {
     }
 
     let discountAmount = 0;
+    let isFreeShipping = false;
+
     if (coupon.discountType === 'PERCENTAGE') {
       discountAmount = Math.round((subtotal * parseFloat(coupon.discountValue)) / 100);
       if (coupon.maxDiscountAmount && discountAmount > parseFloat(coupon.maxDiscountAmount)) {
         discountAmount = parseFloat(coupon.maxDiscountAmount);
       }
+    } else if (coupon.discountType === 'FREE_SHIPPING') {
+      isFreeShipping = true;
+      discountAmount = 0;
     } else {
       // FLAT discount in direct Rupees
-      discountAmount = Math.min(subtotal, parseFloat(coupon.discountValue));
+      discountAmount = Math.min(subtotal, parseFloat(coupon.discountValue || 0));
     }
 
     return res.status(200).json({
       success: true,
-      message: `Coupon ${coupon.code} applied! Saved ₹${discountAmount}.`,
+      message: isFreeShipping
+        ? `Free Delivery offer applied for code ${coupon.code} 🎉!`
+        : `Coupon ${coupon.code} applied! Saved ₹${discountAmount}.`,
       data: {
         code: coupon.code,
         discountType: coupon.discountType,
-        discountValue: parseFloat(coupon.discountValue),
+        discountValue: parseFloat(coupon.discountValue || 0),
         discountAmount,
+        isFreeShipping,
       },
     });
   } catch (error) {

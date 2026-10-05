@@ -2,6 +2,7 @@ import { Order, OrderItem, Payment, Shipment, Product, ProductImage, User, seque
 import shiprocketService from '../../services/shiprocketService.js';
 import shiprocketCronService from '../../services/shiprocketCronService.js';
 import mailService from '../../services/mailService.js';
+import productService from '../services/productService.js';
 import ApiResponse from '../../utils/apiResponse.js';
 
 const isUuid = (val) => Boolean(val && typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim()));
@@ -231,10 +232,11 @@ export const adminOrderController = {
           for (const item of order.items) {
             if (item.productId && item.quantity > 0) {
               try {
-                await Product.increment('stockQuantity', {
+                await Product.increment('stock', {
                   by: item.quantity,
                   where: { id: item.productId },
                 });
+                productService.syncProductToMeilisearch(item.productId).catch(() => {});
               } catch (stockErr) {
                 console.warn(`Failed to restock product ${item.productId}:`, stockErr.message);
               }
@@ -332,10 +334,11 @@ export const adminOrderController = {
         for (const item of order.items) {
           if (item.productId && item.quantity > 0) {
             try {
-              await Product.increment('stockQuantity', {
+              await Product.increment('stock', {
                 by: item.quantity,
                 where: { id: item.productId },
               });
+              productService.syncProductToMeilisearch(item.productId).catch(() => {});
             } catch (stockErr) {
               console.warn(`Failed to restock product ${item.productId}:`, stockErr.message);
             }

@@ -15,12 +15,14 @@ export const Coupon = sequelize.define(
       unique: true,
     },
     discountType: {
-      type: DataTypes.ENUM('PERCENTAGE', 'FLAT'),
+      type: DataTypes.STRING(30), // 'PERCENTAGE' | 'FLAT' | 'FREE_SHIPPING'
       allowNull: false,
+      defaultValue: 'PERCENTAGE',
     },
     discountValue: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
+      defaultValue: 0.0,
     },
     minOrderAmount: {
       type: DataTypes.DECIMAL(10, 2),
@@ -29,6 +31,10 @@ export const Coupon = sequelize.define(
     maxDiscountAmount: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true,
+    },
+    isAutoApply: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
     },
     startDate: {
       type: DataTypes.DATE,

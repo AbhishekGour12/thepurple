@@ -147,13 +147,22 @@ export default function CheckoutPage() {
       async function fetchRate() {
         try {
           setIsCalculatingShipping(true);
-          const data = await orderApi.calculateShipping({ pincode: cleanPin, subtotal });
+          const data = await orderApi.calculateShipping({
+            pincode: cleanPin,
+            subtotal,
+            couponCode: appliedCoupon?.code || null,
+          });
           if (isSubscribed) {
             setShippingInfo(data);
           }
         } catch {
           if (isSubscribed) {
-            setShippingInfo({ serviceable: true, shippingAmount: 0, courierName: 'Express Courier' });
+            setShippingInfo({
+              serviceable: true,
+              shippingAmount: 70,
+              actualCourierRate: 70,
+              courierName: 'Shiprocket Express',
+            });
           }
         } finally {
           if (isSubscribed) setIsCalculatingShipping(false);
@@ -166,7 +175,7 @@ export default function CheckoutPage() {
     } else {
       setShippingInfo(null);
     }
-  }, [formData.pincode, subtotal]);
+  }, [formData.pincode, subtotal, appliedCoupon]);
 
   // Load Razorpay Script Dynamically
   const loadRazorpayScript = () => {
@@ -828,17 +837,42 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563', alignItems: 'center' }}>
-                    <span>Delivery Charges</span>
-                    <span style={{ fontWeight: 800, color: shippingCharge !== null ? (shippingCharge === 0 ? '#16A34A' : '#1E1B4B') : '#6B7280', fontSize: shippingCharge !== null ? '13px' : '11.5px' }}>
-                      {isCalculatingShipping ? (
-                        'Calculating...'
-                      ) : shippingCharge !== null ? (
-                        shippingCharge === 0 ? 'FREE (₹0)' : `₹${shippingCharge}`
-                      ) : (
-                        'Enter Pincode'
-                      )}
-                    </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563', alignItems: 'center' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span>Delivery Charges</span>
+                        {shippingInfo?.courierName && (
+                          <span style={{ fontSize: '10.5px', color: '#6B7280', fontWeight: 500 }}>
+                            ({shippingInfo.courierName})
+                          </span>
+                        )}
+                      </span>
+                      <span style={{ fontWeight: 800, color: shippingCharge !== null ? (shippingCharge === 0 ? '#16A34A' : '#1E1B4B') : '#6B7280', fontSize: shippingCharge !== null ? '13px' : '11.5px' }}>
+                        {isCalculatingShipping ? (
+                          'Calculating...'
+                        ) : shippingCharge !== null ? (
+                          shippingCharge === 0 ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#16A34A', fontWeight: 800 }}>
+                              {shippingInfo?.actualCourierRate && shippingInfo.actualCourierRate > 0 && (
+                                <span style={{ textDecoration: 'line-through', color: '#9CA3AF', fontSize: '11px', fontWeight: 500 }}>
+                                  ₹{shippingInfo.actualCourierRate}
+                                </span>
+                              )}
+                              <span>FREE (₹0)</span>
+                            </span>
+                          ) : (
+                            `₹${shippingCharge}`
+                          )
+                        ) : (
+                          'Enter Pincode'
+                        )}
+                      </span>
+                    </div>
+                    {shippingInfo?.isFreeShipping && shippingInfo?.appliedOfferReason && (
+                      <div style={{ fontSize: '10.5px', color: '#15803D', fontWeight: 600, textAlign: 'right' }}>
+                        🎉 {shippingInfo.appliedOfferReason}
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ height: '1px', backgroundColor: '#E5E7EB', margin: '4px 0' }} />

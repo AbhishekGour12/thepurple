@@ -758,7 +758,7 @@ class ShiprocketService {
       const scans = payload.scans || payload.tracking_data?.shipment_track_activities || payload.activities || [];
 
       // Lazy import models to avoid circular reference
-      const { Order, Shipment } = await import('../models/index.js');
+      const { Order, OrderItem, Product, Shipment } = await import('../models/index.js');
       const { Op } = await import('sequelize');
 
       // 2. Locate order in DB
@@ -774,7 +774,10 @@ class ShiprocketService {
 
       const order = await Order.findOne({
         where: { [Op.or]: whereConditions },
-        include: [{ model: Shipment, as: 'shipment' }],
+        include: [
+          { model: Shipment, as: 'shipment' },
+          { model: OrderItem, as: 'items' },
+        ],
       });
 
       if (!order) {
@@ -786,6 +789,22 @@ class ShiprocketService {
 
       // 3. Map status
       const { orderStatus, shipmentStatus } = this.mapShiprocketStatus(rawStatus, statusId);
+
+      // Restock inventory if order transitions to CANCELLED or RETURNED from an active status
+      const isTerminalReturnOrCancel = ['CANCELLED', 'RETURNED'].includes(orderStatus);
+      const wasAlreadyTerminal = ['CANCELLED', 'RETURNED'].includes(order.status);
+      if (isTerminalReturnOrCancel && !wasAlreadyTerminal && order.items && order.items.length > 0) {
+        for (const item of order.items) {
+          if (item.productId && item.quantity > 0) {
+            Product.increment('stock', {
+              by: item.quantity,
+              where: { id: item.productId },
+            }).catch((stockErr) => {
+              console.warn(`[Shiprocket Webhook] Restock warning for product ${item.productId}:`, stockErr.message);
+            });
+          }
+        }
+      }
 
       // 4. Update Order
       const updateData = {
