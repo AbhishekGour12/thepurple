@@ -262,6 +262,8 @@ export default function CartPage() {
         return acc + itemPrice * itemQty;
       }, 0),
     [selectedItems]
+  );
+
   // Auto-apply eligible coupons (e.g. Free shipping or auto-apply promo when subtotal matches criteria)
   useEffect(() => {
     if (!loadingCoupons && availableCoupons.length > 0 && subtotal > 0) {
