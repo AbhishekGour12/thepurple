@@ -13,13 +13,26 @@ import logger from '../../config/logger.js';
 // Multer memory storage for Excel & Images (max 100MB combined)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024, files: 300 },
 });
 
-export const bulkFileUploadMiddleware = upload.fields([
-  { name: 'file', maxCount: 1 },
-  { name: 'images', maxCount: 250 },
-]);
+export const bulkFileUploadMiddleware = (req, res, next) => {
+  upload.any()(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return next(AppError.badRequest('Uploaded file exceeds the maximum allowed size (100MB limit)'));
+        }
+        if (err.code === 'LIMIT_FILE_COUNT') {
+          return next(AppError.badRequest('Too many files in upload batch (maximum 300 files allowed)'));
+        }
+        return next(AppError.badRequest(`Upload error: ${err.message}`));
+      }
+      return next(err);
+    }
+    next();
+  });
+};
 
 function extractUploadFiles(req) {
   let excelFile = null;
@@ -29,8 +42,13 @@ function extractUploadFiles(req) {
     excelFile = req.file;
   } else if (req.files) {
     if (Array.isArray(req.files)) {
-      excelFile = req.files.find((f) => /\.(xlsx|xls|csv)$/i.test(f.originalname));
-      imageFiles = req.files.filter((f) => !/\.(xlsx|xls|csv)$/i.test(f.originalname));
+      // Find Excel/CSV file by extension, mimetype or fieldname
+      excelFile =
+        req.files.find((f) => /\.(xlsx|xls|csv)$/i.test(f.originalname || '')) ||
+        req.files.find((f) => f.fieldname === 'file') ||
+        req.files.find((f) => (f.mimetype || '').includes('spreadsheet') || (f.mimetype || '').includes('excel') || (f.mimetype || '').includes('csv'));
+
+      imageFiles = req.files.filter((f) => f !== excelFile);
     } else {
       if (req.files.file && req.files.file.length > 0) {
         excelFile = req.files.file[0];

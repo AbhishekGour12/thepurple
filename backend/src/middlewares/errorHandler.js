@@ -6,6 +6,13 @@ import ApiResponse from '../utils/apiResponse.js';
  * Global Express Error Handling Middleware
  */
 export const errorHandler = (err, req, res, next) => {
+  // Ensure CORS headers on error responses so browser doesn't mask errors as CORS failure
+  const origin = req.headers.origin;
+  if (origin && !res.getHeader('Access-Control-Allow-Origin')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
   let statusCode = err.statusCode || 500;
   let message = err.message || 'An unexpected error occurred';
   let errorCode = err.errorCode || 'INTERNAL_ERROR';

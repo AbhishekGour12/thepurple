@@ -11,11 +11,13 @@ export const createApp = () => {
 
   // Basic Security & Headers
   app.use(configureSecurityHeaders());
-  app.use(configureCors());
+  const corsMiddleware = configureCors();
+  app.use(corsMiddleware);
+  app.options('*', corsMiddleware);
 
   // Request Body Parsers
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  app.use(express.json({ limit: '100mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
   // Request Logger
   app.use(requestLogger);

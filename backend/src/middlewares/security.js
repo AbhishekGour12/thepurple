@@ -27,8 +27,7 @@ export const configureCors = () => {
       const isAllowed =
         !env.isProduction ||
         allowedOrigins.includes(origin) ||
-        origin === 'https://nowthepurple.com' ||
-        origin === 'https://www.nowthepurple.com' ||
+        origin.endsWith('nowthepurple.com') ||
         origin.includes('nowthepurple.com') ||
         origin === 'https://thepurple.vercel.app' ||
         origin.endsWith('.vercel.app') ||
@@ -38,7 +37,7 @@ export const configureCors = () => {
       if (isAllowed) {
         return callback(null, true);
       }
-      return callback(null, false);
+      return callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
@@ -53,7 +52,12 @@ export const configureCors = () => {
       'X-Session-Id',
       'X-Guest-Id',
       'Cache-Control',
+      'Pragma',
+      'Expires',
       'Accept-Language',
+      'sec-ch-ua',
+      'sec-ch-ua-mobile',
+      'sec-ch-ua-platform',
     ],
     exposedHeaders: ['Content-Disposition', 'Content-Length'],
     maxAge: 86400,

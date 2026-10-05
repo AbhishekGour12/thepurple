@@ -408,11 +408,13 @@ export const bulkImportService = {
   parseFileBuffer(buffer) {
     try {
       const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
-      const firstSheetName = wb.SheetNames[0];
-      if (!firstSheetName) {
+      if (!wb.SheetNames || wb.SheetNames.length === 0) {
         throw new Error('The uploaded file does not contain any sheets');
       }
-      const ws = wb.Sheets[firstSheetName];
+      
+      // Look for a sheet named "Products Import" or "Products" or "Sheet1", otherwise fallback to the first sheet
+      const productSheetName = wb.SheetNames.find((s) => /product/i.test(s)) || wb.SheetNames[0];
+      const ws = wb.Sheets[productSheetName];
       const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
       return rows;
     } catch (err) {
@@ -452,7 +454,9 @@ export const bulkImportService = {
 
     const categoryMap = new Map();
     for (const cat of categories) {
-      categoryMap.set(cat.name.toLowerCase().trim(), cat);
+      if (cat.name) {
+        categoryMap.set(cat.name.toLowerCase().trim(), cat);
+      }
     }
 
     // Cache existing active SKUs from DB (only active products, not deleted ones)
@@ -473,6 +477,12 @@ export const bulkImportService = {
       const subcategoryName = (row['Subcategory*'] || row['Subcategory'] || row['subcategory'] || '').toString().trim();
       const mrpRaw = row['MRP*'] || row['MRP'] || row['price'] || row['Price'] || '';
       const salePriceRaw = row['Selling Price*'] || row['Selling Price'] || row['salePrice'] || row['Sale Price'] || '';
+
+      // Skip completely blank rows that exist due to Excel sheet pre-formatting/validation rules
+      if (!name && !sku && !categoryName && !subcategoryName && !mrpRaw && !salePriceRaw) {
+        continue;
+      }
+
       const taxRateRaw = row['Tax Rate %'] || row['Tax Rate'] || row['taxRate'] || '0';
       const hsnCode = (row['HSN Code'] || row['hsnCode'] || '').toString().trim();
       const stockRaw = row['Stock Quantity*'] || row['Stock Quantity'] || row['Stock'] || row['stock'] || '0';
@@ -675,8 +685,13 @@ export const bulkImportService = {
       }
     }
 
+    const actualTotal = validRows.length + errors.length;
+    if (actualTotal === 0) {
+      throw AppError.badRequest('The uploaded file contains no product rows or all rows are empty');
+    }
+
     return {
-      totalRows: rows.length,
+      totalRows: actualTotal,
       validCount: validRows.length,
       errorCount: errors.length,
       warningCount: warnings.length,
