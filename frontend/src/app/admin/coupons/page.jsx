@@ -21,6 +21,7 @@ import {
   Sliders,
   ShieldCheck,
   Sparkles,
+  Truck,
 } from 'lucide-react';
 import { couponsApi } from '@/lib/api/admin/coupons';
 
