@@ -36,7 +36,10 @@ async function sendViaZeptoMailApi({ to, toName, subject, html, text, fromAddres
   const host = env.ZEPTOMAIL_HOST || 'cpaas.zoho.in';
   const url = `https://${host}/v1.1/email`;
 
-  const senderAddress = fromAddress || env.ZEPTOMAIL_FROM_ADDRESS || 'noreply@thepurple.online';
+  let senderAddress = fromAddress || env.ZEPTOMAIL_FROM_ADDRESS || 'noreply@nowthepurple.com';
+  if (senderAddress.includes('@thepurple.online')) {
+    senderAddress = senderAddress.replace('@thepurple.online', '@nowthepurple.com');
+  }
   const senderName = fromName || env.ZEPTOMAIL_FROM_NAME || 'ThePurple';
 
   const payload = {
@@ -103,8 +106,12 @@ export async function sendMail({ to, toName, subject, html, text, fromAddress, f
   const transporter = getSmtpTransporter();
   if (transporter) {
     try {
+      let smtpSender = fromAddress || env.ZEPTOMAIL_FROM_ADDRESS || 'noreply@nowthepurple.com';
+      if (smtpSender.includes('@thepurple.online')) {
+        smtpSender = smtpSender.replace('@thepurple.online', '@nowthepurple.com');
+      }
       const info = await transporter.sendMail({
-        from: env.SMTP_FROM || `"${fromName || 'ThePurple'}" <${fromAddress || 'noreply@thepurple.online'}>`,
+        from: `"${fromName || 'ThePurple'}" <${smtpSender}>`,
         to: toName ? `"${toName}" <${to}>` : to,
         subject,
         html,
