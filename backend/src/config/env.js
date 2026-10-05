@@ -61,7 +61,7 @@ export const env = {
     process.env.ZEPTOMAIL_API_KEY ||
     'PHtE6r0ERO7qimQu8EcA4/a7HsXxPYwsrO41f1FB5tkTC/EHTE0B/dp9mjPirEovBPJEE6WZz9ph4rPIs+mNJ23pNT5IW2qyqK3sx/VYSPOZsbq6x00UsV0ZcUbZV4Trcd9u3SfXstfZNA==',
   ZEPTOMAIL_HOST: process.env.ZEPTOMAIL_HOST || 'cpaas.zoho.in',
-  ZEPTOMAIL_FROM_ADDRESS: process.env.ZEPTOMAIL_FROM_ADDRESS || 'noreply@thepurple.online',
+  ZEPTOMAIL_FROM_ADDRESS: process.env.ZEPTOMAIL_FROM_ADDRESS || 'noreply@nowthepurple.com',
   ZEPTOMAIL_FROM_NAME: process.env.ZEPTOMAIL_FROM_NAME || 'ThePurple',
 
   SMTP_HOST: process.env.SMTP_HOST || 'smtp.zeptomail.in',
@@ -70,7 +70,7 @@ export const env = {
   SMTP_PASSWORD:
     process.env.SMTP_PASSWORD ||
     'PHtE6r0ERO7qimQu8EcA4/a7HsXxPYwsrO41f1FB5tkTC/EHTE0B/dp9mjPirEovBPJEE6WZz9ph4rPIs+mNJ23pNT5IW2qyqK3sx/VYSPOZsbq6x00UsV0ZcUbZV4Trcd9u3SfXstfZNA==',
-  SMTP_FROM: process.env.SMTP_FROM || 'ThePurple <noreply@thepurple.online>',
+  SMTP_FROM: process.env.SMTP_FROM || 'ThePurple <noreply@nowthepurple.com>',
 
   isProduction: process.env.NODE_ENV === 'production',
   isDevelopment: process.env.NODE_ENV === 'development' || !process.env.NODE_ENV,
