@@ -55,13 +55,13 @@ const YOU_MAY_ALSO_LIKE_PRODUCTS = [
   {
     id: 'rec-1',
     productId: '58d26272-5e80-499d-bd1e-ff1262b1d99c',
-    name: 'Elegant Gold Bangle',
-    slug: 'handcrafted-22k-peacock-gold-bangles-set',
-    categoryName: 'Bangles',
-    imageUrl: '/images/storefront/prod-rose-bangle.jpg',
-    price: 2299,
-    mrp: 3499,
-    discountPercent: 34,
+    name: 'Aesthetic Multi-Layered Chain Necklace',
+    slug: 'aesthetic-layered-chain-necklace',
+    categoryName: 'Chains',
+    imageUrl: '/images/storefront/cat-fashion-jewellery.jpg',
+    price: 399,
+    mrp: 699,
+    discountPercent: 43,
     badge: 'TRENDING',
     rating: 4.8,
     reviewCount: 86,
@@ -69,13 +69,13 @@ const YOU_MAY_ALSO_LIKE_PRODUCTS = [
   {
     id: 'rec-2',
     productId: '5f8ff8c3-14fd-4f86-a2c2-9ee26aa8fcd8',
-    name: 'Minimal Butterfly Necklace',
-    slug: 'royal-solitaire-heart-pendant-necklace',
-    categoryName: 'Necklaces',
-    imageUrl: '/images/storefront/prod-heart-pendant.jpg',
-    price: 749,
-    mrp: 1199,
-    discountPercent: 38,
+    name: 'Cute Lavender Plush Teddy Bear',
+    slug: 'cute-lavender-plush-teddy-bear',
+    categoryName: 'Teddy Bears',
+    imageUrl: '/images/storefront/cat-teddy.jpg',
+    price: 499,
+    mrp: 899,
+    discountPercent: 44,
     badge: 'BESTSELLER',
     rating: 4.9,
     reviewCount: 53,
@@ -83,13 +83,13 @@ const YOU_MAY_ALSO_LIKE_PRODUCTS = [
   {
     id: 'rec-3',
     productId: '40a9187d-4b7a-4a6f-b252-9657c957f4ca',
-    name: 'Sparkling Solitaire Ring',
-    slug: 'royal-solitaire-diamond-ring-18k-white-gold',
-    categoryName: 'Rings',
-    imageUrl: '/images/storefront/prod-diamond-ring.jpg',
-    price: 2499,
-    mrp: 3999,
-    discountPercent: 38,
+    name: 'Pastel Aesthetic Matte Claw Clip Set',
+    slug: 'pastel-matte-hair-claw-clips',
+    categoryName: 'Hair Accessories',
+    imageUrl: '/images/storefront/cat-hair-accessories.jpg',
+    price: 249,
+    mrp: 499,
+    discountPercent: 50,
     badge: 'NEW',
     rating: 4.9,
     reviewCount: 124,
@@ -97,13 +97,13 @@ const YOU_MAY_ALSO_LIKE_PRODUCTS = [
   {
     id: 'rec-4',
     productId: '4326407d-bdf9-4b08-9ff3-d69fd00f9df4',
-    name: 'Crystal Drop Earrings',
-    slug: 'pure-diamond-cluster-gold-stud-earrings',
-    categoryName: 'Earrings',
-    imageUrl: '/images/storefront/prod-emerald-earrings.jpg',
-    price: 699,
-    mrp: 1199,
-    discountPercent: 42,
+    name: 'Cute Acrylic Charm Bag Keychain',
+    slug: 'cute-acrylic-charm-keychain',
+    categoryName: 'Keychains',
+    imageUrl: '/images/storefront/cat-keychains.jpg',
+    price: 199,
+    mrp: 349,
+    discountPercent: 43,
     badge: 'EXCLUSIVE',
     rating: 4.7,
     reviewCount: 96,
@@ -111,30 +111,16 @@ const YOU_MAY_ALSO_LIKE_PRODUCTS = [
   {
     id: 'rec-5',
     productId: '50e26372-5e80-499d-bd1e-ff1262b1d99e',
-    name: 'Handcrafted Bridal Set',
-    slug: 'handcrafted-gold-plated-bridal-necklace-set',
-    categoryName: 'Sets',
-    imageUrl: '/images/storefront/cat-hampers-luxury.jpg',
-    price: 1799,
-    mrp: 2999,
-    discountPercent: 40,
+    name: 'Aesthetic Butterfly Pendant & Ring Combo',
+    slug: 'aesthetic-butterfly-pendant-ring-combo',
+    categoryName: 'Jewellery',
+    imageUrl: '/images/storefront/cat-fashion-jewellery.jpg',
+    price: 449,
+    mrp: 799,
+    discountPercent: 44,
     badge: 'HOT DEAL',
     rating: 4.9,
     reviewCount: 91,
-  },
-  {
-    id: 'rec-6',
-    productId: '60e26372-5e80-499d-bd1e-ff1262b1d99f',
-    name: '22K Handcrafted Golden Rope Chain',
-    slug: 'golden-rope-chain',
-    categoryName: 'Chains',
-    imageUrl: '/images/storefront/prod-gold-rope.jpg',
-    price: 899,
-    mrp: 1499,
-    discountPercent: 40,
-    badge: 'POPULAR',
-    rating: 4.8,
-    reviewCount: 112,
   },
 ];
 
@@ -387,9 +373,9 @@ export default function CartPage() {
           productName: rec.name,
           slug: rec.slug,
           categoryName: rec.categoryName,
-          selectedSize: 'Standard',
-          selectedColor: 'Gold',
-          metaSubtitle: `${rec.categoryName} | Standard`,
+          selectedSize: null,
+          selectedColor: null,
+          metaSubtitle: rec.categoryName || '',
           imageUrl: rec.imageUrl,
           badge: rec.badge,
           price: rec.price,
@@ -449,7 +435,7 @@ export default function CartPage() {
         /* Desktop Table Header */
         .cart-table-header {
           display: grid;
-          grid-template-columns: 28px minmax(0, 1fr) 110px 120px 100px;
+          grid-template-columns: minmax(0, 1fr) 110px 120px 100px;
           gap: 16px;
           padding-bottom: 12px;
           border-bottom: 1.5px solid #E5E7EB;
@@ -463,7 +449,7 @@ export default function CartPage() {
         /* Cart Item Row */
         .cart-item-row {
           display: grid;
-          grid-template-columns: 28px minmax(0, 1fr) 110px 120px 100px;
+          grid-template-columns: minmax(0, 1fr) 110px 120px 100px;
           gap: 16px;
           align-items: center;
           padding: 20px 0;
@@ -889,9 +875,11 @@ export default function CartPage() {
                             )}
                           </div>
 
-                          <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '6px' }}>
-                            {item.metaSubtitle || `${item.categoryName || 'Jewellery'} | Standard`}
-                          </div>
+                          {(item.metaSubtitle || item.categoryName) && (
+                            <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '6px' }}>
+                              {item.metaSubtitle || item.categoryName}
+                            </div>
+                          )}
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                             <button

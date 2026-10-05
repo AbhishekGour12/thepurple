@@ -338,8 +338,11 @@ export default function ProductDetailPage({ slug }) {
     const selectedColorObj = availableColors.find((c) => c.id === selectedColorId);
     const selectedSizeObj = availableSizes.find((s) => s.id === selectedSizeId);
 
-    const colorName = selectedColorObj?.name || 'Gold';
-    const sizeName = selectedSizeObj?.name ? formatSizeLabel(selectedSizeObj.name, selectedUnit) : '16 inch';
+    const colorName = selectedColorObj?.name || null;
+    const sizeName = selectedSizeObj?.name ? formatSizeLabel(selectedSizeObj.name, selectedUnit) : null;
+    const catName = product.subcategory?.category?.name || product.subcategory?.name || product.categoryName || '';
+    const subtitleParts = [catName, colorName, sizeName].filter(Boolean);
+    const metaSubtitle = subtitleParts.length > 0 ? subtitleParts.join(' • ') : '';
 
     dispatch(
       addToCart({
@@ -347,10 +350,10 @@ export default function ProductDetailPage({ slug }) {
         variantId: activeVariant?.id || null,
         productName: product.name,
         slug: product.slug,
-        categoryName: product.subcategory?.name || 'Jewellery',
+        categoryName: catName,
         selectedColor: colorName,
         selectedSize: sizeName,
-        metaSubtitle: `${product.subcategory?.name || 'Jewellery'} | ${sizeName} | ${colorName}`,
+        metaSubtitle: metaSubtitle,
         imageUrl: currentMainImage,
         badge: badgeText,
         price: currentSalePrice,

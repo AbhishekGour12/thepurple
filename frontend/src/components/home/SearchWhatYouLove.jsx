@@ -251,16 +251,17 @@ export default function SearchWhatYouLove() {
       dispatch(syncRemoveFromCart(prod.id));
     } else {
       const salePrice = prod.price || 899;
+      const catName = prod.category || prod.categoryName || '';
       dispatch(
         addToCart({
           productId: prod.id,
           productName: prod.name,
           slug: prod.slug,
-          categoryName: prod.category || 'Jewellery',
-          selectedSize: 'Standard',
-          selectedColor: 'Gold',
-          metaSubtitle: `${prod.category || 'Jewellery'} | Standard`,
-          imageUrl: prod.image || '/images/storefront/prod-gold-rope.jpg',
+          categoryName: catName,
+          selectedSize: prod.selectedSize || null,
+          selectedColor: prod.selectedColor || null,
+          metaSubtitle: catName,
+          imageUrl: prod.image || '/images/storefront/cat-fashion-jewellery.jpg',
           badge: prod.badge,
           price: salePrice,
           mrp: prod.originalPrice || salePrice * 1.5,

@@ -607,16 +607,17 @@ export default function AllProductsCatalog({
       dispatch(syncRemoveFromCart(prod.id));
     } else {
       const salePrice = prod.price || prod.salePrice || 999;
+      const catName = prod.categoryName || prod.category || prod.subcategory?.name || '';
       dispatch(
         addToCart({
           productId: prod.id,
           productName: prod.name,
           slug: prod.slug,
-          categoryName: prod.categoryName || prod.subcategory?.name || 'Jewellery',
-          selectedSize: 'Standard',
-          selectedColor: 'Gold',
-          metaSubtitle: `${prod.categoryName || 'Jewellery'} | Standard`,
-          imageUrl: prod.image || (Array.isArray(prod.images) && prod.images[0]?.imageUrl) || (Array.isArray(prod.images) && prod.images[0]) || '/images/storefront/cat-chains.jpg',
+          categoryName: catName,
+          selectedSize: prod.selectedSize || null,
+          selectedColor: prod.selectedColor || null,
+          metaSubtitle: catName,
+          imageUrl: prod.image || (Array.isArray(prod.images) && prod.images[0]?.imageUrl) || (Array.isArray(prod.images) && prod.images[0]) || '/images/storefront/cat-fashion-jewellery.jpg',
           badge: prod.badge,
           price: salePrice,
           mrp: prod.originalPrice || prod.mrp || salePrice * 1.5,

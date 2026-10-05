@@ -170,8 +170,11 @@ export const cartSlice = createSlice({
       if (!payload) return;
 
       const prodId = String(payload.productId || payload.id);
-      const selectedSize = payload.selectedSize || 'Standard';
-      const selectedColor = payload.selectedColor || 'Gold';
+      const selectedSize = payload.selectedSize || null;
+      const selectedColor = payload.selectedColor || null;
+      const catName = payload.categoryName || payload.category || payload.subcategory?.name || '';
+      const subtitleParts = [catName, selectedColor, selectedSize].filter(Boolean);
+      const computedSubtitle = payload.metaSubtitle || (subtitleParts.length > 0 ? subtitleParts.join(' • ') : '');
 
       const existingIdx = state.items.findIndex(
         (item) =>
@@ -195,15 +198,13 @@ export const cartSlice = createSlice({
           id: payload.id ? String(payload.id) : `cart-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
           productId: prodId,
           variantId: payload.variantId || null,
-          productName: payload.name || payload.productName || 'Jewellery Product',
+          productName: payload.name || payload.productName || 'Product',
           slug: payload.slug || '',
-          categoryName: payload.categoryName || payload.category || payload.subcategory?.name || 'Jewellery',
+          categoryName: catName,
           selectedSize: selectedSize,
           selectedColor: selectedColor,
-          metaSubtitle:
-            payload.metaSubtitle ||
-            `${payload.categoryName || payload.category || 'Jewellery'} | ${selectedSize} | ${selectedColor}`,
-          imageUrl: payload.imageUrl || payload.image || (Array.isArray(payload.images) && payload.images[0]?.imageUrl) || (Array.isArray(payload.images) && payload.images[0]) || '/images/storefront/prod-gold-rope.jpg',
+          metaSubtitle: computedSubtitle,
+          imageUrl: payload.imageUrl || payload.image || (Array.isArray(payload.images) && payload.images[0]?.imageUrl) || (Array.isArray(payload.images) && payload.images[0]) || '/images/storefront/cat-fashion-jewellery.jpg',
           badge: payload.badge || null,
           price: salePrice,
           mrp: originalPrice,
@@ -262,19 +263,23 @@ export const cartSlice = createSlice({
             ? Math.round(((originalPrice - salePrice) / originalPrice) * 100)
             : 0);
 
+        const catName = payload.categoryName || payload.category || payload.subcategory?.name || '';
+        const selectedSize = payload.selectedSize || null;
+        const selectedColor = payload.selectedColor || null;
+        const subtitleParts = [catName, selectedColor, selectedSize].filter(Boolean);
+        const computedSubtitle = payload.metaSubtitle || (subtitleParts.length > 0 ? subtitleParts.join(' • ') : '');
+
         const newItem = {
           id: payload.id ? String(payload.id) : `cart-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
           productId: prodId,
           variantId: payload.variantId || null,
-          productName: payload.name || payload.productName || 'Jewellery Product',
+          productName: payload.name || payload.productName || 'Product',
           slug: payload.slug || '',
-          categoryName: payload.categoryName || payload.category || payload.subcategory?.name || 'Jewellery',
-          selectedSize: payload.selectedSize || 'Standard',
-          selectedColor: payload.selectedColor || 'Gold',
-          metaSubtitle:
-            payload.metaSubtitle ||
-            `${payload.categoryName || payload.category || 'Jewellery'} | ${payload.selectedSize || 'Standard'} | ${payload.selectedColor || 'Gold'}`,
-          imageUrl: payload.imageUrl || payload.image || (Array.isArray(payload.images) && payload.images[0]?.imageUrl) || (Array.isArray(payload.images) && payload.images[0]) || '/images/storefront/prod-gold-rope.jpg',
+          categoryName: catName,
+          selectedSize: selectedSize,
+          selectedColor: selectedColor,
+          metaSubtitle: computedSubtitle,
+          imageUrl: payload.imageUrl || payload.image || (Array.isArray(payload.images) && payload.images[0]?.imageUrl) || (Array.isArray(payload.images) && payload.images[0]) || '/images/storefront/cat-fashion-jewellery.jpg',
           badge: payload.badge || null,
           price: salePrice,
           mrp: originalPrice,

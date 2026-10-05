@@ -275,15 +275,16 @@ export default function HomeFeaturedProducts() {
       dispatch(syncRemoveFromCart(prod.id));
     } else {
       const salePrice = prod.price || 899;
+      const catName = prod.category || prod.categoryName || '';
       dispatch(
         addToCart({
           productId: prod.id,
           productName: prod.name,
           slug: prod.slug,
-          categoryName: prod.category || 'Jewellery',
-          selectedSize: 'Standard',
-          selectedColor: 'Gold',
-          metaSubtitle: `${prod.category || 'Jewellery'} | Standard`,
+          categoryName: catName,
+          selectedSize: prod.selectedSize || null,
+          selectedColor: prod.selectedColor || null,
+          metaSubtitle: catName,
           imageUrl: prod.image,
           badge: prod.badge,
           price: salePrice,

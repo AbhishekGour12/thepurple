@@ -7,12 +7,13 @@ import { Menu, ChevronDown, ChevronLeft, ChevronRight, Sparkles } from 'lucide-r
 import AllCategoriesModal from './AllCategoriesModal';
 
 const DEFAULT_FALLBACK_CATEGORIES = [
-  { name: 'Chains', slug: 'chains' },
-  { name: 'Earrings', slug: 'earrings' },
-  { name: 'Necklaces', slug: 'necklaces' },
-  { name: 'Bangles', slug: 'bangles' },
+  { name: 'Chains & Necklaces', slug: 'chains' },
   { name: 'Teddy Bears', slug: 'teddy-bears' },
-  { name: 'Gifts', slug: 'gifts' },
+  { name: 'Keychains', slug: 'keychains' },
+  { name: 'Hair Accessories', slug: 'hair-accessories' },
+  { name: 'Rings', slug: 'rings' },
+  { name: 'Earrings', slug: 'earrings' },
+  { name: 'Gifts & Hampers', slug: 'gifts' },
 ];
 
 export default function CategoryNav() {

@@ -61,8 +61,8 @@ export default function HomeAboutSection() {
               }}
             >
               <img
-                src="/images/storefront/hero-gold.jpg"
-                alt="ThePurple Artisanal Craftsmanship"
+                src="/images/storefront/cat-fashion-jewellery.jpg"
+                alt="ThePurple Fashion Jewellery & Accessories"
                 style={{
                   width: '100%',
                   height: '100%',
@@ -102,7 +102,7 @@ export default function HomeAboutSection() {
                     marginBottom: '3px',
                   }}
                 >
-                  Signature Purity
+                  Aesthetic Lifestyle
                 </div>
                 <div
                   className="about-caption-text"
@@ -113,7 +113,7 @@ export default function HomeAboutSection() {
                     textShadow: '0 2px 6px rgba(0,0,0,0.6)',
                   }}
                 >
-                  Handcrafted with pure passion &amp; heirloom perfection
+                  Curated fashion jewellery, cute plushies &amp; trendy accessories
                 </div>
               </div>
             </div>
@@ -153,8 +153,8 @@ export default function HomeAboutSection() {
                 <Award size={18} className="about-badge-icon" />
               </div>
               <div>
-                <div className="about-badge-title" style={{ fontSize: '12.5px', fontWeight: 800, color: '#1E1B4B' }}>22K BIS Hallmarked</div>
-                <div className="about-badge-sub" style={{ fontSize: '10.5px', color: '#6B7280' }}>100% Certified Purity</div>
+                <div className="about-badge-title" style={{ fontSize: '12.5px', fontWeight: 800, color: '#1E1B4B' }}>Premium Quality</div>
+                <div className="about-badge-sub" style={{ fontSize: '10.5px', color: '#6B7280' }}>Anti-Tarnish &amp; Durable</div>
               </div>
             </div>
 
@@ -194,7 +194,7 @@ export default function HomeAboutSection() {
               </div>
               <div>
                 <div className="about-badge-title" style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF', lineHeight: 1.1 }}>50,000+</div>
-                <div className="about-badge-sub" style={{ fontSize: '10.5px', color: '#D8B4FE', marginTop: '1px' }}>Happy Royals Celebrated</div>
+                <div className="about-badge-sub" style={{ fontSize: '10.5px', color: '#D8B4FE', marginTop: '1px' }}>Happy Customers</div>
               </div>
             </div>
           </div>
@@ -237,15 +237,15 @@ export default function HomeAboutSection() {
                 letterSpacing: '-0.02em',
               }}
             >
-              Crafting Royal Elegance, <br />
+              Trendy Fashion &amp; Cute Gifts, <br />
               <span
                 style={{
-                  background: 'linear-gradient(90deg, #7E22CE 0%, #DB2777 100%)',
+                background: 'linear-gradient(90deg, #7E22CE 0%, #DB2777 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                 }}
               >
-                Celebrating Every Special Moment
+                Made For Every Mood
               </span>
             </h2>
 
@@ -259,7 +259,7 @@ export default function HomeAboutSection() {
                 margin: '0 0 24px',
               }}
             >
-              At <strong>ThePurple</strong>, we believe every piece of fine jewellery is more than an accessory—it is an heirloom of cherished memories. From royal 22K gold rope chains and sparkling solitaires to heartfelt celebration gift sets, our master artisans craft each piece with unparalleled passion.
+              At <strong>ThePurple</strong>, we bring you an exquisite collection of trendy artificial fashion jewellery, aesthetic chains, rings, cute teddy bears &amp; plushies, stylish keychains, and premium hair accessories. Each product is carefully curated to add charm, sparkle, and love to your everyday lifestyle and gifting moments.
             </p>
 
             {/* Feature Highlights Grid */}
