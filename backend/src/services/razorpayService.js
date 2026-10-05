@@ -55,16 +55,32 @@ class RazorpayService {
   verifyPaymentSignature({ razorpayOrderId, razorpayPaymentId, razorpaySignature }) {
     try {
       if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+        console.error('[Razorpay] Missing signature parameters:', {
+          razorpayOrderId,
+          razorpayPaymentId,
+          hasSignature: !!razorpaySignature,
+        });
         return false;
       }
 
-      const body = `${razorpayOrderId}|${razorpayPaymentId}`;
+      const keySecret = (process.env.RAZORPAY_KEY_SECRET || this.keySecret || '').trim();
+      const body = `${String(razorpayOrderId).trim()}|${String(razorpayPaymentId).trim()}`;
       const expectedSignature = crypto
-        .createHmac('sha256', this.keySecret)
-        .update(body.toString())
+        .createHmac('sha256', keySecret)
+        .update(body)
         .digest('hex');
 
-      return expectedSignature === razorpaySignature;
+      const isMatch = expectedSignature === String(razorpaySignature).trim();
+      if (!isMatch) {
+        console.error('[Razorpay Signature Verification Failed]', {
+          razorpayOrderId,
+          razorpayPaymentId,
+          receivedSignature: razorpaySignature,
+          expectedSignatureLength: expectedSignature.length,
+          keySecretAvailable: !!keySecret,
+        });
+      }
+      return isMatch;
     } catch (error) {
       console.error('Razorpay Signature Verification Error:', error);
       return false;

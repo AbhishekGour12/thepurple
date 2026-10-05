@@ -233,32 +233,29 @@ export const orderController = {
         return ApiResponse.error(res, 'Payment verification failed: Invalid transaction signature', 400);
       }
 
-      // 1b. Resolve or Auto-Provision Customer User ID
+      // 1b. Resolve or Auto-Provision Customer User ID safely
       let userId = req.user?.id || null;
 
       if (!userId && (customerDetails.customerEmail || customerDetails.customerMobile)) {
-        const orConditions = [];
-        if (customerDetails.customerEmail && String(customerDetails.customerEmail).trim()) {
-          orConditions.push({ email: String(customerDetails.customerEmail).trim().toLowerCase() });
-        }
-        const cleanMobile = String(customerDetails.customerMobile || '').replace(/\D/g, '');
-        if (cleanMobile.length === 10) {
-          orConditions.push({ mobile: cleanMobile });
-        }
+        try {
+          const cleanEmail = customerDetails.customerEmail ? String(customerDetails.customerEmail).trim().toLowerCase() : null;
+          const cleanMobile = String(customerDetails.customerMobile || '').replace(/\D/g, '').slice(-10);
 
-        if (orConditions.length > 0) {
-          let matchedUser = await User.findOne({
-            where: { [sequelize.Sequelize.Op.or]: orConditions },
-            transaction,
-          });
+          let matchedUser = null;
+          if (cleanEmail) {
+            matchedUser = await User.findOne({ where: { email: cleanEmail }, transaction });
+          }
+          if (!matchedUser && cleanMobile && cleanMobile.length === 10) {
+            matchedUser = await User.findOne({ where: { mobile: cleanMobile }, transaction });
+          }
 
           if (!matchedUser) {
-            // Auto-provision customer account for guest checkout so all orders are linked to a permanent user profile
+            // Auto-provision customer account for guest checkout
             matchedUser = await User.create(
               {
-                name: customerDetails.customerName.trim(),
-                email: customerDetails.customerEmail ? String(customerDetails.customerEmail).trim().toLowerCase() : null,
-                mobile: cleanMobile || null,
+                name: (customerDetails.customerName || 'Customer').trim(),
+                email: cleanEmail || null,
+                mobile: (cleanMobile && cleanMobile.length === 10) ? cleanMobile : null,
                 shippingAddress: customerDetails.shippingAddress ? customerDetails.shippingAddress.trim() : null,
                 landmark: customerDetails.landmark ? customerDetails.landmark.trim() : null,
                 city: customerDetails.city ? customerDetails.city.trim() : null,
@@ -271,11 +268,10 @@ export const orderController = {
               { transaction }
             );
           } else {
-            // Update existing user profile with latest verified address
+            // Update existing user profile with latest address
             await matchedUser.update(
               {
-                name: customerDetails.customerName.trim() || matchedUser.name,
-                mobile: cleanMobile || matchedUser.mobile,
+                name: customerDetails.customerName?.trim() || matchedUser.name,
                 shippingAddress: customerDetails.shippingAddress ? customerDetails.shippingAddress.trim() : matchedUser.shippingAddress,
                 landmark: customerDetails.landmark ? customerDetails.landmark.trim() : matchedUser.landmark,
                 city: customerDetails.city ? customerDetails.city.trim() : matchedUser.city,
@@ -289,21 +285,25 @@ export const orderController = {
           if (matchedUser) {
             userId = matchedUser.id;
           }
+        } catch (userErr) {
+          console.warn('[OrderController] User auto-provisioning warning (proceeding without userId):', userErr.message);
         }
       } else if (req.user) {
-        // Update logged in user with latest address
-        await req.user.update(
-          {
-            name: customerDetails.customerName?.trim() || req.user.name,
-            mobile: customerDetails.customerMobile?.replace(/\D/g, '') || req.user.mobile,
-            shippingAddress: customerDetails.shippingAddress?.trim() || req.user.shippingAddress,
-            landmark: customerDetails.landmark?.trim() || req.user.landmark,
-            city: customerDetails.city?.trim() || req.user.city,
-            state: customerDetails.state?.trim() || req.user.state,
-            pincode: customerDetails.pincode ? String(customerDetails.pincode).trim() : req.user.pincode,
-          },
-          { transaction }
-        );
+        try {
+          await req.user.update(
+            {
+              name: customerDetails.customerName?.trim() || req.user.name,
+              shippingAddress: customerDetails.shippingAddress?.trim() || req.user.shippingAddress,
+              landmark: customerDetails.landmark?.trim() || req.user.landmark,
+              city: customerDetails.city?.trim() || req.user.city,
+              state: customerDetails.state?.trim() || req.user.state,
+              pincode: customerDetails.pincode ? String(customerDetails.pincode).trim() : req.user.pincode,
+            },
+            { transaction }
+          );
+        } catch (err) {
+          console.warn('[OrderController] Could not update req.user address:', err.message);
+        }
       }
 
       const subtotalAmount = parseFloat(amounts?.subtotal || 0);
