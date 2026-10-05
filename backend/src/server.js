@@ -32,6 +32,29 @@ const startServer = async () => {
   // Sync database schema & run Super Admin bootstrap if database is healthy
   if (db.status === 'healthy') {
     try {
+      // Ensure PostgreSQL allows 'FREE_SHIPPING' in coupons table
+      try {
+        await sequelize.query(`
+          DO $$
+          BEGIN
+            IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_coupons_discountType') THEN
+              BEGIN
+                ALTER TYPE "enum_coupons_discountType" ADD VALUE IF NOT EXISTS 'FREE_SHIPPING';
+              EXCEPTION WHEN OTHERS THEN
+                NULL;
+              END;
+            END IF;
+            BEGIN
+              ALTER TABLE "coupons" ALTER COLUMN "discountType" TYPE VARCHAR(30) USING "discountType"::VARCHAR(30);
+            EXCEPTION WHEN OTHERS THEN
+              NULL;
+            END;
+          END$$;
+        `);
+      } catch (enumErr) {
+        logger.warn(`Coupons schema enum migration note: ${enumErr.message}`);
+      }
+
       await sequelize.sync({ alter: false });
       const qi = sequelize.getQueryInterface();
       // Automatic Comprehensive Schema Verification for All Models & Columns

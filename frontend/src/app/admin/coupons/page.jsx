@@ -853,56 +853,110 @@ export default function AdminCouponsPage() {
                   </div>
                 </div>
 
-                {/* 3. Discount Value & Maximum Cap */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 800, color: '#374151', marginBottom: '6px' }}>
-                      {modal.discountType === 'PERCENTAGE' ? 'Discount Percentage (%)' : 'Discount Amount (₹)'}{' '}
-                      <span style={{ color: '#DC2626' }}>*</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      max={modal.discountType === 'PERCENTAGE' ? '100' : '50000'}
-                      value={modal.discountValue}
-                      onChange={(e) => setModal({ ...modal, discountValue: e.target.value })}
-                      placeholder={modal.discountType === 'PERCENTAGE' ? '15' : '500'}
+                {/* 3. Discount Value & Minimum Cart Value */}
+                {modal.discountType === 'FREE_SHIPPING' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div
                       style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        border: '1px solid #E5E7EB',
-                        fontSize: '13.5px',
-                        fontWeight: 700,
-                        color: '#1E1B4B',
-                        outline: 'none',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        backgroundColor: '#ECFDF5',
+                        border: '1.5px dashed #10B981',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
                       }}
-                    />
-                  </div>
+                    >
+                      <Truck size={20} color="#059669" />
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#065F46' }}>
+                          Free Delivery Promotion (₹0 Shipping Fee)
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#047857' }}>
+                          Customer ko product discount dene ki jarurat nahi hai. Sirf minimum order amount set karein — cart reaches this value, shipping is 100% FREE!
+                        </div>
+                      </div>
+                    </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 800, color: '#374151', marginBottom: '6px' }}>
-                      Min Cart Value (₹)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={modal.minOrderAmount}
-                      onChange={(e) => setModal({ ...modal, minOrderAmount: e.target.value })}
-                      placeholder="0"
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        border: '1px solid #E5E7EB',
-                        fontSize: '13.5px',
-                        color: '#1E1B4B',
-                        outline: 'none',
-                      }}
-                    />
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 800, color: '#374151', marginBottom: '6px' }}>
+                        Minimum Order Value for Free Shipping (₹) <span style={{ color: '#DC2626' }}>*</span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        value={modal.minOrderAmount}
+                        onChange={(e) => setModal({ ...modal, minOrderAmount: e.target.value, discountValue: '0' })}
+                        placeholder="e.g. 1000 (Free delivery on orders >= ₹1000)"
+                        style={{
+                          width: '100%',
+                          padding: '11px 14px',
+                          borderRadius: '8px',
+                          border: '1.5px solid #10B981',
+                          fontSize: '14px',
+                          fontWeight: 700,
+                          color: '#065F46',
+                          backgroundColor: '#F0FDF4',
+                          outline: 'none',
+                        }}
+                      />
+                      <span style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px', display: 'block' }}>
+                        Example: Set ₹1000 — Customer cart jab ₹1000 ya usse jyada hogi to courier charge automatically ₹0 ho jayega.
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 800, color: '#374151', marginBottom: '6px' }}>
+                        {modal.discountType === 'PERCENTAGE' ? 'Discount Percentage (%)' : 'Discount Amount (₹)'}{' '}
+                        <span style={{ color: '#DC2626' }}>*</span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        max={modal.discountType === 'PERCENTAGE' ? '100' : '50000'}
+                        value={modal.discountValue}
+                        onChange={(e) => setModal({ ...modal, discountValue: e.target.value })}
+                        placeholder={modal.discountType === 'PERCENTAGE' ? '15' : '500'}
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          border: '1px solid #E5E7EB',
+                          fontSize: '13.5px',
+                          fontWeight: 700,
+                          color: '#1E1B4B',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 800, color: '#374151', marginBottom: '6px' }}>
+                        Min Cart Value (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={modal.minOrderAmount}
+                        onChange={(e) => setModal({ ...modal, minOrderAmount: e.target.value })}
+                        placeholder="0"
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          border: '1px solid #E5E7EB',
+                          fontSize: '13.5px',
+                          color: '#1E1B4B',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* 4. Max Discount Cap (Only for Percentage) */}
                 {modal.discountType === 'PERCENTAGE' && (
