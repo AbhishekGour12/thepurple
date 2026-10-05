@@ -6,12 +6,12 @@
 class ShiprocketService {
   constructor() {
     this.baseUrl = 'https://apiv2.shiprocket.in/v1/external';
-    this.email = process.env.SHIPROCKET_EMAIL || 'nowthepurple25@gmail.com';
-    this.password = process.env.SHIPROCKET_PASSWORD || 'kHdSgx@kqGlvw7iFL04bB2O#n&nBVmui';
+    this.email = process.env.SHIPROCKET_EMAIL || 'leovexatechnologies@gmail.com';
+    this.password = process.env.SHIPROCKET_PASSWORD || 'c1Yk0Ucmw8GD11^E9emGgS6lsyU0QCw!';
     this.token = null;
     this.tokenExpiry = null;
-    this.primaryPickupPincode = '140301';
-    this.primaryPickupLocation = 'warehouse-1';
+    this.primaryPickupPincode = '452010';
+    this.primaryPickupLocation = 'warehouse';
   }
 
   /**
