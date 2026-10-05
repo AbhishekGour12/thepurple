@@ -73,8 +73,9 @@ export default function AdminPaymentsPage() {
     setStatsLoading(true);
     try {
       const res = await adminPaymentsApi.getStats();
-      if (res?.data) {
-        setStats(res.data);
+      const statsData = res?.data || res;
+      if (statsData) {
+        setStats(statsData);
       }
     } catch (err) {
       console.warn('Could not load payment stats:', err);
@@ -98,13 +99,14 @@ export default function AdminPaymentsPage() {
       if (endDate) params.endDate = endDate;
 
       const res = await adminPaymentsApi.getAll(params);
-      if (res?.data) {
-        setPayments(res.data.payments || []);
-        if (res.data.pagination) {
+      const data = res?.data || res;
+      if (data) {
+        setPayments(data.payments || (Array.isArray(data) ? data : []));
+        if (data.pagination) {
           setPagination((prev) => ({
             ...prev,
-            total: res.data.pagination.total,
-            totalPages: res.data.pagination.totalPages,
+            total: data.pagination.total || (data.payments ? data.payments.length : 0),
+            totalPages: data.pagination.totalPages || 1,
           }));
         }
       }
@@ -151,7 +153,7 @@ export default function AdminPaymentsPage() {
       };
 
       const res = await adminPaymentsApi.exportData(params);
-      const data = res?.data?.payments || [];
+      const data = res?.payments || res?.data?.payments || (Array.isArray(res) ? res : []);
 
       if (data.length === 0) {
         alert('No payment records match the applied filters to export.');
