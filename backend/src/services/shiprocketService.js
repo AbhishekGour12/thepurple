@@ -459,15 +459,14 @@ class ShiprocketService {
   }
 
   /**
-   * Generate AWB & Shipping Label in Shiprocket (assigns courier)
+   * 1. Assign Courier & Generate Real AWB in Shiprocket
    * @param {string|number} shipmentId
    * @param {number} [courierCompanyId]
    */
-  async generateLabel(shipmentId, courierCompanyId = null) {
+  async assignAwb(shipmentId, courierCompanyId = null) {
     try {
-      if (!shipmentId) return { success: false, message: 'No Shipment ID' };
+      if (!shipmentId) return { success: false, message: 'Shipment ID is required' };
 
-      // 1. Assign AWB with optional courier company ID
       const awbPayload = { shipment_id: shipmentId };
       if (courierCompanyId) {
         awbPayload.courier_id = courierCompanyId;
@@ -478,20 +477,183 @@ class ShiprocketService {
         body: JSON.stringify(awbPayload),
       });
 
-      // 2. Generate Label URL
+      const data = awbRes?.data;
+      const awbCode = data?.response?.data?.awb_code || data?.awb_code || null;
+      const courierName = data?.response?.data?.courier_name || data?.courier_name || null;
+      const courierCompanyIdAssigned = data?.response?.data?.courier_company_id || null;
+
+      if (awbCode) {
+        return {
+          success: true,
+          awbCode,
+          courierName,
+          courierCompanyId: courierCompanyIdAssigned,
+          message: 'AWB and Courier assigned successfully',
+        };
+      }
+
+      // Handle Shiprocket error response
+      const errMsg =
+        data?.message ||
+        data?.response?.data?.awb_assign_error ||
+        data?.errors?.message ||
+        'Could not assign AWB courier partner in Shiprocket';
+
+      console.warn('[Shiprocket AWB Assign Warning]:', errMsg, data);
+      return {
+        success: false,
+        message: errMsg,
+        statusCode: data?.status_code || 400,
+      };
+    } catch (err) {
+      console.error('Shiprocket Assign AWB Error:', err);
+      return { success: false, message: err.message };
+    }
+  }
+
+  /**
+   * 2. Generate Official Shipping Label PDF from Shiprocket
+   * @param {string|number} shipmentId
+   */
+  async generateLabel(shipmentId) {
+    try {
+      if (!shipmentId) return { success: false, message: 'Shipment ID is required' };
+
       const labelRes = await this.request('/courier/generate/label', {
         method: 'POST',
         body: JSON.stringify({ shipment_id: [shipmentId] }),
       });
 
+      const labelUrl = labelRes.data?.label_url || null;
+      if (labelUrl) {
+        return {
+          success: true,
+          labelUrl,
+          labelCreated: labelRes.data?.label_created || 1,
+        };
+      }
+
       return {
-        success: true,
-        awbCode: awbRes.data?.response?.data?.awb_code || null,
-        courierName: awbRes.data?.response?.data?.courier_name || null,
-        labelUrl: labelRes.data?.label_url || null,
+        success: false,
+        message: labelRes.data?.message || 'Shiprocket could not generate shipping label PDF (Assign AWB first)',
       };
     } catch (err) {
       console.error('Shiprocket Generate Label Error:', err);
+      return { success: false, message: err.message };
+    }
+  }
+
+  /**
+   * 3. Generate Official Tax Invoice PDF from Shiprocket
+   * @param {string|number} shiprocketOrderId
+   */
+  async generateInvoice(shiprocketOrderId) {
+    try {
+      if (!shiprocketOrderId) return { success: false, message: 'Shiprocket Order ID is required' };
+
+      const invoiceRes = await this.request('/orders/print/invoice', {
+        method: 'POST',
+        body: JSON.stringify({ ids: [shiprocketOrderId] }),
+      });
+
+      const invoiceUrl = invoiceRes.data?.invoice_url || null;
+      if (invoiceUrl) {
+        return {
+          success: true,
+          invoiceUrl,
+          isInvoiceCreated: invoiceRes.data?.is_invoice_created || true,
+        };
+      }
+
+      return {
+        success: false,
+        message: invoiceRes.data?.message || 'Shiprocket could not generate invoice PDF',
+      };
+    } catch (err) {
+      console.error('Shiprocket Generate Invoice Error:', err);
+      return { success: false, message: err.message };
+    }
+  }
+
+  /**
+   * 4. Schedule Courier Pickup in Shiprocket
+   * @param {string|number} shipmentId
+   * @param {string} [pickupDate] - Format: YYYY-MM-DD
+   */
+  async schedulePickup(shipmentId, pickupDate = null) {
+    try {
+      if (!shipmentId) return { success: false, message: 'Shipment ID is required' };
+
+      // Default pickup date to tomorrow if not specified
+      let formattedDate = pickupDate;
+      if (!formattedDate) {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        formattedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+
+      const pickupRes = await this.request('/courier/generate/pickup', {
+        method: 'POST',
+        body: JSON.stringify({
+          shipment_id: [shipmentId],
+          pickup_date: [formattedDate],
+        }),
+      });
+
+      const data = pickupRes.data;
+      if (data?.pickup_status === 1 || data?.response?.pickup_scheduled_date || data?.response?.status === 200) {
+        return {
+          success: true,
+          pickupScheduledDate: data?.response?.pickup_scheduled_date || formattedDate,
+          pickupTokenNumber: data?.response?.pickup_token_number || null,
+          data: data?.response || data,
+          message: 'Courier pickup scheduled successfully',
+        };
+      }
+
+      const errMsg =
+        data?.message ||
+        data?.response?.data ||
+        data?.response?.message ||
+        'Failed to schedule pickup in Shiprocket (ensure AWB is assigned)';
+
+      return {
+        success: false,
+        message: errMsg,
+      };
+    } catch (err) {
+      console.error('Shiprocket Schedule Pickup Error:', err);
+      return { success: false, message: err.message };
+    }
+  }
+
+  /**
+   * 5. Generate Manifest from Shiprocket
+   * @param {string|number} shipmentId
+   */
+  async generateManifest(shipmentId) {
+    try {
+      if (!shipmentId) return { success: false, message: 'Shipment ID is required' };
+
+      const manifestRes = await this.request('/manifests/generate', {
+        method: 'POST',
+        body: JSON.stringify({ shipment_id: [shipmentId] }),
+      });
+
+      const manifestUrl = manifestRes.data?.manifest_url || null;
+      if (manifestUrl) {
+        return {
+          success: true,
+          manifestUrl,
+        };
+      }
+
+      return {
+        success: false,
+        message: manifestRes.data?.message || 'Could not generate manifest in Shiprocket',
+      };
+    } catch (err) {
+      console.error('Shiprocket Generate Manifest Error:', err);
       return { success: false, message: err.message };
     }
   }

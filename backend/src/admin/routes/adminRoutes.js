@@ -483,6 +483,24 @@ router.post(
   adminOrderController.generateShiprocketLabel
 );
 router.post(
+  '/orders/:id/schedule-pickup',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_UPDATE),
+  adminOrderController.scheduleShiprocketPickup
+);
+router.post(
+  '/orders/:id/generate-invoice',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_UPDATE),
+  adminOrderController.generateShiprocketInvoice
+);
+router.post(
+  '/orders/:id/generate-manifest',
+  authenticateAdmin,
+  authorize(PERMISSIONS.ORDER_UPDATE),
+  adminOrderController.generateShiprocketManifest
+);
+router.post(
   '/orders/sync-active',
   authenticateAdmin,
   authorize(PERMISSIONS.ORDER_UPDATE),

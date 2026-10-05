@@ -124,6 +124,14 @@ export const Order = sequelize.define(
       type: DataTypes.STRING(500),
       allowNull: true,
     },
+    invoiceUrl: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    pickupScheduledDate: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
     manifestUrl: {
       type: DataTypes.STRING(500),
       allowNull: true,

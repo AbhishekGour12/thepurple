@@ -226,13 +226,54 @@ export const orderApi = {
   /**
    * Admin: Generate Shiprocket Label & AWB
    */
-  async adminGenerateLabel(id) {
+  async adminGenerateLabel(id, courierCompanyId = null) {
     const res = await fetch(`${API_BASE_URL}/admin/orders/${id}/generate-label`, {
+      method: 'POST',
+      headers: getAdminAuthHeaders(),
+      body: courierCompanyId ? JSON.stringify({ courierCompanyId }) : undefined,
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to generate shipping label');
+    return json.data;
+  },
+
+  /**
+   * Admin: Schedule Real Courier Pickup in Shiprocket
+   */
+  async adminSchedulePickup(id, pickupDate = null) {
+    const res = await fetch(`${API_BASE_URL}/admin/orders/${id}/schedule-pickup`, {
+      method: 'POST',
+      headers: getAdminAuthHeaders(),
+      body: pickupDate ? JSON.stringify({ pickupDate }) : undefined,
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to schedule pickup in Shiprocket');
+    return json.data;
+  },
+
+  /**
+   * Admin: Generate Official Tax Invoice from Shiprocket
+   */
+  async adminGenerateInvoice(id) {
+    const res = await fetch(`${API_BASE_URL}/admin/orders/${id}/generate-invoice`, {
       method: 'POST',
       headers: getAdminAuthHeaders(),
     });
     const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Failed to generate shipping label');
+    if (!res.ok) throw new Error(json.message || 'Failed to generate tax invoice in Shiprocket');
+    return json.data;
+  },
+
+  /**
+   * Admin: Generate Manifest PDF from Shiprocket
+   */
+  async adminGenerateManifest(id) {
+    const res = await fetch(`${API_BASE_URL}/admin/orders/${id}/generate-manifest`, {
+      method: 'POST',
+      headers: getAdminAuthHeaders(),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to generate manifest in Shiprocket');
     return json.data;
   },
 

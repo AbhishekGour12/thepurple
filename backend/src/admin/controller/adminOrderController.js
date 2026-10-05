@@ -375,11 +375,12 @@ export const adminOrderController = {
   },
 
   /**
-   * 4. Generate Shiprocket Shipping Label / AWB
+   * 4. Assign Courier & Generate Real Shiprocket Shipping Label / AWB
    */
   async generateShiprocketLabel(req, res, next) {
     try {
       const { id } = req.params;
+      const { courierCompanyId } = req.body || {};
 
       const order = await Order.findOne({
         where: getOrderWhereClause(id),
@@ -391,50 +392,85 @@ export const adminOrderController = {
       }
 
       // 1. If not yet pushed to Shiprocket, push now
-      if (!order.shiprocketOrderId) {
+      if (!order.shiprocketOrderId || !order.shiprocketShipmentId) {
         const createRes = await shiprocketService.createOrder(order, order.items);
         if (createRes.success && createRes.shiprocketOrderId) {
           await order.update({
             shiprocketOrderId: createRes.shiprocketOrderId,
             shiprocketShipmentId: createRes.shiprocketShipmentId,
-            awbCode: createRes.awbCode,
-            courierName: createRes.courierName,
+            awbCode: createRes.awbCode || order.awbCode,
+            courierName: createRes.courierName || order.courierName,
           });
         } else {
-          return ApiResponse.error(res, `Shiprocket order creation failed: ${createRes.message || 'API error'}`, 400);
-        }
-      }
-
-      // 2. Generate AWB & Label
-      if (order.shiprocketShipmentId) {
-        const labelResult = await shiprocketService.generateLabel(order.shiprocketShipmentId);
-        if (labelResult.success) {
-          await order.update({
-            isLabelGenerated: true,
-            awbCode: labelResult.awbCode || order.awbCode,
-            courierName: labelResult.courierName || order.courierName,
-            labelUrl: labelResult.labelUrl,
-            status: 'SHIPROCKET_PICKUP',
-          });
-
-          return ApiResponse.success(
+          return ApiResponse.error(
             res,
-            {
-              isLabelGenerated: true,
-              awbCode: order.awbCode,
-              labelUrl: labelResult.labelUrl,
-              courierName: order.courierName,
-              status: order.status,
-            },
-            'Shiprocket AWB and Label generated successfully'
+            `Shiprocket order creation failed: ${createRes.message || 'Could not push order to Shiprocket'}`,
+            400
           );
         }
       }
 
-      // Fallback: Mock label generated for testing if Shiprocket API shipment ID is in test mode
+      const shipmentId = order.shiprocketShipmentId;
+      if (!shipmentId) {
+        return ApiResponse.error(res, 'Shiprocket Shipment ID not found for this order', 400);
+      }
+
+      // 2. Assign Real Courier & AWB if not yet assigned
+      let awbCode = order.awbCode;
+      let courierName = order.courierName;
+
+      if (!awbCode) {
+        const awbResult = await shiprocketService.assignAwb(shipmentId, courierCompanyId);
+        if (!awbResult.success || !awbResult.awbCode) {
+          return ApiResponse.error(
+            res,
+            `Shiprocket Courier Assign Failed: ${awbResult.message || 'Please check Shiprocket wallet balance (min ₹100)'}`,
+            400
+          );
+        }
+        awbCode = awbResult.awbCode;
+        courierName = awbResult.courierName;
+
+        await order.update({
+          awbCode,
+          courierName,
+        });
+      }
+
+      // 3. Generate Official Shipping Label PDF from Shiprocket (for parcel box paste)
+      const labelResult = await shiprocketService.generateLabel(shipmentId);
+      const labelUrl = labelResult.success ? labelResult.labelUrl : order.labelUrl;
+
+      // 4. Generate Official Tax Invoice PDF from Shiprocket
+      let invoiceUrl = order.invoiceUrl;
+      try {
+        const invResult = await shiprocketService.generateInvoice(order.shiprocketOrderId);
+        if (invResult.success && invResult.invoiceUrl) {
+          invoiceUrl = invResult.invoiceUrl;
+        }
+      } catch (invErr) {
+        console.warn('[AdminOrder] Invoice generation warning:', invErr.message);
+      }
+
+      // 5. Automatically Schedule Next Day Courier Pickup in Shiprocket
+      let pickupScheduledDate = order.pickupScheduledDate;
+      try {
+        const pickupResult = await shiprocketService.schedulePickup(shipmentId);
+        if (pickupResult.success && pickupResult.pickupScheduledDate) {
+          pickupScheduledDate = pickupResult.pickupScheduledDate;
+        }
+      } catch (pickErr) {
+        console.warn('[AdminOrder] Pickup scheduling warning:', pickErr.message);
+      }
+
+      // 6. Update Order with all dispatch metadata
       await order.update({
         isLabelGenerated: true,
-        awbCode: order.awbCode || `AWB-${Date.now()}`,
+        awbCode,
+        courierName,
+        labelUrl: labelUrl || order.labelUrl,
+        invoiceUrl: invoiceUrl || order.invoiceUrl,
+        pickupScheduledDate: pickupScheduledDate || order.pickupScheduledDate,
         status: 'SHIPROCKET_PICKUP',
       });
 
@@ -442,10 +478,159 @@ export const adminOrderController = {
         res,
         {
           isLabelGenerated: true,
-          awbCode: order.awbCode,
+          awbCode,
+          courierName,
+          labelUrl,
+          invoiceUrl,
+          pickupScheduledDate,
+          shipmentId,
+          shiprocketOrderId: order.shiprocketOrderId,
           status: 'SHIPROCKET_PICKUP',
         },
-        'Shipping label marked as generated'
+        `Courier ${courierName} assigned (AWB: ${awbCode}). Shipping Label, Tax Invoice, and Next Day Pickup scheduled successfully!`
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * 4b. Schedule Courier Pickup in Shiprocket
+   */
+  async scheduleShiprocketPickup(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { pickupDate } = req.body || {};
+
+      const order = await Order.findOne({
+        where: getOrderWhereClause(id),
+      });
+
+      if (!order) {
+        return ApiResponse.error(res, 'Order not found', 404);
+      }
+
+      if (!order.shiprocketShipmentId) {
+        return ApiResponse.error(res, 'Order is not yet created in Shiprocket. Generate Shipping Label first.', 400);
+      }
+
+      if (!order.awbCode) {
+        return ApiResponse.error(res, 'AWB is not yet assigned. Please click "Assign Courier & Generate Label" first.', 400);
+      }
+
+      const pickupResult = await shiprocketService.schedulePickup(order.shiprocketShipmentId, pickupDate);
+
+      if (!pickupResult.success) {
+        return ApiResponse.error(
+          res,
+          `Shiprocket Pickup Scheduling Failed: ${pickupResult.message || 'Could not schedule pickup'}`,
+          400
+        );
+      }
+
+      await order.update({
+        status: 'SHIPROCKET_PICKUP',
+        pickupScheduledDate: pickupResult.pickupScheduledDate,
+      });
+
+      return ApiResponse.success(
+        res,
+        {
+          status: 'SHIPROCKET_PICKUP',
+          pickupScheduledDate: pickupResult.pickupScheduledDate,
+          pickupTokenNumber: pickupResult.pickupTokenNumber,
+        },
+        `Courier Pickup scheduled successfully for ${pickupResult.pickupScheduledDate}`
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * 4c. Generate Official Tax Invoice PDF from Shiprocket
+   */
+  async generateShiprocketInvoice(req, res, next) {
+    try {
+      const { id } = req.params;
+
+      const order = await Order.findOne({
+        where: getOrderWhereClause(id),
+      });
+
+      if (!order) {
+        return ApiResponse.error(res, 'Order not found', 404);
+      }
+
+      if (!order.shiprocketOrderId) {
+        return ApiResponse.error(res, 'Shiprocket Order ID not found for this order', 400);
+      }
+
+      const invoiceResult = await shiprocketService.generateInvoice(order.shiprocketOrderId);
+
+      if (!invoiceResult.success || !invoiceResult.invoiceUrl) {
+        return ApiResponse.error(
+          res,
+          `Shiprocket Invoice Generation Failed: ${invoiceResult.message || 'Could not generate invoice PDF'}`,
+          400
+        );
+      }
+
+      await order.update({
+        invoiceUrl: invoiceResult.invoiceUrl,
+      });
+
+      return ApiResponse.success(
+        res,
+        {
+          invoiceUrl: invoiceResult.invoiceUrl,
+        },
+        'Shiprocket Tax Invoice PDF generated successfully'
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * 4d. Generate Manifest PDF from Shiprocket
+   */
+  async generateShiprocketManifest(req, res, next) {
+    try {
+      const { id } = req.params;
+
+      const order = await Order.findOne({
+        where: getOrderWhereClause(id),
+      });
+
+      if (!order) {
+        return ApiResponse.error(res, 'Order not found', 404);
+      }
+
+      if (!order.shiprocketShipmentId) {
+        return ApiResponse.error(res, 'Shiprocket Shipment ID not found', 400);
+      }
+
+      const manifestResult = await shiprocketService.generateManifest(order.shiprocketShipmentId);
+
+      if (!manifestResult.success || !manifestResult.manifestUrl) {
+        return ApiResponse.error(
+          res,
+          `Shiprocket Manifest Generation Failed: ${manifestResult.message || 'Could not generate manifest'}`,
+          400
+        );
+      }
+
+      await order.update({
+        manifestUrl: manifestResult.manifestUrl,
+      });
+
+      return ApiResponse.success(
+        res,
+        {
+          manifestUrl: manifestResult.manifestUrl,
+        },
+        'Shiprocket Manifest PDF generated successfully'
       );
     } catch (error) {
       next(error);

@@ -15,8 +15,10 @@ import {
   User,
   MapPin,
   Tag,
-  ExternalLink,
   Printer,
+  Calendar,
+  Download,
+  RefreshCw,
 } from 'lucide-react';
 import { orderApi } from '@/lib/api/orders';
 
@@ -105,10 +107,59 @@ export default function AdminOrderDetailPage() {
     try {
       setUpdating(true);
       const res = await orderApi.adminGenerateLabel(orderId);
-      setNotice(`Shiprocket Shipping Label and AWB (${res.awbCode || 'Assigned'}) generated!`);
-      loadOrder();
+      if (res?.labelUrl) {
+        window.open(res.labelUrl, '_blank');
+      }
+      setNotice(
+        `Order Dispatched! Courier: ${res?.courierName || 'Assigned'} (AWB: ${res?.awbCode || 'Assigned'}) | Pickup Scheduled: ${res?.pickupScheduledDate || 'Next Day'}`
+      );
+      await loadOrder();
     } catch (err) {
-      alert(err.message || 'Could not generate label');
+      alert(err.message || 'Could not dispatch order in Shiprocket');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSchedulePickup = async () => {
+    try {
+      setUpdating(true);
+      const res = await orderApi.adminSchedulePickup(orderId);
+      setNotice(`Courier Pickup scheduled successfully${res?.pickupScheduledDate ? ` for ${res.pickupScheduledDate}` : ''}!`);
+      await loadOrder();
+    } catch (err) {
+      alert(err.message || 'Could not schedule pickup in Shiprocket');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleGenerateInvoice = async () => {
+    try {
+      setUpdating(true);
+      const res = await orderApi.adminGenerateInvoice(orderId);
+      if (res?.invoiceUrl) {
+        window.open(res.invoiceUrl, '_blank');
+        setNotice('Shiprocket Tax Invoice PDF generated and opened!');
+      } else {
+        setNotice('Invoice generated successfully!');
+      }
+      await loadOrder();
+    } catch (err) {
+      alert(err.message || 'Could not generate invoice in Shiprocket');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSyncShiprocket = async () => {
+    try {
+      setUpdating(true);
+      const res = await orderApi.adminSyncShiprocket(orderId);
+      setNotice(`Shiprocket live status synced: ${res?.status || 'Updated'}`);
+      await loadOrder();
+    } catch (err) {
+      alert(err.message || 'Could not sync with Shiprocket');
     } finally {
       setUpdating(false);
     }
@@ -330,11 +381,35 @@ export default function AdminOrderDetailPage() {
           
           {/* Shiprocket Fulfillment Card */}
           <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', border: '1px solid #E5E7EB', padding: '22px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-              <Truck size={20} color="#7E22CE" />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1E1B4B', margin: 0 }}>
-                Shiprocket Fulfillment
-              </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px solid #F3F4F6', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Truck size={20} color="#7E22CE" />
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1E1B4B', margin: 0 }}>
+                  Shiprocket Fulfillment
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={handleSyncShiprocket}
+                disabled={updating}
+                title="Sync Live Tracking & Status from Shiprocket"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  backgroundColor: '#FAF5FF',
+                  border: '1px solid #E9D5FF',
+                  color: '#7E22CE',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: updating ? 'wait' : 'pointer',
+                }}
+              >
+                <RefreshCw size={12} className={updating ? 'spin-icon' : ''} />
+                <span>Sync Live</span>
+              </button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12.5px', marginBottom: '16px' }}>
@@ -345,75 +420,141 @@ export default function AdminOrderDetailPage() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#6B7280' }}>Courier Assigned:</span>
-                <strong>{order.courierName || 'Shiprocket Express'}</strong>
+                <strong style={{ color: order.courierName ? '#1E1B4B' : '#9CA3AF' }}>{order.courierName || 'Pending Courier Selection'}</strong>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#6B7280' }}>AWB Code:</span>
-                <strong>{order.awbCode || 'Not Generated'}</strong>
+                <strong style={{ fontFamily: 'monospace', color: order.awbCode ? '#7E22CE' : '#9CA3AF' }}>
+                  {order.awbCode || 'Not Assigned'}
+                </strong>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#6B7280' }}>Shipping Label:</span>
-                <strong style={{ color: order.isLabelGenerated ? '#15803D' : '#D97706' }}>
-                  {order.isLabelGenerated ? 'Generated ✓' : 'Pending Generation'}
+                <strong style={{ color: order.isLabelGenerated || order.labelUrl ? '#15803D' : '#D97706' }}>
+                  {order.isLabelGenerated || order.labelUrl ? 'Generated ✓' : 'Pending Generation'}
                 </strong>
               </div>
+
+              {order.pickupScheduledDate && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#6B7280' }}>Pickup Scheduled:</span>
+                  <strong style={{ color: '#2563EB' }}>{order.pickupScheduledDate}</strong>
+                </div>
+              )}
             </div>
 
-            {/* Label Generation CTA */}
-            {!order.isLabelGenerated && order.status !== 'CANCELLED' && (
-              <button
-                type="button"
-                onClick={handleGenerateLabel}
-                disabled={updating}
-                style={{
-                  width: '100%',
-                  padding: '11px',
-                  borderRadius: '10px',
-                  backgroundColor: '#7E22CE',
-                  color: '#FFFFFF',
-                  fontSize: '13px',
-                  fontWeight: 800,
-                  border: 'none',
-                  cursor: updating ? 'wait' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  boxShadow: '0 2px 8px rgba(126, 34, 206, 0.25)',
-                }}
-              >
-                <FileText size={15} />
-                <span>{updating ? 'Generating...' : 'Generate AWB & Shipping Label'}</span>
-              </button>
-            )}
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* 1. Assign Courier & Generate AWB / Label */}
+              {order.status !== 'CANCELLED' && (
+                <button
+                  type="button"
+                  onClick={handleGenerateLabel}
+                  disabled={updating}
+                  style={{
+                    width: '100%',
+                    padding: '11px',
+                    borderRadius: '10px',
+                    backgroundColor: '#7E22CE',
+                    color: '#FFFFFF',
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    border: 'none',
+                    cursor: updating ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 8px rgba(126, 34, 206, 0.25)',
+                  }}
+                >
+                  <FileText size={15} />
+                  <span>{updating ? 'Processing...' : order.awbCode ? 'Re-generate Shipping Label' : 'Assign Courier & Generate AWB'}</span>
+                </button>
+              )}
 
-            {order.labelUrl && (
-              <a
-                href={order.labelUrl}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  padding: '10px',
-                  borderRadius: '10px',
-                  backgroundColor: '#FAF5FF',
-                  border: '1px solid #E9D5FF',
-                  color: '#7E22CE',
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  textDecoration: 'none',
-                  marginTop: '10px',
-                }}
-              >
-                <Printer size={15} />
-                <span>Print Shiprocket Label</span>
-              </a>
-            )}
+              {/* 2. Schedule Courier Pickup */}
+              {order.awbCode && order.status !== 'CANCELLED' && (
+                <button
+                  type="button"
+                  onClick={handleSchedulePickup}
+                  disabled={updating}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '10px',
+                    backgroundColor: '#059669',
+                    color: '#FFFFFF',
+                    fontSize: '12.5px',
+                    fontWeight: 800,
+                    border: 'none',
+                    cursor: updating ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Calendar size={14} />
+                  <span>{updating ? 'Scheduling...' : 'Schedule Next Day Courier Pickup'}</span>
+                </button>
+              )}
+
+              {/* 3. Official Tax Invoice Download */}
+              {order.shiprocketOrderId && (
+                <button
+                  type="button"
+                  onClick={handleGenerateInvoice}
+                  disabled={updating}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '10px',
+                    backgroundColor: '#FAF5FF',
+                    border: '1.5px solid #E9D5FF',
+                    color: '#7E22CE',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: updating ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Download size={14} />
+                  <span>{order.invoiceUrl ? 'Download Tax Invoice (PDF)' : 'Generate Tax Invoice (PDF)'}</span>
+                </button>
+              )}
+
+              {/* 4. Print Label PDF */}
+              {order.labelUrl && (
+                <a
+                  href={order.labelUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '10px',
+                    borderRadius: '10px',
+                    backgroundColor: '#F3F4F6',
+                    border: '1px solid #E5E7EB',
+                    color: '#374151',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                  }}
+                >
+                  <Printer size={14} />
+                  <span>Print Shipping Label (PDF)</span>
+                </a>
+              )}
+            </div>
           </div>
 
           {/* Update Order Status Card */}
