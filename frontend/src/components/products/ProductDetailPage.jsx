@@ -366,11 +366,16 @@ export default function ProductDetailPage({ slug }) {
 
   // Active Main Image (Directly driven by user thumbnail selection)
   const currentMainImage = useMemo(() => {
-    return galleryImages[selectedImageIdx] || galleryImages[0] || '/images/storefront/cat-chains.jpg';
+    if (!galleryImages || galleryImages.length === 0) return '/images/storefront/cat-chains.jpg';
+    if (selectedImageIdx >= 0 && selectedImageIdx < galleryImages.length && galleryImages[selectedImageIdx]) {
+      return galleryImages[selectedImageIdx];
+    }
+    return galleryImages[0] || '/images/storefront/cat-chains.jpg';
   }, [galleryImages, selectedImageIdx]);
 
   // Color Switcher Handler: switches color, syncs available sizes/price/stock & flips gallery to that color's image
   const handleSelectColor = (colorId) => {
+    setIsHoverZooming(false);
     setSelectedColorId(colorId);
 
     // Auto-sync size for this color if previous size doesn't exist on new color
@@ -402,6 +407,8 @@ export default function ProductDetailPage({ slug }) {
 
   // Thumbnail / Slide Handler: selects image & auto-switches color if image is mapped to a color
   const handleSelectImage = (idx) => {
+    setIsHoverZooming(false);
+    if (idx < 0 || idx >= galleryImages.length) return;
     setSelectedImageIdx(idx);
     const clickedImg = galleryImageObjects[idx];
     if (clickedImg?.colorId && clickedImg.colorId !== selectedColorId) {
@@ -422,12 +429,22 @@ export default function ProductDetailPage({ slug }) {
 
   // Gallery Navigation (Next / Prev)
   const handlePrevImage = (e) => {
-    e.stopPropagation();
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    setIsHoverZooming(false);
+    if (!galleryImages || galleryImages.length === 0) return;
     const newIdx = (selectedImageIdx - 1 + galleryImages.length) % galleryImages.length;
     handleSelectImage(newIdx);
   };
   const handleNextImage = (e) => {
-    e.stopPropagation();
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    setIsHoverZooming(false);
+    if (!galleryImages || galleryImages.length === 0) return;
     const newIdx = (selectedImageIdx + 1) % galleryImages.length;
     handleSelectImage(newIdx);
   };
@@ -1052,23 +1069,23 @@ export default function ProductDetailPage({ slug }) {
                     style={{
                       position: 'absolute',
                       top: '50%',
-                      left: '8px',
+                      left: '10px',
                       transform: 'translateY(-50%)',
-                      width: '32px',
-                      height: '32px',
+                      width: '36px',
+                      height: '36px',
                       borderRadius: '50%',
-                      backgroundColor: 'rgba(255,255,255,0.85)',
+                      backgroundColor: 'rgba(255,255,255,0.95)',
                       border: '1px solid #E5E7EB',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
-                      zIndex: 8,
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                      zIndex: 20,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                     }}
                     title="Previous Image"
                   >
-                    <ChevronLeft size={18} color="#1E1B4B" />
+                    <ChevronLeft size={20} color="#1E1B4B" />
                   </button>
                   <button
                     type="button"
@@ -1076,50 +1093,59 @@ export default function ProductDetailPage({ slug }) {
                     style={{
                       position: 'absolute',
                       top: '50%',
-                      right: '8px',
+                      right: '10px',
                       transform: 'translateY(-50%)',
-                      width: '32px',
-                      height: '32px',
+                      width: '36px',
+                      height: '36px',
                       borderRadius: '50%',
-                      backgroundColor: 'rgba(255,255,255,0.85)',
+                      backgroundColor: 'rgba(255,255,255,0.95)',
                       border: '1px solid #E5E7EB',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
-                      zIndex: 8,
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                      zIndex: 20,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                     }}
                     title="Next Image"
                   >
-                    <ChevronRight size={18} color="#1E1B4B" />
+                    <ChevronRight size={20} color="#1E1B4B" />
                   </button>
                 </>
               )}
 
-              {/* Base Normal Image */}
+              {/* Base Normal Image - ALWAYS visible, never hidden */}
               <img
+                key={currentMainImage}
                 src={currentMainImage}
                 alt={product.name}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = '/images/storefront/cat-chains.jpg';
+                }}
                 style={{
                   width: '100%',
                   height: '100%',
                   objectFit: 'cover',
-                  display: isHoverZooming ? 'none' : 'block',
-                  transition: 'opacity 0.2s ease',
+                  display: 'block',
+                  transition: 'opacity 0.15s ease',
                 }}
               />
 
-              {/* High-Resolution Hover Magnifier Background */}
+              {/* High-Resolution Hover Magnifier Overlay - absolute layer on top */}
               {isHoverZooming && (
                 <div
                   style={{
+                    position: 'absolute',
+                    inset: 0,
                     width: '100%',
                     height: '100%',
                     backgroundImage: `url(${currentMainImage})`,
                     backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
                     backgroundSize: '240%',
                     backgroundRepeat: 'no-repeat',
+                    pointerEvents: 'none',
+                    zIndex: 5,
                   }}
                 />
               )}
