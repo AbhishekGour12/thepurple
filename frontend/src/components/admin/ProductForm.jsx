@@ -40,6 +40,7 @@ import CategoryManagerModal from '@/components/admin/products/CategoryManagerMod
 import ColorManagerModal from '@/components/admin/products/ColorManagerModal';
 import SizeManagerModal from '@/components/admin/products/SizeManagerModal';
 import AttributeManagerModal from '@/components/admin/products/AttributeManagerModal';
+import SearchableColorSelect from '@/components/admin/products/SearchableColorSelect';
 
 // Helper to create an initial product or clone from a template
 const createInitialProduct = (template = null, isEditData = null) => {
@@ -223,6 +224,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
 
   // UI / Progress State
   const [submitting, setSubmitting] = useState(false);
+  const [savingSingleIdx, setSavingSingleIdx] = useState(null);
   const [submitProgress, setSubmitProgress] = useState({ current: 0, total: 0, currentName: '' });
   const [globalError, setGlobalError] = useState('');
   const [globalSuccess, setGlobalSuccess] = useState(false);
@@ -686,6 +688,124 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
     }
   };
 
+  // Single Product Submit Handler (Saves 1 specific product card and removes it from list if multi-form)
+  const handleSaveSingleProduct = async (pIdx) => {
+    setGlobalError('');
+    const p = products[pIdx];
+    if (!p) return;
+    const prodNum = pIdx + 1;
+
+    // Validate this specific product
+    if (!p.name.trim()) {
+      setGlobalError(`Product #${prodNum}: Name is required`);
+      updateProduct(pIdx, { isCollapsed: false });
+      const el = document.getElementById(`product-card-${p.clientId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    if (!p.sku.trim()) {
+      setGlobalError(`Product #${prodNum} (${p.name}): SKU is required`);
+      updateProduct(pIdx, { isCollapsed: false });
+      const el = document.getElementById(`product-card-${p.clientId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    if (!p.selectedSubcategory) {
+      setGlobalError(`Product #${prodNum} (${p.name}): Please select Category & Subcategory`);
+      updateProduct(pIdx, { isCollapsed: false });
+      const el = document.getElementById(`product-card-${p.clientId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    if (!p.price || parseFloat(p.price) < 0) {
+      setGlobalError(`Product #${prodNum} (${p.name}): Valid MRP price is required`);
+      updateProduct(pIdx, { isCollapsed: false });
+      const el = document.getElementById(`product-card-${p.clientId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    if (p.salePrice && parseFloat(p.salePrice) > parseFloat(p.price)) {
+      setGlobalError(`Product #${prodNum} (${p.name}): Offer/Selling price cannot exceed MRP`);
+      updateProduct(pIdx, { isCollapsed: false });
+      const el = document.getElementById(`product-card-${p.clientId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    setSavingSingleIdx(pIdx);
+
+    try {
+      const numMrp = parseFloat(p.price) || 0;
+      const numSale = parseFloat(p.salePrice) || numMrp;
+      const discountPercent = numMrp > 0 ? Math.max(0, Math.round(((numMrp - numSale) / numMrp) * 100)) : 0;
+
+      const payload = {
+        name: p.name.trim(),
+        sku: p.sku.trim().toUpperCase(),
+        brand: p.brand.trim(),
+        subcategoryId: p.selectedSubcategory,
+        price: parseFloat(p.price),
+        salePrice: parseFloat(p.salePrice) || parseFloat(p.price),
+        discountPercent,
+        taxRate: parseFloat(p.taxRate) || 0,
+        hsnCode: p.hsnCode.trim() || undefined,
+        stock: parseInt(p.stock, 10) || 0,
+        lowStockThreshold: parseInt(p.lowStockThreshold, 10) || 5,
+        status: p.status,
+        badge: p.badge ? p.badge.trim() : null,
+        isFeatured: Boolean(p.isFeatured),
+        isBestSeller: Boolean(p.isBestSeller) || p.badge?.toUpperCase() === 'BESTSELLER',
+        isBulk: Boolean(p.isBulk),
+        minOrderQuantity: Boolean(p.isBulk) ? Math.max(1, parseInt(p.minOrderQuantity, 10) || 1) : 1,
+        shortDescription: p.shortDescription.trim() || undefined,
+        description: p.description.trim() || undefined,
+        specifications: p.specifications.trim() || undefined,
+        careInstructions: p.careInstructions.trim() || undefined,
+        tags: p.tags
+          ? p.tags
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : [],
+        attributeValueIds: p.selectedAttrValIds,
+        weightGrams: p.weightGrams ? parseFloat(p.weightGrams) : undefined,
+        lengthCm: p.lengthCm ? parseFloat(p.lengthCm) : undefined,
+        widthCm: p.widthCm ? parseFloat(p.widthCm) : undefined,
+        heightCm: p.heightCm ? parseFloat(p.heightCm) : undefined,
+        images: p.images.map((img, idx) => ({
+          imageUrl: typeof img === 'string' ? img : img.imageUrl,
+          altText: typeof img === 'object' ? img.altText || p.name : p.name,
+          isPrimary: typeof img === 'object' && img.isPrimary !== undefined ? Boolean(img.isPrimary) : idx === 0,
+          displayOrder: typeof img === 'object' && img.displayOrder !== undefined ? img.displayOrder : idx,
+          colorId: typeof img === 'object' && img.colorId ? img.colorId : null,
+        })),
+        variants: p.variants,
+      };
+
+      if (isEdit && p.id) {
+        await adminProductApi.updateProduct(p.id, payload);
+      } else {
+        await adminProductApi.createProduct(payload);
+      }
+
+      // If multi-form, remove this saved product from screen so remaining forms stay intact
+      if (products.length > 1) {
+        setProducts((prev) => prev.filter((_, idx) => idx !== pIdx));
+        setGlobalSuccess(true);
+        setTimeout(() => setGlobalSuccess(false), 3500);
+      } else {
+        setGlobalSuccess(true);
+        setTimeout(() => {
+          router.push('/admin/products');
+        }, 1200);
+      }
+    } catch (err) {
+      setGlobalError(`Error saving Product #${prodNum} (${p.name}): ${err.message || 'Failed to save product'}`);
+    } finally {
+      setSavingSingleIdx(null);
+    }
+  };
+
   // Common UI Styles
   const inputStyle = {
     width: '100%',
@@ -720,9 +840,11 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
   return (
     <div style={{ maxWidth: '1120px', margin: '0 auto', paddingBottom: '90px', position: 'relative' }}>
       <BusyOverlay
-        show={submitting}
+        show={submitting || savingSingleIdx !== null}
         label={
-          isEdit
+          savingSingleIdx !== null
+            ? `Saving Product #${savingSingleIdx + 1}: ${products[savingSingleIdx]?.name || 'Product'}...`
+            : isEdit
             ? 'Updating product details...'
             : `Saving Product ${submitProgress.current} of ${submitProgress.total}: ${submitProgress.currentName}...`
         }
@@ -1042,7 +1164,31 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                 </div>
 
                 {/* Card Header Action Buttons */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveSingleProduct(pIdx)}
+                    disabled={submitting || savingSingleIdx !== null}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      backgroundColor: '#7E22CE',
+                      color: '#ffffff',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      border: 'none',
+                      cursor: submitting || savingSingleIdx !== null ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 2px 6px rgba(126, 34, 206, 0.25)',
+                    }}
+                    title={`Save & submit only Product #${pIdx + 1}`}
+                  >
+                    <Save size={13} />
+                    <span>{savingSingleIdx === pIdx ? 'Saving...' : `Save Product #${pIdx + 1}`}</span>
+                  </button>
+
                   {!isEdit && (
                     <button
                       type="button"
@@ -2128,37 +2274,25 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                 </button>
                               </div>
 
-                              {/* Color Tag Selector per Image */}
+                              {/* Color Tag Selector per Image with Searchable Color Picker */}
                               <div style={{ padding: '0 8px 8px' }}>
-                                <select
+                                <SearchableColorSelect
                                   value={img.colorId || ''}
-                                  onChange={(e) => {
+                                  onChange={(colorId) => {
                                     const nextImgs = prod.images.map((m, k) =>
-                                      k === imgIdx ? { ...m, colorId: e.target.value } : m
+                                      k === imgIdx ? { ...m, colorId: colorId } : m
                                     );
                                     updateProduct(pIdx, { images: nextImgs });
                                   }}
-                                  style={{
-                                    width: '100%',
-                                    padding: '4px 6px',
-                                    borderRadius: '6px',
-                                    border: img.colorId ? '1.5px solid #7E22CE' : '1px solid #D1D5DB',
-                                    backgroundColor: img.colorId ? '#FAF5FF' : '#FFFFFF',
-                                    fontSize: '11px',
-                                    color: img.colorId ? '#6B21A8' : '#4B5563',
-                                    fontWeight: img.colorId ? 700 : 500,
-                                    outline: 'none',
-                                    cursor: 'pointer',
+                                  colors={colors}
+                                  onColorCreated={async () => {
+                                    await refreshColors();
                                   }}
-                                  title="Tag image to a specific color (Amazon style) or keep as general for all colors"
-                                >
-                                  <option value="">All Colors / General</option>
-                                  {colors.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                      🎨 {c.name}
-                                    </option>
-                                  ))}
-                                </select>
+                                  placeholder="All Colors / General"
+                                  allowNone={true}
+                                  noneLabel="All Colors / General"
+                                  size="sm"
+                                />
                               </div>
                             </div>
                           );
@@ -2754,33 +2888,23 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                 style={{ ...inputStyle, padding: '6px 8px', backgroundColor: '#fff', fontSize: '11.5px' }}
                               />
 
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <div
-                                  style={{
-                                    width: '18px',
-                                    height: '18px',
-                                    borderRadius: '50%',
-                                    backgroundColor: selectedColor?.hexCode || '#E5E7EB',
-                                    border: '1px solid #CBD5E1',
-                                    flexShrink: 0,
-                                  }}
-                                />
-                                <select
-                                  value={v.colorId}
-                                  onChange={(e) => {
+                              <div style={{ flex: 1, minWidth: '130px' }}>
+                                <SearchableColorSelect
+                                  value={v.colorId || ''}
+                                  onChange={(colorId) => {
                                     const nextV = [...prod.variants];
-                                    nextV[vIdx].colorId = e.target.value;
+                                    nextV[vIdx].colorId = colorId;
                                     updateProduct(pIdx, { variants: nextV });
                                   }}
-                                  style={{ ...inputStyle, padding: '6px 6px', backgroundColor: '#fff', flex: 1, fontSize: '11.5px' }}
-                                >
-                                  <option value="">Select Color</option>
-                                  {colors.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                      {c.name}
-                                    </option>
-                                  ))}
-                                </select>
+                                  colors={colors}
+                                  onColorCreated={async () => {
+                                    await refreshColors();
+                                  }}
+                                  placeholder="Select Color"
+                                  allowNone={true}
+                                  noneLabel="None / General"
+                                  size="sm"
+                                />
                               </div>
 
                               <select
@@ -3051,11 +3175,34 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Sparkles size={16} color="#7E22CE" />
                         <span style={{ fontSize: '13px', fontWeight: 700, color: '#581C87' }}>
-                          Need to add another product variant or product with similar details?
+                          Product #{pIdx + 1} Actions
                         </span>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSingleProduct(pIdx)}
+                          disabled={submitting || savingSingleIdx !== null}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '9px 18px',
+                            borderRadius: '10px',
+                            backgroundColor: '#7E22CE',
+                            color: '#ffffff',
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            border: 'none',
+                            cursor: submitting || savingSingleIdx !== null ? 'not-allowed' : 'pointer',
+                            boxShadow: '0 2px 8px rgba(126, 34, 206, 0.25)',
+                          }}
+                        >
+                          <Save size={14} />
+                          <span>{savingSingleIdx === pIdx ? 'Saving...' : `Save Product #${pIdx + 1}`}</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => handleAddMoreProductCopy(pIdx)}
@@ -3065,18 +3212,18 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                             gap: '6px',
                             padding: '9px 16px',
                             borderRadius: '10px',
-                            backgroundColor: '#7E22CE',
-                            color: '#ffffff',
+                            backgroundColor: '#FAF5FF',
+                            border: '1.5px solid #C084FC',
+                            color: '#7E22CE',
                             fontSize: '13px',
                             fontWeight: 700,
-                            border: 'none',
                             cursor: 'pointer',
-                            boxShadow: '0 2px 8px rgba(126, 34, 206, 0.2)',
                           }}
                         >
                           <Copy size={14} />
-                          <span>+ Add More Product (Copy Details)</span>
+                          <span>+ Copy Details Below</span>
                         </button>
+
                         <button
                           type="button"
                           onClick={handleAddBlankProduct}
