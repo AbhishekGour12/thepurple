@@ -103,7 +103,7 @@ export default function HeroBanner() {
             accentColor: b.accentColor || '#6D28D9',
             accentHover: b.accentColor || '#5B21B6',
             tagColor: b.accentColor || '#7C3AED',
-            floatingBadge: { icon: Award, text: b.discountTag || '100% Certified Quality' },
+            floatingBadge: { icon: Award, text: b.discountTag || 'Premium Handpicked Quality' },
             primaryBtn: b.primaryBtnText ? { text: b.primaryBtnText, href: b.primaryBtnUrl || b.linkUrl || '/products' } : null,
             secondaryBtn: b.secondaryBtnText ? { text: b.secondaryBtnText, href: b.secondaryBtnUrl || '/products' } : null,
             discountTag: b.discountTag || '',

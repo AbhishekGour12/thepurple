@@ -31,11 +31,11 @@ const ICONS = {
 };
 
 const LINKS = [
-  { id: 'instagram', name: 'Instagram', href: 'https://instagram.com' },
+  { id: 'instagram', name: 'Instagram', href: 'https://instagram.com/nowthepurple' },
   { id: 'facebook', name: 'Facebook', href: 'https://facebook.com' },
   { id: 'pinterest', name: 'Pinterest', href: 'https://pinterest.com' },
   { id: 'youtube', name: 'YouTube', href: 'https://youtube.com' },
-  { id: 'whatsapp', name: 'WhatsApp', href: 'https://wa.me/919876543210' },
+  { id: 'whatsapp', name: 'WhatsApp', href: 'https://wa.me/918966080203' },
 ];
 
 export default function SocialIcons({ size = 34 }) {

@@ -83,7 +83,7 @@ export default function Footer() {
                 fontFamily: "var(--font-body, 'Plus Jakarta Sans', sans-serif)",
               }}
             >
-              Your one-stop destination for fine jewellery, cute teddy bears, celebration gift hampers &amp; little luxuries.
+              Your one-stop destination for trendy artificial jewellery, cute teddy bears, keychains, hair accessories, customized lockets &amp; celebration gift hampers.
             </p>
 
             {/* Social Links */}
@@ -264,7 +264,7 @@ export default function Footer() {
                   <Phone size={14} />
                 </div>
                 <a
-                  href="tel:+919876543210"
+                  href="tel:+918966080203"
                   style={{
                     color: '#18181B',
                     fontWeight: 600,
@@ -272,7 +272,7 @@ export default function Footer() {
                     wordBreak: 'break-word',
                   }}
                 >
-                  +91 98765 43210
+                  +91 89660 80203
                 </a>
               </div>
 

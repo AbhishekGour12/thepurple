@@ -1604,7 +1604,7 @@ export default function ProductDetailPage({ slug }) {
             >
               {[
                 { icon: Truck, title: 'Express Delivery', sub: 'Fast & insured transit', color: '#7E22CE' },
-                { icon: ShieldCheck, title: '100% Certified', sub: 'BIS hallmarked purity', color: '#7E22CE' },
+                { icon: ShieldCheck, title: 'Premium Quality', sub: 'Quality tested & crafted', color: '#7E22CE' },
                 { icon: Sparkles, title: 'Gift Ready', sub: 'Premium signature box', color: '#7E22CE' },
                 { icon: Lock, title: 'Secure Payment', sub: '100% safe & secure', color: '#7E22CE' },
                 { icon: Headphones, title: '24/7 Support', sub: 'We are here to help', color: '#7E22CE' },
@@ -1661,7 +1661,7 @@ export default function ProductDetailPage({ slug }) {
         <div className="pdp-assurance-grid">
           {[
             { icon: ShieldCheck, title: 'Premium Quality', sub: 'Finest materials' },
-            { icon: Award, title: 'Certified Jewellery', sub: '22K Gold / 925 Certified' },
+            { icon: Award, title: 'Quality Assured', sub: 'Premium finish & durable' },
             { icon: Heart, title: 'Safe for Everyday Wear', sub: 'Skin friendly & durable' },
             { icon: Gift, title: 'Elegant Packaging', sub: 'Comes in a luxury box' },
           ].map((item, idx) => (

@@ -430,13 +430,13 @@ export default function ContactPage() {
                 Call Us
               </h3>
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#6D28D9', marginBottom: '4px' }}>
-                +91 98765 43210
+                +91 89660 80203
               </div>
               <div style={{ fontSize: '12px', color: '#8B8795', marginBottom: '18px' }}>
                 Mon – Sat, 10 AM – 7 PM
               </div>
               <a
-                href="tel:+919876543210"
+                href="tel:+918966080203"
                 style={{
                   marginTop: 'auto',
                   width: '100%',
@@ -580,7 +580,7 @@ export default function ContactPage() {
                 Quick assistance for your questions.
               </div>
               <a
-                href="https://wa.me/919876543210"
+                href="https://wa.me/918966080203"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -1074,7 +1074,7 @@ export default function ContactPage() {
                 </div>
 
                 <a
-                  href="https://wa.me/919876543210"
+                  href="https://wa.me/918966080203"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="showcase-action-btn"
@@ -1428,8 +1428,8 @@ export default function ContactPage() {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <Phone size={16} color="#6D28D9" style={{ flexShrink: 0 }} />
-                    <a href="tel:+919876543210" style={{ color: '#18181B', fontWeight: 600, textDecoration: 'none' }}>
-                      +91 98765 43210
+                    <a href="tel:+918966080203" style={{ color: '#18181B', fontWeight: 600, textDecoration: 'none' }}>
+                      +91 89660 80203
                     </a>
                   </div>
 

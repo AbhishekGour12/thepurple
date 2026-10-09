@@ -89,7 +89,7 @@ export default function MyInterestsPage() {
     }).format(val || 0);
 
   const getWhatsAppUrl = (product) => {
-    const phone = '919876543210';
+    const phone = '918966080203';
     const text = encodeURIComponent(
       `Hello ThePurple Concierge! ✨\nI am interested in buying/inquiring about:\n• Product: ${product.name}\n• Price: ₹${product.price}\n• SKU: ${product.sku || 'TP-JW'}\nCould you please help me with availability and shipping?`
     );

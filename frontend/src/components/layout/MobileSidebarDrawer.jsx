@@ -498,7 +498,7 @@ export default function MobileSidebarDrawer({ isOpen, onClose, user, onLogout })
 
           <div style={{ display: 'flex', gap: '8px' }}>
             <a
-              href="https://wa.me/919876543210"
+              href="https://wa.me/918966080203"
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -519,7 +519,7 @@ export default function MobileSidebarDrawer({ isOpen, onClose, user, onLogout })
               <span>💬 WhatsApp</span>
             </a>
             <a
-              href="tel:+919876543210"
+              href="tel:+918966080203"
               style={{
                 flex: 1,
                 padding: '8px 10px',

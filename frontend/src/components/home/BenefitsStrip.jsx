@@ -11,8 +11,8 @@ export default function BenefitsStrip() {
     },
     {
       icon: ShieldCheck,
-      title: '100% Certified',
-      desc: 'BIS hallmarked purity',
+      title: 'Premium Quality',
+      desc: 'Quality checked & curated',
     },
     {
       icon: Sparkles,

@@ -376,7 +376,7 @@ export default function InterestModal({ isOpen, onClose, product, onInterestReco
                     )}
                   </div>
                   <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '2px' }}>
-                    SKU: {product.sku || 'TP-JW-001'} • 100% Certified 22K Purity
+                    SKU: {product.sku || 'TP-JW-001'} • Premium Quality Assured
                   </div>
                 </div>
               </div>

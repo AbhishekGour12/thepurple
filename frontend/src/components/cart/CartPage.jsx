@@ -1669,7 +1669,7 @@ export default function CartPage() {
         <div className="cart-assurance-grid">
           {[
             { icon: Truck, title: 'Express Delivery', sub: 'Fast & insured transit' },
-            { icon: ShieldCheck, title: '100% Certified', sub: 'BIS hallmarked purity' },
+            { icon: ShieldCheck, title: 'Premium Quality', sub: 'Quality checked & curated' },
             { icon: Sparkles, title: 'Gift Packaging', sub: 'Luxury signature box' },
             { icon: Lock, title: 'Secure Payment', sub: '100% safe & secure' },
             { icon: Headphones, title: '24/7 Support', sub: 'We are here to help' },

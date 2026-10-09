@@ -176,7 +176,7 @@ export default function HomeContactSection() {
             >
               {/* Call Us */}
               <a
-                href="tel:+919876543210"
+                href="tel:+918966080203"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -219,7 +219,7 @@ export default function HomeContactSection() {
                     Call Anytime
                   </div>
                   <div style={{ fontSize: '13px', fontWeight: 800, color: '#18181B' }}>
-                    +91 98765 43210
+                    +91 89660 80203
                   </div>
                 </div>
               </a>
