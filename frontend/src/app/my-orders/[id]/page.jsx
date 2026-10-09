@@ -370,9 +370,9 @@ export default function OrderDetailsPage() {
               </div>
 
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {order.awbCode && (
+                {(order.awbCode || order.shipment?.awbCode) && (
                   <a
-                    href={`https://shiprocket.co/tracking/${order.awbCode}`}
+                    href={`https://shiprocket.co/tracking/${order.awbCode || order.shipment?.awbCode}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{

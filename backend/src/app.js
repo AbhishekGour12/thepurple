@@ -3,6 +3,7 @@ import { configureSecurityHeaders, configureCors } from './middlewares/security.
 import requestLogger from './middlewares/requestLogger.js';
 import errorHandler from './middlewares/errorHandler.js';
 import apiV1Router from './routes/index.js';
+import webhookRoutes from './routes/webhookRoutes.js';
 import AppError from './utils/customError.js';
 import ApiResponse from './utils/apiResponse.js';
 
@@ -30,6 +31,9 @@ export const createApp = () => {
       docs: '/api/v1/health',
     }, 'ThePurple API Service');
   });
+
+  // Direct webhook root alias for third-party integrations (Shiprocket, etc.)
+  app.use('/webhooks', webhookRoutes);
 
   // Mount API Version 1
   app.use('/api/v1', apiV1Router);

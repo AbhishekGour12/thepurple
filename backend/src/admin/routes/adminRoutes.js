@@ -509,7 +509,7 @@ router.post(
 router.post(
   '/orders/:id/sync-shiprocket',
   authenticateAdmin,
-  authorize(PERMISSIONS.ORDER_UPDATE),
+  authorize([PERMISSIONS.ORDER_VIEW, PERMISSIONS.ORDER_UPDATE], false),
   adminOrderController.syncShiprocketStatus
 );
 router.post(

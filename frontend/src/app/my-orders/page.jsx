@@ -697,28 +697,28 @@ export default function MyOrdersPage() {
                 <div>
                   <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Courier Partner</div>
                   <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
-                    {trackingModalOrder.courierName || 'Shiprocket Express'}
+                    {trackingData?.courierName || trackingModalOrder.courierName || trackingModalOrder.shipment?.courierName || 'Shiprocket Express'}
                   </div>
                 </div>
                 <div>
                   <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>AWB Number</div>
                   <div style={{ fontSize: '13px', fontWeight: 800, color: '#1E293B', marginTop: '2px', fontFamily: 'monospace' }}>
-                    {trackingModalOrder.awbCode || 'Pending Dispatch'}
+                    {trackingData?.awb || trackingModalOrder.awbCode || trackingModalOrder.shipment?.awbCode || 'Pending Dispatch'}
                   </div>
                 </div>
                 <div>
                   <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Current Status</div>
                   <div style={{ fontSize: '13px', fontWeight: 900, color: '#7E22CE', marginTop: '2px' }}>
-                    {trackingData?.currentStatus || trackingModalOrder.status}
+                    {trackingData?.currentStatus || trackingData?.rawStatus || trackingModalOrder.status?.replace(/_/g, ' ')}
                   </div>
                 </div>
               </div>
 
               {/* Action Link & Poll Button */}
-              {trackingModalOrder.awbCode && (
+              {(trackingData?.awb || trackingModalOrder.awbCode || trackingModalOrder.shipment?.awbCode) && (
                 <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <a
-                    href={`https://shiprocket.co/tracking/${trackingModalOrder.awbCode}`}
+                    href={`https://shiprocket.co/tracking/${trackingData?.awb || trackingModalOrder.awbCode || trackingModalOrder.shipment?.awbCode}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -778,9 +778,9 @@ export default function MyOrdersPage() {
                     {trackingData.activities.map((act, i) => (
                       <div key={i} style={{ position: 'relative' }}>
                         <div style={{ position: 'absolute', left: '-22px', top: '2px', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: i === 0 ? '#16A34A' : '#94A3B8', border: '2px solid #FFFFFF' }} />
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B' }}>{act.activity || act.status}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B' }}>{act.activity || act.status || act['sr-status-label'] || 'Status Checkpoint'}</div>
                         <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
-                          {act.location ? `${act.location} • ` : ''}{act.date || act['activity-date']}
+                          {act.location ? `${act.location} • ` : ''}{act.date || act['activity-date'] || act.activity_date || act['activity_date']}
                         </div>
                       </div>
                     ))}

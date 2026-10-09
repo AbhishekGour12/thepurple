@@ -81,6 +81,7 @@ const createInitialProduct = (template = null, isEditData = null) => {
           altText: img.altText || '',
           isPrimary: img.isPrimary,
           displayOrder: img.displayOrder,
+          colorId: img.colorId || '',
         })) || [],
       imageUrlInput: '',
       uploadingImage: false,
@@ -459,6 +460,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
             altText: prod.name || 'Product Image',
             isPrimary: prod.images.length === 0,
             displayOrder: prod.images.length,
+            colorId: '',
           },
         ];
         updateProduct(prodIndex, { images: nextImages, uploadingImage: false });
@@ -481,6 +483,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
         altText: prod.name || 'Product Image',
         isPrimary: prod.images.length === 0,
         displayOrder: prod.images.length,
+        colorId: '',
       },
     ];
     updateProduct(prodIndex, { images: nextImages, imageUrlInput: '' });
@@ -604,7 +607,13 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
           lengthCm: p.lengthCm ? parseFloat(p.lengthCm) : undefined,
           widthCm: p.widthCm ? parseFloat(p.widthCm) : undefined,
           heightCm: p.heightCm ? parseFloat(p.heightCm) : undefined,
-          images: p.images,
+          images: p.images.map((img, idx) => ({
+            imageUrl: typeof img === 'string' ? img : img.imageUrl,
+            altText: typeof img === 'object' ? img.altText || p.name : p.name,
+            isPrimary: typeof img === 'object' && img.isPrimary !== undefined ? Boolean(img.isPrimary) : idx === 0,
+            displayOrder: typeof img === 'object' && img.displayOrder !== undefined ? img.displayOrder : idx,
+            colorId: typeof img === 'object' && img.colorId ? img.colorId : null,
+          })),
           variants: p.variants,
         };
 
@@ -1980,7 +1989,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                             />
                             <div
                               style={{
-                                padding: '6px 8px',
+                                padding: '6px 8px 4px',
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
@@ -2013,9 +2022,43 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                   updateProduct(pIdx, { images: nextImgs });
                                 }}
                                 style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#DC2626' }}
+                                title="Remove Image"
                               >
                                 <Trash2 size={13} />
                               </button>
+                            </div>
+
+                            {/* Color Tag Selector per Image */}
+                            <div style={{ padding: '0 8px 8px' }}>
+                              <select
+                                value={img.colorId || ''}
+                                onChange={(e) => {
+                                  const nextImgs = prod.images.map((m, k) =>
+                                    k === imgIdx ? { ...m, colorId: e.target.value } : m
+                                  );
+                                  updateProduct(pIdx, { images: nextImgs });
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 6px',
+                                  borderRadius: '6px',
+                                  border: img.colorId ? '1.5px solid #7E22CE' : '1px solid #D1D5DB',
+                                  backgroundColor: img.colorId ? '#FAF5FF' : '#FFFFFF',
+                                  fontSize: '11px',
+                                  color: img.colorId ? '#6B21A8' : '#4B5563',
+                                  fontWeight: img.colorId ? 700 : 500,
+                                  outline: 'none',
+                                  cursor: 'pointer',
+                                }}
+                                title="Tag image to a specific color or keep as general for all colors"
+                              >
+                                <option value="">All Colors / General</option>
+                                {colors.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    🎨 {c.name}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
                           </div>
                         ))}

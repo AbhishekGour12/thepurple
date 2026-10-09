@@ -27,6 +27,49 @@ export const CartItem = sequelize.define(
       },
       onDelete: 'CASCADE',
     },
+    variantId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'product_variants',
+        key: 'id',
+      },
+      onDelete: 'SET NULL',
+    },
+    colorId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'colors',
+        key: 'id',
+      },
+      onDelete: 'SET NULL',
+    },
+    sizeId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'sizes',
+        key: 'id',
+      },
+      onDelete: 'SET NULL',
+    },
+    selectedColor: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    selectedSize: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    imageUrl: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    metaSubtitle: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
     quantity: {
       type: DataTypes.INTEGER,
       defaultValue: 1,
@@ -42,7 +85,9 @@ export const CartItem = sequelize.define(
     tableName: 'cart_items',
     timestamps: true,
     indexes: [
-      { fields: ['cartId', 'productId'], unique: true },
+      { fields: ['cartId'] },
+      { fields: ['productId'] },
+      { fields: ['variantId'] },
     ],
   }
 );

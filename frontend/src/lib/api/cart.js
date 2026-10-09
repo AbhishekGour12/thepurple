@@ -45,13 +45,31 @@ export const cartApi = {
     return json.data;
   },
 
-  addItem: async ({ productId, quantity = 1, priceSnapshot }) => {
+  addItem: async ({
+    productId,
+    variantId = null,
+    colorId = null,
+    sizeId = null,
+    selectedColor = null,
+    selectedSize = null,
+    imageUrl = null,
+    metaSubtitle = null,
+    quantity = 1,
+    priceSnapshot,
+  }) => {
     const { headers, sessionId } = getCartHeaders();
     const res = await fetch(`${API_URL}/cart/items`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
         productId,
+        variantId,
+        colorId,
+        sizeId,
+        selectedColor,
+        selectedSize,
+        imageUrl,
+        metaSubtitle,
         quantity,
         priceSnapshot,
         sessionId,

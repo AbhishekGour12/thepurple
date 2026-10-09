@@ -60,6 +60,18 @@ ProductImage.belongsTo(Product, {
   as: 'product',
 });
 
+// Setup ProductImage & Color associations
+ProductImage.belongsTo(Color, {
+  foreignKey: 'colorId',
+  as: 'color',
+  onDelete: 'SET NULL',
+});
+Color.hasMany(ProductImage, {
+  foreignKey: 'colorId',
+  as: 'images',
+  onDelete: 'SET NULL',
+});
+
 // Setup Product & ProductVariant associations
 Product.hasMany(ProductVariant, {
   foreignKey: 'productId',
@@ -182,6 +194,18 @@ CartItem.belongsTo(Cart, {
 CartItem.belongsTo(Product, {
   foreignKey: 'productId',
   as: 'product',
+});
+CartItem.belongsTo(ProductVariant, {
+  foreignKey: 'variantId',
+  as: 'variant',
+});
+CartItem.belongsTo(Color, {
+  foreignKey: 'colorId',
+  as: 'color',
+});
+CartItem.belongsTo(Size, {
+  foreignKey: 'sizeId',
+  as: 'size',
 });
 
 // Setup User & Order associations

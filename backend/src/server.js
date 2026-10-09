@@ -51,42 +51,61 @@ const startServer = async () => {
             END;
           END$$;
         `);
-      } catch (enumErr) {
-        logger.warn(`Coupons schema enum migration note: ${enumErr.message}`);
+      } catch (couponErr) {
+        logger.warn(`Coupon type update notice: ${couponErr.message}`);
+      }
+
+      // Ensure CartItem table allows multiple variants per product in cart (drop legacy unique constraint if present)
+      try {
+        await sequelize.query(`
+          DO $$
+          BEGIN
+            IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'cart_items_cart_id_product_id_key') THEN
+              ALTER TABLE "cart_items" DROP CONSTRAINT "cart_items_cart_id_product_id_key";
+            END IF;
+            IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'cart_items_cart_id_product_id') THEN
+              DROP INDEX "cart_items_cart_id_product_id";
+            END IF;
+          EXCEPTION WHEN OTHERS THEN
+            NULL;
+          END$$;
+        `);
+      } catch (cartConstraintErr) {
+        logger.warn(`Cart constraint update notice: ${cartConstraintErr.message}`);
       }
 
       await sequelize.sync({ alter: false });
       const qi = sequelize.getQueryInterface();
       // Automatic Comprehensive Schema Verification for All Models & Columns
       for (const modelName of Object.keys(sequelize.models)) {
-          const model = sequelize.models[modelName];
-          const tableName = model.getTableName();
-          let tableDesc = {};
-          try {
-            tableDesc = await qi.describeTable(tableName);
-          } catch {
-            await model.sync({ alter: true });
-            tableDesc = await qi.describeTable(tableName);
-          }
+        const model = sequelize.models[modelName];
+        const tableName = model.getTableName();
+        let tableDesc = {};
+        try {
+          tableDesc = await qi.describeTable(tableName);
+        } catch {
+          await model.sync({ alter: true });
+          tableDesc = await qi.describeTable(tableName);
+        }
 
-          const modelAttributes = model.rawAttributes;
-          for (const [attrName, attrDef] of Object.entries(modelAttributes)) {
-            if (!tableDesc[attrName]) {
+        const modelAttributes = model.rawAttributes;
+        for (const [attrName, attrDef] of Object.entries(modelAttributes)) {
+          if (!tableDesc[attrName]) {
+            try {
+              await qi.addColumn(tableName, attrName, {
+                type: attrDef.type,
+                allowNull: attrDef.allowNull !== undefined ? attrDef.allowNull : true,
+                defaultValue: attrDef.defaultValue !== undefined ? attrDef.defaultValue : null,
+              });
+              logger.info(`Added missing column [${attrName}] to table [${tableName}].`);
+            } catch {
               try {
-                await qi.addColumn(tableName, attrName, {
-                  type: attrDef.type,
-                  allowNull: attrDef.allowNull !== undefined ? attrDef.allowNull : true,
-                  defaultValue: attrDef.defaultValue !== undefined ? attrDef.defaultValue : null,
-                });
-                logger.info(`Added missing column [${attrName}] to table [${tableName}].`);
-              } catch {
-                try {
-                  await model.sync({ alter: true });
-                } catch {}
-              }
+                await model.sync({ alter: true });
+              } catch { }
             }
           }
         }
+      }
 
       logger.info('Database schema synchronized successfully.');
       await bootstrapSuperAdmin();
@@ -167,6 +186,3 @@ startServer().catch((error) => {
   logger.error(`Failed to start server: ${error.message}`, { stack: error.stack });
   process.exit(1);
 });
-
-// ThePurple Backend API Server
-

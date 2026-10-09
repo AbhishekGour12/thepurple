@@ -45,9 +45,34 @@ export const fetchCart = createAsyncThunk('cart/fetchCart', async (_, { rejectWi
 
 export const syncAddToCart = createAsyncThunk(
   'cart/syncAddToCart',
-  async ({ productId, quantity = 1, priceSnapshot }, { rejectWithValue }) => {
+  async (
+    {
+      productId,
+      variantId = null,
+      colorId = null,
+      sizeId = null,
+      selectedColor = null,
+      selectedSize = null,
+      imageUrl = null,
+      metaSubtitle = null,
+      quantity = 1,
+      priceSnapshot,
+    },
+    { rejectWithValue }
+  ) => {
     try {
-      const data = await cartApi.addItem({ productId, quantity, priceSnapshot });
+      const data = await cartApi.addItem({
+        productId,
+        variantId,
+        colorId,
+        sizeId,
+        selectedColor,
+        selectedSize,
+        imageUrl,
+        metaSubtitle,
+        quantity,
+        priceSnapshot,
+      });
       if (data?.items) {
         saveCartToStorage(data.items);
       }
@@ -171,12 +196,19 @@ export const cartSlice = createSlice({
       const subtitleParts = [catName, selectedColor, selectedSize].filter(Boolean);
       const computedSubtitle = payload.metaSubtitle || (subtitleParts.length > 0 ? subtitleParts.join(' • ') : '');
 
-      const existingIdx = state.items.findIndex(
-        (item) =>
-          String(item.productId) === prodId ||
-          String(item.id) === prodId ||
-          (payload.slug && item.slug === payload.slug)
-      );
+      const existingIdx = state.items.findIndex((item) => {
+        if (payload.id && String(item.id) === String(payload.id)) return true;
+        const isSameProd = String(item.productId) === prodId || (payload.slug && item.slug === payload.slug);
+        if (!isSameProd) return false;
+
+        if (payload.variantId || item.variantId) {
+          return item.variantId === (payload.variantId || null);
+        }
+
+        const matchColor = (item.selectedColor || null) === (selectedColor || null);
+        const matchSize = (item.selectedSize || null) === (selectedSize || null);
+        return matchColor && matchSize;
+      });
 
       if (existingIdx >= 0) {
         state.items[existingIdx].quantity += payload.quantity || 1;
@@ -239,12 +271,19 @@ export const cartSlice = createSlice({
       const payload = action.payload;
       if (!payload) return;
       const prodId = String(payload.productId || payload.id);
-      const existingIdx = state.items.findIndex(
-        (item) =>
-          String(item.productId) === prodId ||
-          String(item.id) === prodId ||
-          (payload.slug && item.slug === payload.slug)
-      );
+      const existingIdx = state.items.findIndex((item) => {
+        if (payload.id && String(item.id) === String(payload.id)) return true;
+        const isSameProd = String(item.productId) === prodId || (payload.slug && item.slug === payload.slug);
+        if (!isSameProd) return false;
+
+        if (payload.variantId || item.variantId) {
+          return item.variantId === (payload.variantId || null);
+        }
+
+        const matchColor = (item.selectedColor || null) === (selectedColor || null);
+        const matchSize = (item.selectedSize || null) === (selectedSize || null);
+        return matchColor && matchSize;
+      });
 
       if (existingIdx >= 0) {
         state.items.splice(existingIdx, 1);

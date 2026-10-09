@@ -656,8 +656,33 @@ export const adminOrderController = {
         return ApiResponse.error(res, 'Order not found', 404);
       }
 
-      if (!order.awbCode) {
-        return ApiResponse.error(res, 'No AWB assigned to this order yet. Please generate label first.', 400);
+      // Check if AWB exists in Order or Shipment, or find in Shiprocket
+      let awb = order.awbCode || order.shipment?.awbCode;
+      if (!awb && order.orderNumber) {
+        const found = await shiprocketService.findOrderByNumber(order.orderNumber);
+        if (found?.awbCode) {
+          awb = found.awbCode;
+          await order.update({
+            awbCode: awb,
+            shiprocketOrderId: found.shiprocketOrderId || order.shiprocketOrderId,
+            shiprocketShipmentId: found.shiprocketShipmentId || order.shiprocketShipmentId,
+          });
+          order.awbCode = awb;
+        }
+      }
+
+      if (!awb) {
+        return ApiResponse.success(
+          res,
+          {
+            orderId: order.id,
+            status: order.status,
+            awbCode: null,
+            trackingUrl: order.trackingUrl || null,
+            liveTracking: order.shipment?.lastTrackingUpdate || null,
+          },
+          'No AWB assigned to this order yet. Please generate shipping label first.'
+        );
       }
 
       const syncResult = await shiprocketService.syncOrderTracking(order);
@@ -668,7 +693,7 @@ export const adminOrderController = {
           {
             orderId: order.id,
             status: syncResult.mappedStatus || order.status,
-            awbCode: order.awbCode,
+            awbCode: order.awbCode || awb,
             trackingUrl: order.trackingUrl,
             liveTracking: syncResult.liveTracking,
           },
@@ -681,8 +706,9 @@ export const adminOrderController = {
         {
           orderId: order.id,
           status: order.status,
-          awbCode: order.awbCode,
-          liveTracking: syncResult.liveTracking,
+          awbCode: order.awbCode || awb,
+          trackingUrl: order.trackingUrl,
+          liveTracking: syncResult.liveTracking || order.shipment?.lastTrackingUpdate || null,
         },
         syncResult.message || 'Shiprocket status polled (no new milestones yet)'
       );

@@ -38,6 +38,15 @@ export const ProductImage = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    colorId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'colors',
+        key: 'id',
+      },
+      onDelete: 'SET NULL',
+    },
   },
   {
     tableName: 'product_images',
@@ -45,6 +54,7 @@ export const ProductImage = sequelize.define(
     indexes: [
       { fields: ['productId'] },
       { fields: ['productId', 'isPrimary'] },
+      { fields: ['productId', 'colorId'] },
       { fields: ['displayOrder'] },
     ],
   }

@@ -80,15 +80,6 @@ export default function ProductDetailPage({ slug }) {
   const [linkCopied, setLinkCopied] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
   const [cartSuccessNotice, setCartSuccessNotice] = useState(null);
-
-  const isInCart = useMemo(() => {
-    return cartItems.some(
-      (item) =>
-        (product?.id && item.productId === product.id) ||
-        (product?.slug && item.slug === product.slug) ||
-        (slug && item.slug === slug)
-    );
-  }, [cartItems, product, slug]);
   const [showStickyBar, setShowStickyBar] = useState(false);
 
   // Tabs State: 'details' | 'specifications' | 'shipping' | 'reviews' | 'care'
@@ -324,20 +315,76 @@ export default function ProductDetailPage({ slug }) {
     );
   }, [product, selectedColorId, selectedSizeId]);
 
-  // Gallery Images Array (Clean fallback list)
-  const galleryImages = useMemo(() => {
-    if (!product) return [];
-    const imgs = product.images?.map((img) => img.imageUrl) || [];
-    if (imgs.length === 0) {
-      imgs.push('/images/storefront/cat-chains.jpg');
+  // Gallery Images Array (Preserves stable fixed order without jumping/re-arranging)
+  const galleryImageObjects = useMemo(() => {
+    let list = [];
+    if (product?.images && product.images.length > 0) {
+      list = [...product.images].sort((a, b) => {
+        if (a.isPrimary && !b.isPrimary) return -1;
+        if (!a.isPrimary && b.isPrimary) return 1;
+        return (a.displayOrder || 0) - (b.displayOrder || 0);
+      });
     }
-    return imgs;
+
+    // Check if any variant has a unique imageUrl not already in list
+    if (product?.variants && product.variants.length > 0) {
+      product.variants.forEach((v) => {
+        if (v.imageUrl && !list.some((img) => img.imageUrl === v.imageUrl)) {
+          list.push({
+            id: `variant-${v.id}`,
+            imageUrl: v.imageUrl,
+            altText: v.name || product.name,
+            colorId: v.colorId || null,
+            isPrimary: false,
+          });
+        }
+      });
+    }
+
+    if (list.length === 0) {
+      return [{ id: 'fallback', imageUrl: '/images/storefront/cat-chains.jpg', colorId: null }];
+    }
+
+    return list;
   }, [product]);
+
+  const galleryImages = useMemo(() => {
+    return galleryImageObjects.map((img) => (typeof img === 'string' ? img : img.imageUrl));
+  }, [galleryImageObjects]);
 
   // Active Main Image (Directly driven by user thumbnail selection)
   const currentMainImage = useMemo(() => {
     return galleryImages[selectedImageIdx] || galleryImages[0] || '/images/storefront/cat-chains.jpg';
   }, [galleryImages, selectedImageIdx]);
+
+  // Color Switcher Handler: switches color & smoothly slides gallery to the image of that color
+  const handleSelectColor = (colorId) => {
+    setSelectedColorId(colorId);
+
+    // Find the first image in gallery assigned to this color
+    const colorImgIdx = galleryImageObjects.findIndex((img) => img.colorId === colorId);
+    if (colorImgIdx !== -1) {
+      setSelectedImageIdx(colorImgIdx);
+    } else {
+      // If variant has a matching imageUrl in the gallery
+      const matchingVariant = product?.variants?.find((v) => v.colorId === colorId);
+      if (matchingVariant?.imageUrl) {
+        const variantImgIdx = galleryImageObjects.findIndex((img) => img.imageUrl === matchingVariant.imageUrl);
+        if (variantImgIdx !== -1) {
+          setSelectedImageIdx(variantImgIdx);
+        }
+      }
+    }
+  };
+
+  // Thumbnail / Slide Handler: selects image & auto-switches color if image is mapped to a color
+  const handleSelectImage = (idx) => {
+    setSelectedImageIdx(idx);
+    const clickedImg = galleryImageObjects[idx];
+    if (clickedImg?.colorId && clickedImg.colorId !== selectedColorId) {
+      setSelectedColorId(clickedImg.colorId);
+    }
+  };
 
   // Price & Offer Calculations
   const currentSalePrice = parseFloat(activeVariant?.salePrice || product?.salePrice || product?.price || 0);
@@ -353,11 +400,13 @@ export default function ProductDetailPage({ slug }) {
   // Gallery Navigation (Next / Prev)
   const handlePrevImage = (e) => {
     e.stopPropagation();
-    setSelectedImageIdx((idx) => (idx - 1 + galleryImages.length) % galleryImages.length);
+    const newIdx = (selectedImageIdx - 1 + galleryImages.length) % galleryImages.length;
+    handleSelectImage(newIdx);
   };
   const handleNextImage = (e) => {
     e.stopPropagation();
-    setSelectedImageIdx((idx) => (idx + 1) % galleryImages.length);
+    const newIdx = (selectedImageIdx + 1) % galleryImages.length;
+    handleSelectImage(newIdx);
   };
 
   // Mouse Move Magnifier Handler
@@ -399,17 +448,33 @@ export default function ProductDetailPage({ slug }) {
     dispatch(toggleWishlistProduct(product));
   };
 
-  // Add to Cart (Available for Guests & Logged-in Users)
+  // Check whether the currently selected variant/attributes are already in Cart
+  const isInCart = useMemo(() => {
+    const selectedColorObj = availableColors.find((c) => c.id === selectedColorId);
+    const selectedSizeObj = availableSizes.find((s) => s.id === selectedSizeId);
+    const colorName = selectedColorObj?.name || null;
+    const sizeName = selectedSizeObj?.name ? formatSizeLabel(selectedSizeObj.name, selectedUnit) : null;
+
+    return cartItems.some((item) => {
+      const isSameProduct =
+        (product?.id && String(item.productId) === String(product.id)) ||
+        (product?.slug && item.slug === product.slug) ||
+        (slug && item.slug === slug);
+      if (!isSameProduct) return false;
+
+      if (activeVariant?.id && item.variantId) {
+        return item.variantId === activeVariant.id;
+      }
+
+      const matchColor = !colorName || item.selectedColor === colorName;
+      const matchSize = !sizeName || item.selectedSize === sizeName;
+      return matchColor && matchSize;
+    });
+  }, [cartItems, product, slug, activeVariant, selectedColorId, selectedSizeId, availableColors, availableSizes, selectedUnit]);
+
+  // Add to Cart (Available for Guests & Logged-in Users without removing other variants)
   const handleAddToCart = () => {
     if (!product) return;
-
-    if (isInCart) {
-      dispatch(removeFromCart(product.id));
-      dispatch(syncRemoveFromCart(product.id));
-      setCartSuccessNotice('Removed item from Cart');
-      setTimeout(() => setCartSuccessNotice(null), 3000);
-      return;
-    }
 
     setAddingToCart(true);
 
@@ -426,6 +491,8 @@ export default function ProductDetailPage({ slug }) {
       addToCart({
         productId: product.id,
         variantId: activeVariant?.id || null,
+        colorId: selectedColorId || null,
+        sizeId: selectedSizeId || null,
         productName: product.name,
         slug: product.slug,
         categoryName: catName,
@@ -442,12 +509,27 @@ export default function ProductDetailPage({ slug }) {
         inStock: currentStock > 0,
       })
     );
-    dispatch(syncAddToCart({ productId: product.id, quantity, priceSnapshot: currentSalePrice }));
 
+    dispatch(
+      syncAddToCart({
+        productId: product.id,
+        variantId: activeVariant?.id || null,
+        colorId: selectedColorId || null,
+        sizeId: selectedSizeId || null,
+        selectedColor: colorName,
+        selectedSize: sizeName,
+        imageUrl: currentMainImage,
+        metaSubtitle: metaSubtitle,
+        quantity,
+        priceSnapshot: currentSalePrice,
+      })
+    );
+
+    const variantLabel = [colorName, sizeName].filter(Boolean).join(' / ');
+    setCartSuccessNotice(variantLabel ? `Added "${variantLabel}" to Cart! 🎉` : 'Item added to Cart! 🎉');
     setTimeout(() => {
       setAddingToCart(false);
-      setCartSuccessNotice('Item added to Cart! 🎉');
-      setTimeout(() => setCartSuccessNotice(null), 3500);
+      setTimeout(() => setCartSuccessNotice(null), 3200);
     }, 200);
   };
 
@@ -771,7 +853,7 @@ export default function ProductDetailPage({ slug }) {
                     key={idx}
                     type="button"
                     className="pdp-thumbnail-btn"
-                    onClick={() => setSelectedImageIdx(idx)}
+                    onClick={() => handleSelectImage(idx)}
                     style={{
                       width: '68px',
                       height: '68px',
@@ -1102,7 +1184,7 @@ export default function ProductDetailPage({ slug }) {
                       <button
                         key={c.id}
                         type="button"
-                        onClick={() => setSelectedColorId(c.id)}
+                        onClick={() => handleSelectColor(c.id)}
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',

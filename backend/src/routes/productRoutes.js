@@ -403,7 +403,8 @@ router.get(
         {
           model: ProductImage,
           as: 'images',
-          attributes: ['id', 'imageUrl', 'altText', 'isPrimary', 'displayOrder'],
+          attributes: ['id', 'imageUrl', 'altText', 'isPrimary', 'displayOrder', 'colorId'],
+          include: [{ model: Color, as: 'color', attributes: ['id', 'name', 'hexCode'] }],
           required: false,
         },
         {
@@ -529,7 +530,8 @@ router.get(
         {
           model: ProductImage,
           as: 'images',
-          attributes: ['id', 'imageUrl', 'altText', 'isPrimary', 'displayOrder'],
+          attributes: ['id', 'imageUrl', 'altText', 'isPrimary', 'displayOrder', 'colorId'],
+          include: [{ model: Color, as: 'color', attributes: ['id', 'name', 'hexCode'] }],
           required: false,
         },
         {
@@ -592,7 +594,8 @@ router.get(
         {
           model: ProductImage,
           as: 'images',
-          attributes: ['id', 'imageUrl', 'altText', 'isPrimary', 'displayOrder'],
+          attributes: ['id', 'imageUrl', 'altText', 'isPrimary', 'displayOrder', 'colorId'],
+          include: [{ model: Color, as: 'color', attributes: ['id', 'name', 'hexCode'] }],
         },
         {
           model: Subcategory,

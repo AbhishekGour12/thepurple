@@ -672,10 +672,6 @@ export const orderController = {
         return ApiResponse.error(res, 'Order not found', 404);
       }
 
-      if (!order.awbCode) {
-        return ApiResponse.success(res, { order, liveTracking: null }, 'No AWB assigned yet. Live tracking will be available after dispatch.');
-      }
-
       const syncResult = await shiprocketService.syncOrderTracking(order);
 
       return ApiResponse.success(
@@ -683,7 +679,7 @@ export const orderController = {
         {
           order: syncResult.order || order,
           liveTracking: syncResult.liveTracking,
-          mappedStatus: syncResult.mappedStatus,
+          mappedStatus: syncResult.mappedStatus || order.status,
         },
         syncResult.message || 'Shiprocket live status synced successfully'
       );
@@ -926,8 +922,13 @@ export const orderController = {
 
       // Check live tracking if AWB is available
       let liveTracking = null;
-      if (order.awbCode) {
-        liveTracking = await shiprocketService.trackShipment(order.awbCode);
+      const effectiveAwb = order.awbCode || order.shipment?.awbCode;
+      if (effectiveAwb) {
+        liveTracking = await shiprocketService.trackShipment(effectiveAwb);
+        if (liveTracking?.success && liveTracking.orderStatus && liveTracking.orderStatus !== order.status) {
+          await order.update({ status: liveTracking.orderStatus });
+          order.status = liveTracking.orderStatus;
+        }
       }
 
       return ApiResponse.success(
@@ -937,9 +938,9 @@ export const orderController = {
           status: order.status,
           customerName: order.customerName,
           shippingAddress: `${order.shippingAddress}, ${order.city}, ${order.state} - ${order.pincode}`,
-          courierName: order.courierName || 'Shiprocket Express',
-          awbCode: order.awbCode || null,
-          trackingUrl: order.trackingUrl || null,
+          courierName: liveTracking?.courierName || order.courierName || 'Shiprocket Express',
+          awbCode: effectiveAwb || null,
+          trackingUrl: liveTracking?.trackUrl || order.trackingUrl || null,
           createdAt: order.createdAt,
           liveTracking,
         },

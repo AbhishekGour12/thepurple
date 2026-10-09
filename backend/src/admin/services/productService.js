@@ -258,6 +258,7 @@ export const productService = {
         {
           model: ProductImage,
           as: 'images',
+          include: [{ model: Color, as: 'color', attributes: ['id', 'name', 'hexCode'] }],
         },
         {
           model: ProductVariant,
@@ -458,6 +459,7 @@ export const productService = {
                 altText: typeof img === 'object' ? img.altText || product.name : product.name,
                 displayOrder: typeof img === 'object' && img.displayOrder !== undefined ? img.displayOrder : i,
                 isPrimary: typeof img === 'object' && img.isPrimary !== undefined ? img.isPrimary : i === 0,
+                colorId: typeof img === 'object' && img.colorId ? img.colorId : null,
               },
               { transaction }
             );
@@ -689,6 +691,7 @@ export const productService = {
                 altText: typeof img === 'object' ? img.altText || product.name : product.name,
                 displayOrder: typeof img === 'object' && img.displayOrder !== undefined ? img.displayOrder : i,
                 isPrimary: typeof img === 'object' && img.isPrimary !== undefined ? img.isPrimary : i === 0,
+                colorId: typeof img === 'object' && img.colorId ? img.colorId : null,
               },
               { transaction }
             );

@@ -47,38 +47,70 @@ const formatCartResponse = async (cart) => {
           { model: ProductImage, as: 'images' },
         ],
       },
+      {
+        model: ProductVariant,
+        as: 'variant',
+        include: [
+          { model: Color, as: 'color', attributes: ['id', 'name', 'hexCode'] },
+          { model: Size, as: 'size', attributes: ['id', 'name', 'code'] },
+        ],
+      },
+      { model: Color, as: 'color', attributes: ['id', 'name', 'hexCode'] },
+      { model: Size, as: 'size', attributes: ['id', 'name', 'code'] },
     ],
     order: [['createdAt', 'DESC']],
   });
 
   let subtotal = 0;
   const formattedItems = items.map((item) => {
-    const salePrice = item.product?.salePrice !== undefined && item.product?.salePrice !== null ? parseFloat(item.product.salePrice) : null;
-    const regularPrice = parseFloat(item.product?.price || item.priceSnapshot || 0);
+    const variantSalePrice = item.variant?.salePrice !== undefined && item.variant?.salePrice !== null ? parseFloat(item.variant.salePrice) : null;
+    const prodSalePrice = item.product?.salePrice !== undefined && item.product?.salePrice !== null ? parseFloat(item.product.salePrice) : null;
+    const salePrice = variantSalePrice !== null ? variantSalePrice : prodSalePrice;
+
+    const variantMrp = item.variant?.mrp !== undefined && item.variant?.mrp !== null ? parseFloat(item.variant.mrp) : null;
+    const regularPrice = parseFloat(variantMrp || item.product?.price || item.priceSnapshot || 0);
     const hasDiscount = salePrice !== null && salePrice < regularPrice && regularPrice > 0;
     const finalPrice = parseFloat(item.priceSnapshot || (hasDiscount ? salePrice : regularPrice) || 0);
-    const originalPrice = parseFloat(item.product?.mrp || (hasDiscount ? regularPrice : finalPrice * 1.4));
+    const originalPrice = parseFloat(variantMrp || item.product?.mrp || (hasDiscount ? regularPrice : finalPrice * 1.4));
     const discount = item.product?.discountPercent || (originalPrice > finalPrice ? Math.round(((originalPrice - finalPrice) / originalPrice) * 100) : 0);
     const lineTotal = finalPrice * item.quantity;
     subtotal += lineTotal;
 
-    const img = item.product?.images?.find((i) => i.isPrimary)?.imageUrl || item.product?.images?.[0]?.imageUrl || '/images/storefront/cat-chains.jpg';
+    const colorName = item.selectedColor || item.color?.name || item.variant?.color?.name || null;
+    const sizeName = item.selectedSize || item.size?.name || item.variant?.size?.name || null;
+    const catName = item.product?.subcategory?.name || 'Jewellery';
+    const subtitleParts = [catName, colorName, sizeName].filter(Boolean);
+    const metaSubtitle = item.metaSubtitle || (subtitleParts.length > 0 ? subtitleParts.join(' • ') : '');
+
+    const img = item.imageUrl ||
+      item.variant?.imageUrl ||
+      item.product?.images?.find((i) => i.isPrimary)?.imageUrl ||
+      item.product?.images?.[0]?.imageUrl ||
+      '/images/storefront/cat-chains.jpg';
+
+    const stock = item.variant?.stock !== undefined ? item.variant.stock : (item.product?.stock ?? 50);
 
     return {
       id: item.id,
       productId: item.productId,
+      variantId: item.variantId || null,
+      colorId: item.colorId || item.variant?.colorId || null,
+      sizeId: item.sizeId || item.variant?.sizeId || null,
+      selectedColor: colorName,
+      selectedSize: sizeName,
+      metaSubtitle,
       productName: item.product?.name || 'Jewellery Product',
       slug: item.product?.slug || item.productId,
       imageUrl: img,
       badge: item.product?.badge || (item.product?.isBestSeller ? 'BESTSELLER' : null),
-      categoryName: item.product?.subcategory?.name || 'Jewellery',
+      categoryName: catName,
       price: finalPrice,
       mrp: originalPrice,
       discountPercent: discount,
       quantity: item.quantity,
-      stock: item.product?.stock ?? 50,
+      stock,
       lineTotal,
-      inStock: (item.product?.stock ?? 50) > 0,
+      inStock: stock > 0,
       selected: true,
       createdAt: item.createdAt,
     };
@@ -142,7 +174,18 @@ export const addToCart = async (req, res) => {
   try {
     const userId = req.user?.id || null;
     const sessionId = req.headers['x-session-id'] || req.body.sessionId || null;
-    const { productId, quantity = 1, priceSnapshot } = req.body;
+    const {
+      productId,
+      variantId = null,
+      colorId = null,
+      sizeId = null,
+      selectedColor = null,
+      selectedSize = null,
+      imageUrl = null,
+      metaSubtitle = null,
+      quantity = 1,
+      priceSnapshot,
+    } = req.body;
 
     if (!productId) {
       return res.status(400).json({ success: false, message: 'Product ID is required' });
@@ -156,18 +199,34 @@ export const addToCart = async (req, res) => {
     const cart = await getOrCreateCart(userId, sessionId);
     const finalPrice = priceSnapshot || product.salePrice || product.price || 0;
 
-    let cartItem = await CartItem.findOne({
-      where: { cartId: cart.id, productId },
-    });
+    // Find existing matching variant/attribute item in active cart
+    const whereCondition = { cartId: cart.id, productId };
+    if (variantId) {
+      whereCondition.variantId = variantId;
+    } else {
+      if (selectedColor) whereCondition.selectedColor = selectedColor;
+      if (selectedSize) whereCondition.selectedSize = selectedSize;
+    }
+
+    let cartItem = await CartItem.findOne({ where: whereCondition });
 
     if (cartItem) {
       cartItem.quantity += parseInt(quantity, 10);
       cartItem.priceSnapshot = finalPrice;
+      if (imageUrl) cartItem.imageUrl = imageUrl;
+      if (metaSubtitle) cartItem.metaSubtitle = metaSubtitle;
       await cartItem.save();
     } else {
       cartItem = await CartItem.create({
         cartId: cart.id,
         productId,
+        variantId: variantId || null,
+        colorId: colorId || null,
+        sizeId: sizeId || null,
+        selectedColor: selectedColor || null,
+        selectedSize: selectedSize || null,
+        imageUrl: imageUrl || null,
+        metaSubtitle: metaSubtitle || null,
         quantity: parseInt(quantity, 10),
         priceSnapshot: finalPrice,
       });
@@ -304,9 +363,18 @@ export const mergeCart = async (req, res) => {
         });
 
         for (const guestItem of guestItems) {
-          const existingUserItem = await CartItem.findOne({
-            where: { cartId: userCart.id, productId: guestItem.productId },
-          });
+          const mergeWhere = {
+            cartId: userCart.id,
+            productId: guestItem.productId,
+          };
+          if (guestItem.variantId) {
+            mergeWhere.variantId = guestItem.variantId;
+          } else {
+            if (guestItem.selectedColor) mergeWhere.selectedColor = guestItem.selectedColor;
+            if (guestItem.selectedSize) mergeWhere.selectedSize = guestItem.selectedSize;
+          }
+
+          const existingUserItem = await CartItem.findOne({ where: mergeWhere });
 
           if (existingUserItem) {
             existingUserItem.quantity = (existingUserItem.quantity || 1) + (guestItem.quantity || 1);
