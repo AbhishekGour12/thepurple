@@ -26,6 +26,13 @@ import {
   ArrowRight,
   FileText,
   HelpCircle,
+  Eye,
+  Maximize2,
+  Minimize2,
+  Copy,
+  Check,
+  ExternalLink,
+  MessageCircle,
 } from 'lucide-react';
 import { adminContactApi } from '@/lib/api/admin/contacts';
 
@@ -75,6 +82,10 @@ export default function AdminContactsPage() {
 
   // Modal / Drawer State
   const [selectedQuery, setSelectedQuery] = useState(null);
+  const [modalTab, setModalTab] = useState('DETAILS'); // 'DETAILS' | 'REPLY'
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [copiedField, setCopiedField] = useState(null); // 'email' | 'message' | 'phone'
+  
   const [replyText, setReplyText] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
   const [replyStatus, setReplyStatus] = useState('REPLIED');
@@ -85,6 +96,14 @@ export default function AdminContactsPage() {
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const copyToClipboard = (text, fieldName) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    showToast(`Copied ${fieldName} to clipboard!`);
+    setTimeout(() => setCopiedField(null), 2500);
   };
 
   const fetchQueries = useCallback(async () => {
@@ -111,8 +130,9 @@ export default function AdminContactsPage() {
     fetchQueries();
   }, [fetchQueries]);
 
-  const openQueryModal = (query) => {
+  const openQueryModal = (query, initialTab = 'DETAILS') => {
     setSelectedQuery(query);
+    setModalTab(initialTab);
     setReplyText(query.adminReply || '');
     setAdminNotes(query.adminNotes || '');
     setReplyStatus(query.status === 'PENDING' ? 'REPLIED' : query.status);
@@ -172,7 +192,8 @@ export default function AdminContactsPage() {
     }
   };
 
-  const handleDeleteQuery = async (id) => {
+  const handleDeleteQuery = async (id, e) => {
+    if (e) e.stopPropagation();
     if (!window.confirm('Are you sure you want to permanently delete this customer inquiry?')) return;
     setIsDeleting(true);
     try {
@@ -213,6 +234,7 @@ export default function AdminContactsPage() {
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
+            animation: 'fadeIn 0.2s ease',
           }}
         >
           {toast.type === 'error' ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
@@ -252,7 +274,7 @@ export default function AdminContactsPage() {
             <span>Customer Contact Inquiries</span>
           </h1>
           <p style={{ margin: 0, color: '#64748B', fontSize: '14.5px' }}>
-            Manage incoming messages from the storefront contact page, track pending questions, and send email replies directly to customers.
+            Review full customer inquiries, track questions, manage resolution status, and send email replies directly to customers.
           </p>
         </div>
 
@@ -480,9 +502,11 @@ export default function AdminContactsPage() {
                   return (
                     <tr
                       key={q.id}
+                      onClick={() => openQueryModal(q, 'DETAILS')}
                       style={{
                         borderBottom: '1px solid #F1F5F9',
                         transition: 'background 0.15s ease',
+                        cursor: 'pointer',
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FAF5FF')}
                       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}
@@ -564,21 +588,25 @@ export default function AdminContactsPage() {
                         >
                           &ldquo;{q.message}&rdquo;
                         </div>
-                        {q.adminReply && (
-                          <div
-                            style={{
-                              marginTop: '4px',
-                              fontSize: '11.5px',
-                              color: '#16A34A',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
-                          >
-                            <CheckCheck size={12} />
-                            <span>Replied: {q.adminReply.slice(0, 30)}...</span>
-                          </div>
-                        )}
+                        <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '11px', color: '#7E22CE', fontWeight: 700, textDecoration: 'underline' }}>
+                            Click to view full message &rarr;
+                          </span>
+                          {q.adminReply && (
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                color: '#16A34A',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                fontWeight: 600,
+                              }}
+                            >
+                              <CheckCheck size={12} /> Replied
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Status */}
@@ -637,11 +665,45 @@ export default function AdminContactsPage() {
                       </td>
 
                       {/* Actions */}
-                      <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                      <td style={{ padding: '16px 20px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                          {/* Full View Button */}
                           <button
                             type="button"
-                            onClick={() => openQueryModal(q)}
+                            onClick={() => openQueryModal(q, 'DETAILS')}
+                            style={{
+                              padding: '7px 12px',
+                              borderRadius: '8px',
+                              backgroundColor: '#FFFFFF',
+                              border: '1.5px solid #E2E8F0',
+                              color: '#334155',
+                              fontSize: '12.5px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              transition: 'all 0.15s ease',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                            }}
+                            title="View Full Inquiry Details"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = '#7E22CE';
+                              e.currentTarget.style.color = '#7E22CE';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = '#E2E8F0';
+                              e.currentTarget.style.color = '#334155';
+                            }}
+                          >
+                            <Eye size={14} />
+                            <span>View Full</span>
+                          </button>
+
+                          {/* Reply Button */}
+                          <button
+                            type="button"
+                            onClick={() => openQueryModal(q, 'REPLY')}
                             style={{
                               padding: '7px 14px',
                               borderRadius: '8px',
@@ -658,13 +720,13 @@ export default function AdminContactsPage() {
                             }}
                           >
                             <Send size={13} />
-                            <span>{isReplied ? 'View & Reply' : 'Reply Now'}</span>
+                            <span>{isReplied ? 'Follow Up' : 'Reply'}</span>
                           </button>
 
                           {canManage && (
                             <button
                               type="button"
-                              onClick={() => handleDeleteQuery(q.id)}
+                              onClick={(e) => handleDeleteQuery(q.id, e)}
                               style={{
                                 padding: '7px',
                                 borderRadius: '8px',
@@ -749,90 +811,219 @@ export default function AdminContactsPage() {
         )}
       </div>
 
-      {/* ─── QUERY DETAIL & EMAIL REPLY MODAL ────────────────────────────── */}
+      {/* ─── FULL QUERY DETAIL & EMAIL REPLY MODAL ────────────────────────────── */}
       {selectedQuery && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
             backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
-            padding: '20px',
+            padding: isFullscreen ? '0' : '16px',
+            transition: 'padding 0.2s ease',
           }}
+          onClick={() => setSelectedQuery(null)}
         >
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
               backgroundColor: '#FFFFFF',
-              borderRadius: '24px',
-              maxWidth: '820px',
+              borderRadius: isFullscreen ? '0' : '24px',
+              maxWidth: isFullscreen ? '100vw' : '960px',
               width: '100%',
-              maxHeight: '92vh',
+              height: isFullscreen ? '100vh' : 'auto',
+              maxHeight: isFullscreen ? '100vh' : '94vh',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
               position: 'relative',
               overflow: 'hidden',
+              transition: 'all 0.2s ease',
             }}
           >
             {/* Modal Header */}
             <div
               style={{
-                padding: '20px 24px',
+                padding: '18px 24px',
                 borderBottom: '1px solid #F1F5F9',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 backgroundColor: '#FAF5FF',
+                flexWrap: 'wrap',
+                gap: '12px',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <div
                   style={{
-                    width: '42px',
-                    height: '42px',
-                    borderRadius: '12px',
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '14px',
                     backgroundColor: '#6D28D9',
                     color: '#FFFFFF',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontWeight: 800,
-                    fontSize: '18px',
+                    fontSize: '20px',
+                    boxShadow: '0 4px 12px rgba(109, 40, 217, 0.25)',
                   }}
                 >
                   {(selectedQuery.fullName || 'U')[0].toUpperCase()}
                 </div>
                 <div>
-                  <h3 style={{ margin: '0 0 2px', fontSize: '18px', fontWeight: 800, color: '#1E1B4B' }}>
-                    Inquiry from {selectedQuery.fullName}
-                  </h3>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12.5px', color: '#6B7280' }}>
-                    <span>Email: <strong>{selectedQuery.email}</strong></span>
-                    {selectedQuery.phone && <span>• Phone: <strong>{selectedQuery.phone}</strong></span>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#1E1B4B' }}>
+                      {selectedQuery.fullName}
+                    </h3>
+                    <span
+                      style={{
+                        padding: '3px 9px',
+                        borderRadius: '999px',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        backgroundColor:
+                          selectedQuery.status === 'PENDING'
+                            ? '#FEF3C7'
+                            : selectedQuery.status === 'REPLIED'
+                            ? '#DCFCE7'
+                            : selectedQuery.status === 'IN_PROGRESS'
+                            ? '#E0F2FE'
+                            : '#F1F5F9',
+                        color:
+                          selectedQuery.status === 'PENDING'
+                            ? '#B45309'
+                            : selectedQuery.status === 'REPLIED'
+                            ? '#15803D'
+                            : selectedQuery.status === 'IN_PROGRESS'
+                            ? '#0369A1'
+                            : '#64748B',
+                      }}
+                    >
+                      {selectedQuery.status}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12.5px', color: '#6B7280', marginTop: '3px', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Mail size={12} color="#7E22CE" />
+                      <strong>{selectedQuery.email}</strong>
+                    </span>
+                    {selectedQuery.phone && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Phone size={12} color="#7E22CE" />
+                        <strong>{selectedQuery.phone}</strong>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
 
+              {/* Top Controls */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* Fullscreen Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '8px',
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #E9D5FF',
+                    color: '#6D28D9',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title={isFullscreen ? 'Exit Fullscreen' : 'Expand Fullscreen'}
+                >
+                  {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                </button>
+
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedQuery(null)}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '8px',
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #E9D5FF',
+                    color: '#64748B',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  title="Close (Esc)"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Navigation Tabs */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '0 24px',
+                borderBottom: '1px solid #E2E8F0',
+                backgroundColor: '#FFFFFF',
+              }}
+            >
               <button
                 type="button"
-                onClick={() => setSelectedQuery(null)}
+                onClick={() => setModalTab('DETAILS')}
                 style={{
-                  padding: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #E9D5FF',
-                  color: '#64748B',
+                  padding: '12px 18px',
+                  border: 'none',
+                  borderBottom: modalTab === 'DETAILS' ? '2.5px solid #6D28D9' : '2.5px solid transparent',
+                  backgroundColor: 'transparent',
+                  color: modalTab === 'DETAILS' ? '#6D28D9' : '#64748B',
+                  fontWeight: modalTab === 'DETAILS' ? 800 : 600,
+                  fontSize: '13.5px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  gap: '6px',
                 }}
               >
-                <X size={18} />
+                <FileText size={16} />
+                <span>Full Inquiry &amp; Message</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModalTab('REPLY')}
+                style={{
+                  padding: '12px 18px',
+                  border: 'none',
+                  borderBottom: modalTab === 'REPLY' ? '2.5px solid #6D28D9' : '2.5px solid transparent',
+                  backgroundColor: 'transparent',
+                  color: modalTab === 'REPLY' ? '#6D28D9' : '#64748B',
+                  fontWeight: modalTab === 'REPLY' ? 800 : 600,
+                  fontSize: '13.5px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Send size={16} />
+                <span>Email Customer Reply</span>
+                {selectedQuery.adminReply && (
+                  <span style={{ fontSize: '11px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#DCFCE7', color: '#166534', fontWeight: 700 }}>
+                    Replied
+                  </span>
+                )}
               </button>
             </div>
 
@@ -842,184 +1033,321 @@ export default function AdminContactsPage() {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
                   gap: '12px',
                   backgroundColor: '#F8FAFC',
-                  padding: '14px 18px',
-                  borderRadius: '12px',
+                  padding: '16px 20px',
+                  borderRadius: '14px',
                   marginBottom: '20px',
+                  border: '1px solid #E2E8F0',
                   fontSize: '13px',
                 }}
               >
                 <div>
-                  <span style={{ display: 'block', fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>
-                    Subject
+                  <span style={{ display: 'block', fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>
+                    Subject Line
                   </span>
-                  <strong style={{ color: '#1E1B4B' }}>{selectedQuery.subject}</strong>
+                  <strong style={{ color: '#1E1B4B', fontSize: '14px' }}>{selectedQuery.subject}</strong>
                 </div>
 
                 {selectedQuery.orderId && (
                   <div>
-                    <span style={{ display: 'block', fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>
-                      Order Reference
+                    <span style={{ display: 'block', fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>
+                      Associated Order
                     </span>
-                    <strong style={{ color: '#6B21A8' }}>#{selectedQuery.orderId}</strong>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        backgroundColor: '#F3E8FF',
+                        color: '#6B21A8',
+                        fontWeight: 800,
+                        fontSize: '12.5px',
+                      }}
+                    >
+                      <ShoppingBag size={12} />
+                      #{selectedQuery.orderId}
+                    </span>
                   </div>
                 )}
 
                 <div>
-                  <span style={{ display: 'block', fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>
-                    Ticket Status
+                  <span style={{ display: 'block', fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>
+                    Received Date &amp; Time
                   </span>
-                  <strong style={{ color: selectedQuery.status === 'REPLIED' ? '#16A34A' : '#D97706' }}>
-                    {selectedQuery.status}
-                  </strong>
-                </div>
-
-                <div>
-                  <span style={{ display: 'block', fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>
-                    Received On
-                  </span>
-                  <span style={{ color: '#334155' }} suppressHydrationWarning>
+                  <span style={{ color: '#334155', fontWeight: 600 }} suppressHydrationWarning>
                     {selectedQuery.createdAt ? new Date(selectedQuery.createdAt).toLocaleString('en-IN') : 'N/A'}
                   </span>
                 </div>
-              </div>
 
-              {/* Original Customer Message Box */}
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#1E1B4B', marginBottom: '8px' }}>
-                  📩 Customer Message:
-                </label>
-                <div
-                  style={{
-                    backgroundColor: '#FAF5FF',
-                    border: '1.5px solid #E9D5FF',
-                    borderRadius: '12px',
-                    padding: '16px 20px',
-                    color: '#2E1065',
-                    fontSize: '14px',
-                    lineHeight: 1.6,
-                    whiteSpace: 'pre-wrap',
-                  }}
-                >
-                  {selectedQuery.message}
+                <div>
+                  <span style={{ display: 'block', fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>
+                    Quick Customer Actions
+                  </span>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(selectedQuery.email, 'email')}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: '1px solid #E2E8F0',
+                        backgroundColor: '#FFFFFF',
+                        color: '#475569',
+                        fontSize: '11.5px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      {copiedField === 'email' ? <Check size={12} color="#16A34A" /> : <Copy size={12} />}
+                      <span>{copiedField === 'email' ? 'Copied' : 'Copy Email'}</span>
+                    </button>
+
+                    {selectedQuery.phone && (
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(selectedQuery.phone, 'phone')}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid #E2E8F0',
+                          backgroundColor: '#FFFFFF',
+                          color: '#475569',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        {copiedField === 'phone' ? <Check size={12} color="#16A34A" /> : <Copy size={12} />}
+                        <span>{copiedField === 'phone' ? 'Copied' : 'Copy Phone'}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Previously Sent Reply If Any */}
-              {selectedQuery.adminReply && (
-                <div style={{ marginBottom: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: 800, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <CheckCheck size={16} color="#16A34A" />
-                      <span>Last Sent Email Response:</span>
-                    </label>
-                    <span style={{ fontSize: '12px', color: '#64748B' }} suppressHydrationWarning>
-                      {selectedQuery.repliedAt ? `Sent on ${new Date(selectedQuery.repliedAt).toLocaleString('en-IN')}` : ''}
-                      {selectedQuery.repliedByAdmin?.name ? ` by ${selectedQuery.repliedByAdmin.name}` : ''}
-                    </span>
+              {/* TAB 1: FULL INQUIRY DETAILS */}
+              {modalTab === 'DETAILS' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* Full Message Box */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <label style={{ fontSize: '13.5px', fontWeight: 800, color: '#1E1B4B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <MessageCircle size={16} color="#7E22CE" />
+                        <span>Full Customer Message:</span>
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(selectedQuery.message, 'message')}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #E9D5FF',
+                          backgroundColor: '#FAF5FF',
+                          color: '#7E22CE',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        {copiedField === 'message' ? <Check size={12} color="#16A34A" /> : <Copy size={12} />}
+                        <span>{copiedField === 'message' ? 'Message Copied!' : 'Copy Full Message'}</span>
+                      </button>
+                    </div>
+
+                    <div
+                      style={{
+                        backgroundColor: '#FAF5FF',
+                        border: '1.5px solid #E9D5FF',
+                        borderRadius: '14px',
+                        padding: '20px 24px',
+                        color: '#1E1B4B',
+                        fontSize: '15px',
+                        lineHeight: 1.7,
+                        whiteSpace: 'pre-wrap',
+                        boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.02)',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      {selectedQuery.message}
+                    </div>
                   </div>
-                  <div
-                    style={{
-                      backgroundColor: '#F0FDF4',
-                      border: '1.5px solid #BBF7D0',
-                      borderRadius: '12px',
-                      padding: '16px 20px',
-                      color: '#14532D',
-                      fontSize: '14px',
-                      lineHeight: 1.6,
-                      whiteSpace: 'pre-wrap',
-                    }}
-                  >
-                    {selectedQuery.adminReply}
+
+                  {/* Previous Sent Reply If Any */}
+                  {selectedQuery.adminReply && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <label style={{ fontSize: '13.5px', fontWeight: 800, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <CheckCheck size={16} color="#16A34A" />
+                          <span>Last Sent Email Response:</span>
+                        </label>
+                        <span style={{ fontSize: '12px', color: '#64748B' }} suppressHydrationWarning>
+                          {selectedQuery.repliedAt ? `Sent on ${new Date(selectedQuery.repliedAt).toLocaleString('en-IN')}` : ''}
+                          {selectedQuery.repliedByAdmin?.name ? ` by ${selectedQuery.repliedByAdmin.name}` : ''}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          backgroundColor: '#F0FDF4',
+                          border: '1.5px solid #BBF7D0',
+                          borderRadius: '14px',
+                          padding: '18px 22px',
+                          color: '#14532D',
+                          fontSize: '14.5px',
+                          lineHeight: 1.7,
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        {selectedQuery.adminReply}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Internal Admin Notes */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>
+                      Staff Internal Notes (Private):
+                    </label>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <input
+                        type="text"
+                        placeholder="Add staff note (e.g. customer called regarding delivery date)..."
+                        value={adminNotes}
+                        onChange={(e) => setAdminNotes(e.target.value)}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: '1.5px solid #E2E8F0',
+                          fontSize: '13.5px',
+                          color: '#334155',
+                          outline: 'none',
+                          backgroundColor: '#F8FAFC',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleQuickStatusChange(selectedQuery.status)}
+                        disabled={isUpdatingStatus}
+                        style={{
+                          padding: '10px 16px',
+                          borderRadius: '10px',
+                          border: '1px solid #CBD5E1',
+                          backgroundColor: '#FFFFFF',
+                          color: '#334155',
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Save Note
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Live Email Reply Composer */}
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: 800, color: '#1E1B4B', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Sparkles size={16} color="#7E22CE" />
-                    <span>{selectedQuery.adminReply ? 'Compose New / Follow-up Reply:' : 'Compose Email Reply to Customer:'}</span>
-                  </label>
-                </div>
+              {/* TAB 2: EMAIL REPLY COMPOSER */}
+              {modalTab === 'REPLY' && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: 800, color: '#1E1B4B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Sparkles size={16} color="#7E22CE" />
+                      <span>{selectedQuery.adminReply ? 'Compose Follow-up Reply:' : 'Compose Email Reply to Customer:'}</span>
+                    </label>
+                    <span style={{ fontSize: '12px', color: '#64748B' }}>
+                      Recipient: <strong>{selectedQuery.email}</strong>
+                    </span>
+                  </div>
 
-                {/* Quick Templates Pill Bar */}
-                <div style={{ marginBottom: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748B', alignSelf: 'center', marginRight: '4px' }}>
-                    Quick Presets:
-                  </span>
-                  {QUICK_REPLY_TEMPLATES.map((tmpl, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => applyTemplate(tmpl.text)}
-                      style={{
-                        padding: '5px 10px',
-                        borderRadius: '6px',
-                        backgroundColor: '#F3E8FF',
-                        border: '1px solid #DDD6FE',
-                        color: '#6B21A8',
-                        fontSize: '11.5px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#E9D5FF')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#F3E8FF')}
-                    >
-                      {tmpl.label}
-                    </button>
-                  ))}
-                </div>
+                  {/* Quick Templates Pill Bar */}
+                  <div style={{ marginBottom: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748B', alignSelf: 'center', marginRight: '4px' }}>
+                      Quick Presets:
+                    </span>
+                    {QUICK_REPLY_TEMPLATES.map((tmpl, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => applyTemplate(tmpl.text)}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '6px',
+                          backgroundColor: '#F3E8FF',
+                          border: '1px solid #DDD6FE',
+                          color: '#6B21A8',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#E9D5FF')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#F3E8FF')}
+                      >
+                        {tmpl.label}
+                      </button>
+                    ))}
+                  </div>
 
-                <textarea
-                  rows={6}
-                  placeholder={`Write your official response to ${selectedQuery.fullName}... It will be styled into a luxury branded email and sent directly to ${selectedQuery.email}.`}
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '14px 16px',
-                    borderRadius: '12px',
-                    border: '1.5px solid #E2E8F0',
-                    fontSize: '14px',
-                    lineHeight: 1.6,
-                    color: '#1E1B4B',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    backgroundColor: '#FFFFFF',
-                    resize: 'vertical',
-                    fontFamily: 'inherit',
-                  }}
-                />
-
-                {/* Internal Admin Notes */}
-                <div style={{ marginTop: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#64748B', marginBottom: '6px' }}>
-                    Internal Admin Note (Optional - visible only to staff):
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Verified with logistics team, replacement parcel dispatched."
-                    value={adminNotes}
-                    onChange={(e) => setAdminNotes(e.target.value)}
+                  <textarea
+                    rows={8}
+                    placeholder={`Write your official response to ${selectedQuery.fullName}... It will be formatted into a luxury branded email and sent directly to ${selectedQuery.email}.`}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '9px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid #E2E8F0',
-                      fontSize: '13px',
-                      color: '#334155',
+                      padding: '16px 18px',
+                      borderRadius: '12px',
+                      border: '1.5px solid #E2E8F0',
+                      fontSize: '14px',
+                      lineHeight: 1.7,
+                      color: '#1E1B4B',
                       outline: 'none',
                       boxSizing: 'border-box',
-                      backgroundColor: '#F8FAFC',
+                      backgroundColor: '#FFFFFF',
+                      resize: 'vertical',
+                      fontFamily: 'inherit',
                     }}
                   />
+
+                  {/* Internal Admin Notes */}
+                  <div style={{ marginTop: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#64748B', marginBottom: '6px' }}>
+                      Internal Admin Note (Optional - staff only):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Verified with logistics team, replacement parcel dispatched."
+                      value={adminNotes}
+                      onChange={(e) => setAdminNotes(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '9px 14px',
+                        borderRadius: '8px',
+                        border: '1px solid #E2E8F0',
+                        fontSize: '13px',
+                        color: '#334155',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                        backgroundColor: '#F8FAFC',
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Modal Footer Actions */}
@@ -1036,8 +1364,25 @@ export default function AdminContactsPage() {
               }}
             >
               {/* Quick Status Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#64748B' }}>Mark Status:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#64748B' }}>Status:</span>
+                <button
+                  type="button"
+                  disabled={isUpdatingStatus || selectedQuery.status === 'PENDING'}
+                  onClick={() => handleQuickStatusChange('PENDING')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #FEF3C7',
+                    backgroundColor: selectedQuery.status === 'PENDING' ? '#FEF3C7' : '#FFFFFF',
+                    color: '#92400E',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Pending
+                </button>
                 <button
                   type="button"
                   disabled={isUpdatingStatus || selectedQuery.status === 'IN_PROGRESS'}
@@ -1074,47 +1419,91 @@ export default function AdminContactsPage() {
                 </button>
               </div>
 
-              {/* Main Reply Action */}
+              {/* Main Actions */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedQuery(null)}
-                  style={{
-                    padding: '10px 18px',
-                    borderRadius: '10px',
-                    border: '1px solid #E2E8F0',
-                    backgroundColor: '#FFFFFF',
-                    color: '#64748B',
-                    fontSize: '13.5px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Cancel
-                </button>
+                {modalTab === 'DETAILS' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQuery(null)}
+                      style={{
+                        padding: '10px 18px',
+                        borderRadius: '10px',
+                        border: '1px solid #E2E8F0',
+                        backgroundColor: '#FFFFFF',
+                        color: '#64748B',
+                        fontSize: '13.5px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModalTab('REPLY')}
+                      style={{
+                        padding: '10px 20px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        backgroundColor: '#6D28D9',
+                        color: '#FFFFFF',
+                        fontSize: '13.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 4px 12px rgba(109, 40, 217, 0.25)',
+                      }}
+                    >
+                      <Send size={15} />
+                      <span>{selectedQuery.adminReply ? 'Send Follow-up Reply' : 'Reply via Email'}</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setModalTab('DETAILS')}
+                      style={{
+                        padding: '10px 16px',
+                        borderRadius: '10px',
+                        border: '1px solid #E2E8F0',
+                        backgroundColor: '#FFFFFF',
+                        color: '#64748B',
+                        fontSize: '13.5px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Back to Details
+                    </button>
 
-                <button
-                  type="button"
-                  disabled={isSendingReply || !replyText.trim()}
-                  onClick={handleSendReply}
-                  style={{
-                    padding: '10px 22px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    backgroundColor: isSendingReply || !replyText.trim() ? '#CBD5E1' : '#6D28D9',
-                    color: '#FFFFFF',
-                    fontSize: '13.5px',
-                    fontWeight: 700,
-                    cursor: isSendingReply || !replyText.trim() ? 'not-allowed' : 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 12px rgba(109, 40, 217, 0.25)',
-                  }}
-                >
-                  <Send size={15} className={isSendingReply ? 'animate-spin' : ''} />
-                  <span>{isSendingReply ? 'Sending Email...' : 'Send Email Reply'}</span>
-                </button>
+                    <button
+                      type="button"
+                      disabled={isSendingReply || !replyText.trim()}
+                      onClick={handleSendReply}
+                      style={{
+                        padding: '10px 22px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        backgroundColor: isSendingReply || !replyText.trim() ? '#CBD5E1' : '#6D28D9',
+                        color: '#FFFFFF',
+                        fontSize: '13.5px',
+                        fontWeight: 700,
+                        cursor: isSendingReply || !replyText.trim() ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 4px 12px rgba(109, 40, 217, 0.25)',
+                      }}
+                    >
+                      <Send size={15} className={isSendingReply ? 'animate-spin' : ''} />
+                      <span>{isSendingReply ? 'Sending Email...' : 'Send Email Reply'}</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
