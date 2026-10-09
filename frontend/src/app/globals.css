@@ -217,6 +217,26 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--purple-400);
 }
 
+/* Horizontal Swatches Scroll Rail */
+.pdp-swatches-scroll-rail {
+  scrollbar-width: thin;
+  scrollbar-color: #DDD6FE rgba(0, 0, 0, 0.02);
+}
+.pdp-swatches-scroll-rail::-webkit-scrollbar {
+  height: 5px;
+}
+.pdp-swatches-scroll-rail::-webkit-scrollbar-track {
+  background: rgba(237, 233, 254, 0.4);
+  border-radius: 999px;
+}
+.pdp-swatches-scroll-rail::-webkit-scrollbar-thumb {
+  background: #C4B5FD;
+  border-radius: 999px;
+}
+.pdp-swatches-scroll-rail::-webkit-scrollbar-thumb:hover {
+  background: #A78BFA;
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

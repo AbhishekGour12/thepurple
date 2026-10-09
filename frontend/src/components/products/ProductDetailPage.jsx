@@ -1200,7 +1200,22 @@ export default function ProductDetailPage({ slug }) {
                     {availableColors.find((c) => c.id === selectedColorId)?.name || 'Select Color'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div
+                  className="pdp-swatches-scroll-rail"
+                  style={{
+                    display: 'flex',
+                    gap: '10px',
+                    flexWrap: 'nowrap',
+                    overflowX: 'auto',
+                    overflowY: 'hidden',
+                    alignItems: 'center',
+                    padding: '4px 4px 10px 4px',
+                    maxWidth: '100%',
+                    WebkitOverflowScrolling: 'touch',
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: '#DDD6FE transparent',
+                  }}
+                >
                   {availableColors.map((c) => {
                     const isSelected = c.id === selectedColorId;
                     const colorImg = c.variantImg || galleryImageObjects.find((img) => img.colorId === c.id)?.imageUrl;
@@ -1226,6 +1241,7 @@ export default function ProductDetailPage({ slug }) {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            flexShrink: 0,
                             boxShadow: isSelected
                               ? '0 0 0 1.5px #7E22CE, 0 4px 12px rgba(126, 34, 206, 0.25)'
                               : '0 1px 3px rgba(0,0,0,0.04)',
@@ -1265,6 +1281,7 @@ export default function ProductDetailPage({ slug }) {
                           fontSize: '12.5px',
                           fontWeight: isSelected ? 800 : 600,
                           cursor: 'pointer',
+                          flexShrink: 0,
                           boxShadow: isSelected ? '0 2px 8px rgba(126, 34, 206, 0.18)' : '0 1px 2px rgba(0,0,0,0.03)',
                           transition: 'all 0.15s ease',
                         }}
