@@ -90,11 +90,11 @@ export const productService = {
     // Filter by Stock Status
     if (stockStatus) {
       if (stockStatus === 'in_stock') {
-        where.stock = { [Op.gt]: sequelize.col('Product.lowStockThreshold') };
+        where.stock = { [Op.gt]: sequelize.fn('COALESCE', sequelize.col('Product.lowStockThreshold'), 5) };
       } else if (stockStatus === 'low_stock') {
         where[Op.and] = [
           { stock: { [Op.gt]: 0 } },
-          sequelize.where(sequelize.col('Product.stock'), '<=', sequelize.col('Product.lowStockThreshold')),
+          sequelize.where(sequelize.col('Product.stock'), '<=', sequelize.fn('COALESCE', sequelize.col('Product.lowStockThreshold'), 5)),
         ];
       } else if (stockStatus === 'out_of_stock') {
         where.stock = { [Op.lte]: 0 };
@@ -219,6 +219,12 @@ export const productService = {
           model: ProductImage,
           as: 'images',
           attributes: ['id', 'imageUrl', 'isPrimary', 'displayOrder'],
+          required: false,
+        },
+        {
+          model: ProductVariant,
+          as: 'variants',
+          attributes: ['id', 'name', 'sku', 'stock', 'salePrice', 'mrp', 'colorId', 'sizeId'],
           required: false,
         },
       ],

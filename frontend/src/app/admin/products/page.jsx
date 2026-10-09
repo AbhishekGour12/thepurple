@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import {
   Package,
@@ -78,7 +79,8 @@ const INITIAL_FILTERS = {
   sort: 'newest',
 };
 
-export default function ProductListPage() {
+function ProductListPageContent() {
+  const searchParams = useSearchParams();
   const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
   const canDelete = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'MANAGER';
   const canPublish = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'MANAGER';
@@ -104,6 +106,25 @@ export default function ProductListPage() {
   const [perPage, setPerPage] = useState(20);
   const [jumpPageInput, setJumpPageInput] = useState('');
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
+
+  // Sync initial query params from URL (e.g. from Dashboard /admin/products?stockStatus=low_stock)
+  useEffect(() => {
+    if (!searchParams) return;
+    const stockParam = searchParams.get('stockStatus');
+    const statusParam = searchParams.get('status');
+    const isFeaturedParam = searchParams.get('isFeatured');
+    const categoryIdParam = searchParams.get('categoryId');
+
+    if (stockParam || statusParam || isFeaturedParam || categoryIdParam) {
+      setFilters((prev) => ({
+        ...prev,
+        ...(stockParam !== null ? { stockStatus: stockParam } : {}),
+        ...(statusParam !== null ? { status: statusParam } : {}),
+        ...(isFeaturedParam !== null ? { isFeatured: isFeaturedParam } : {}),
+        ...(categoryIdParam !== null ? { categoryId: categoryIdParam } : {}),
+      }));
+    }
+  }, [searchParams]);
 
   // Loading states for actions
   const [deletingId, setDeletingId] = useState(null);
@@ -1128,8 +1149,22 @@ export default function ProductListPage() {
                   const numPrice = parseFloat(product.price) || 0;
                   const numSale = parseFloat(product.salePrice) || numPrice;
                   const discount = numPrice > 0 ? Math.round(((numPrice - numSale) / numPrice) * 100) : 0;
-                  const isLowStock = product.stock > 0 && product.stock <= (product.lowStockThreshold || 5);
-                  const isOutOfStock = product.stock <= 0;
+                  
+                  // Variant & Stock Calculations
+                  const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
+                  const variantTotalStock = hasVariants
+                    ? product.variants.reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0)
+                    : null;
+                  const effectiveStock = variantTotalStock !== null ? variantTotalStock : (parseInt(product.stock, 10) || 0);
+                  const threshold = parseInt(product.lowStockThreshold, 10) || 5;
+
+                  const hasLowStockVariant = hasVariants && product.variants.some((v) => {
+                    const vStock = parseInt(v.stock, 10) || 0;
+                    return vStock > 0 && vStock <= threshold;
+                  });
+
+                  const isOutOfStock = effectiveStock <= 0;
+                  const isLowStock = !isOutOfStock && (effectiveStock <= threshold || hasLowStockVariant);
                   const isToggling = togglingStatusId === product.id;
                   const isDeleting = deletingId === product.id;
 
@@ -1207,6 +1242,35 @@ export default function ProductListPage() {
                               >
                                 {product.sku}
                               </span>
+                              {isOutOfStock ? (
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    backgroundColor: '#FEE2E2',
+                                    color: '#DC2626',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #FECACA',
+                                    fontWeight: 800,
+                                  }}
+                                >
+                                  ❌ Out of Stock
+                                </span>
+                              ) : isLowStock ? (
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    backgroundColor: '#FEF3C7',
+                                    color: '#B45309',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #FDE68A',
+                                    fontWeight: 800,
+                                  }}
+                                >
+                                  ⚠️ Low Stock ({effectiveStock})
+                                </span>
+                              ) : null}
                               {product.isFeatured && (
                                 <span
                                   style={{
@@ -1316,37 +1380,43 @@ export default function ProductListPage() {
 
                       {/* Stock Status */}
                       <td style={{ padding: '14px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              width: '8px',
-                              height: '8px',
-                              borderRadius: '50%',
-                              backgroundColor: isOutOfStock
-                                ? '#DC2626'
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                backgroundColor: isOutOfStock
+                                  ? '#DC2626'
+                                  : isLowStock
+                                  ? '#D97706'
+                                  : '#10B981',
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontSize: '12px',
+                                fontWeight: 800,
+                                color: isOutOfStock
+                                  ? '#DC2626'
+                                  : isLowStock
+                                  ? '#D97706'
+                                  : '#047857',
+                              }}
+                            >
+                              {isOutOfStock
+                                ? 'Out of Stock'
                                 : isLowStock
-                                ? '#D97706'
-                                : '#10B981',
-                            }}
-                          />
-                          <span
-                            style={{
-                              fontSize: '12px',
-                              fontWeight: 700,
-                              color: isOutOfStock
-                                ? '#DC2626'
-                                : isLowStock
-                                ? '#D97706'
-                                : '#047857',
-                            }}
-                          >
-                            {isOutOfStock
-                              ? 'Out of Stock'
-                              : isLowStock
-                              ? `Low (${product.stock})`
-                              : `${product.stock} in stock`}
-                          </span>
+                                ? `⚠️ Low (${effectiveStock})`
+                                : `${effectiveStock} in stock`}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '10.5px', color: '#6B7280' }}>
+                            Threshold: ≤{threshold}
+                            {hasVariants && ` • ${product.variants.length} variant${product.variants.length > 1 ? 's' : ''}`}
+                          </div>
                         </div>
                       </td>
 
@@ -1780,3 +1850,11 @@ const pageNavBtnStyle = (disabled) => ({
   cursor: disabled ? 'not-allowed' : 'pointer',
   transition: 'all 0.15s ease',
 });
+
+export default function ProductListPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#7E22CE', fontWeight: 700 }}>Loading Products...</div>}>
+      <ProductListPageContent />
+    </Suspense>
+  );
+}

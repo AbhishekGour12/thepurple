@@ -428,13 +428,18 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* 6. Inventory Health & Alerts */}
-        <div
+        <Link
+          href="/admin/products?stockStatus=low_stock"
           style={{
+            textDecoration: 'none',
+            display: 'block',
             backgroundColor: kpis.lowStockProducts > 0 ? '#FFFBEB' : '#FFFFFF',
             borderRadius: '16px',
             padding: '20px',
-            border: kpis.lowStockProducts > 0 ? '1px solid #FDE68A' : '1px solid #E2E8F0',
+            border: kpis.lowStockProducts > 0 ? '1.5px solid #FDE68A' : '1px solid #E2E8F0',
             boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+            cursor: 'pointer',
+            transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -457,10 +462,11 @@ export default function AdminDashboardPage() {
           <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#92400E', margin: '0 0 6px 0' }}>
             {kpis.inventoryHealth}
           </h2>
-          <div style={{ fontSize: '12px', color: '#B45309', fontWeight: 700 }}>
-            ⚠️ {kpis.lowStockProducts} Low Stock | {kpis.outOfStockProducts} Out of Stock
+          <div style={{ fontSize: '12px', color: '#B45309', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>⚠️ {kpis.lowStockProducts} Low Stock | {kpis.outOfStockProducts} Out of Stock</span>
+            <span style={{ color: '#D97706', fontSize: '11.5px', textDecoration: 'underline' }}>View Products →</span>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* ─── Growth Analytics Charts & Category Distribution ──────────────── */}

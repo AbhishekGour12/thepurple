@@ -16,7 +16,7 @@ export const getDashboardAnalytics = async (timeRange = '30d') => {
     // 1. Fetch All Active Products summary in 1 single query
     const allProducts = await Product.findAll({
       where: { deletedAt: null },
-      attributes: ['id', 'status', 'stock'],
+      attributes: ['id', 'status', 'stock', 'lowStockThreshold'],
     });
 
     const totalProducts = allProducts.length;
@@ -25,9 +25,10 @@ export const getDashboardAnalytics = async (timeRange = '30d') => {
     let lowStockProducts = 0;
 
     allProducts.forEach((p) => {
+      const threshold = p.lowStockThreshold || 5;
       if (p.status === 'PUBLISHED') publishedProducts++;
-      if (p.stock === 0) outOfStockProducts++;
-      else if (p.stock > 0 && p.stock <= 10) lowStockProducts++;
+      if (p.stock === 0 || p.stock <= 0) outOfStockProducts++;
+      else if (p.stock > 0 && p.stock <= threshold) lowStockProducts++;
     });
 
     // 2. Fetch All Orders summary in 1 single query
