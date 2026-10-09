@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSelector } from 'react-redux';
 import {
   Phone,
   Mail,
@@ -17,12 +18,25 @@ import {
 import { contactApi } from '@/lib/api/contact';
 
 export default function HomeContactSection() {
+  const currentUser = useSelector((state) => state.auth?.user?.profile || state.auth?.user);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     message: '',
   });
+
+  useEffect(() => {
+    if (currentUser) {
+      setFormData((prev) => ({
+        ...prev,
+        name: prev.name || currentUser.name || currentUser.fullName || '',
+        email: prev.email || currentUser.email || '',
+        phone: prev.phone || currentUser.phone || '',
+      }));
+    }
+  }, [currentUser]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [ticketId, setTicketId] = useState(null);
