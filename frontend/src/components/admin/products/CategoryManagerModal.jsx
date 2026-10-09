@@ -291,17 +291,22 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
     }
   };
 
-  // Instant optimistic delete single category
+  // Delete single category
   const handleDeleteCategory = async (catId) => {
     if (submitting) return;
-    setBusyLabel('Deleting...');
+    const cat = categories.find((c) => c.id === catId);
+    if (!window.confirm(`Are you sure you want to delete category "${cat?.name || ''}"? This will also remove its subcategories.`)) {
+      return;
+    }
+    setBusyLabel('Deleting category...');
     setSubmitting(true);
-    setCategories((prev) => prev.filter((c) => c.id !== catId));
-    setSelectedIds((prev) => prev.filter((id) => id !== catId));
     try {
-      await adminCategoryApi.deleteCategory(catId, true);
+      await adminCategoryApi.deleteCategory(catId, false);
+      setCategories((prev) => prev.filter((c) => c.id !== catId));
+      setSelectedIds((prev) => prev.filter((id) => id !== catId));
       if (onCategoriesUpdated) onCategoriesUpdated();
-    } catch {
+    } catch (err) {
+      alert(err.message || 'Failed to delete category');
       loadCategories();
     } finally {
       setSubmitting(false);
@@ -310,18 +315,22 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
 
   const handleDeleteSubcategory = async (subId) => {
     if (submitting) return;
-    setBusyLabel('Deleting...');
+    if (!window.confirm('Are you sure you want to delete this subcategory?')) {
+      return;
+    }
+    setBusyLabel('Deleting subcategory...');
     setSubmitting(true);
-    setCategories((prev) =>
-      prev.map((c) => ({
-        ...c,
-        subcategories: c.subcategories ? c.subcategories.filter((s) => s.id !== subId) : [],
-      }))
-    );
     try {
-      await adminCategoryApi.deleteSubcategory(subId, true);
+      await adminCategoryApi.deleteSubcategory(subId, false);
+      setCategories((prev) =>
+        prev.map((c) => ({
+          ...c,
+          subcategories: c.subcategories ? c.subcategories.filter((s) => s.id !== subId) : [],
+        }))
+      );
       if (onCategoriesUpdated) onCategoriesUpdated();
-    } catch {
+    } catch (err) {
+      alert(err.message || 'Failed to delete subcategory');
       loadCategories();
     } finally {
       setSubmitting(false);
@@ -330,15 +339,19 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
 
   const handleDeleteSelected = async () => {
     if (selectedIds.length === 0 || submitting) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected category(ies)?`)) {
+      return;
+    }
     const idsToDelete = [...selectedIds];
     setBusyLabel('Deleting selected...');
     setSubmitting(true);
-    setCategories((prev) => prev.filter((c) => !idsToDelete.includes(c.id)));
-    setSelectedIds([]);
     try {
-      await adminCategoryApi.bulkDeleteCategories(idsToDelete, true);
+      await adminCategoryApi.bulkDeleteCategories(idsToDelete, false);
+      setCategories((prev) => prev.filter((c) => !idsToDelete.includes(c.id)));
+      setSelectedIds([]);
       if (onCategoriesUpdated) onCategoriesUpdated();
-    } catch {
+    } catch (err) {
+      alert(err.message || 'Failed to delete selected categories');
       loadCategories();
     } finally {
       setSubmitting(false);
@@ -347,15 +360,16 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
 
   const handleDeleteAll = async () => {
     if (categories.length === 0 || submitting) return;
-    if (!window.confirm('Are you sure you want to delete ALL categories and their subcategories?')) return;
+    if (!window.confirm('Are you sure you want to delete ALL categories and their subcategories? This cannot be undone.')) return;
     setBusyLabel('Deleting all...');
     setSubmitting(true);
-    setCategories([]);
-    setSelectedIds([]);
     try {
-      await adminCategoryApi.deleteAllCategories(true);
+      await adminCategoryApi.deleteAllCategories(false);
+      setCategories([]);
+      setSelectedIds([]);
       if (onCategoriesUpdated) onCategoriesUpdated();
-    } catch {
+    } catch (err) {
+      alert(err.message || 'Failed to delete all categories');
       loadCategories();
     } finally {
       setSubmitting(false);

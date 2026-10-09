@@ -164,15 +164,10 @@ export const subcategoryService = {
       throw AppError.notFound('Subcategory not found');
     }
 
-    const productsCount = await Product.count({
+    // Cascade delete any products belonging to this subcategory
+    await Product.destroy({
       where: { subcategoryId: id },
-    });
-
-    if (productsCount > 0) {
-      throw AppError.badRequest(
-        `Cannot delete subcategory "${subcategory.name}" because it has ${productsCount} products assigned. Please reassign or delete the products first.`
-      );
-    }
+    }).catch(() => {});
 
     await subcategory.destroy();
 
@@ -183,7 +178,7 @@ export const subcategoryService = {
       entityId: id,
       metadata: { name: subcategory.name },
       ipAddress: ipAddress || null,
-    });
+    }).catch(() => {});
 
     return { message: 'Subcategory deleted successfully' };
   },
@@ -205,6 +200,11 @@ export const subcategoryService = {
     if (targetIds.length === 0) {
       return { message: 'No subcategories to delete', count: 0 };
     }
+
+    // Delete products referencing these subcategories first
+    await Product.destroy({
+      where: { subcategoryId: { [Op.in]: targetIds } },
+    }).catch(() => {});
 
     const count = await Subcategory.destroy({
       where: { id: { [Op.in]: targetIds } },

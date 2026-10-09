@@ -16,6 +16,7 @@ import {
   RefreshCw,
   XCircle,
   Download,
+  ExternalLink,
 } from 'lucide-react';
 import { orderApi } from '@/lib/api/orders';
 import { exportToCSV } from '@/lib/utils/exportToExcel';

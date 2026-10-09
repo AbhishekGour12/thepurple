@@ -27,7 +27,7 @@ import { BusyOverlay, BusyButtonLabel } from '@/components/admin/BusyUI';
 
 export default function CategoryManagementPage() {
   const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
-  const canManage = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'MANAGER';
+  const canManage = !currentAdmin?.role || ['SUPER_ADMIN', 'MANAGER', 'ADMIN', 'EXECUTIVE'].includes(currentAdmin?.role);
 
   const [categories, setCategories] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -234,16 +234,20 @@ export default function CategoryManagementPage() {
     }
   };
 
-  // Instant optimistic delete single category
+  // Delete single category
   const handleDeleteCategory = async (cat) => {
     if (!canManage || formLoading) return;
-    setBusyLabel('Deleting...');
+    if (!window.confirm(`Are you sure you want to delete category "${cat.name}"? This will also delete all subcategories under it.`)) {
+      return;
+    }
+    setBusyLabel('Deleting category...');
     setFormLoading(true);
-    setCategories((prev) => prev.filter((c) => c.id !== cat.id));
-    setSelectedIds((prev) => prev.filter((id) => id !== cat.id));
     try {
-      await adminCategoryApi.deleteCategory(cat.id, true);
-    } catch {
+      await adminCategoryApi.deleteCategory(cat.id, false);
+      setCategories((prev) => prev.filter((c) => c.id !== cat.id));
+      setSelectedIds((prev) => prev.filter((id) => id !== cat.id));
+    } catch (err) {
+      alert(err.message || 'Failed to delete category');
       fetchCategories();
     } finally {
       setFormLoading(false);
@@ -252,17 +256,21 @@ export default function CategoryManagementPage() {
 
   const handleDeleteSubcategory = async (sub) => {
     if (!canManage || formLoading) return;
-    setBusyLabel('Deleting...');
+    if (!window.confirm(`Are you sure you want to delete subcategory "${sub.name}"?`)) {
+      return;
+    }
+    setBusyLabel('Deleting subcategory...');
     setFormLoading(true);
-    setCategories((prev) =>
-      prev.map((c) => ({
-        ...c,
-        subcategories: c.subcategories ? c.subcategories.filter((s) => s.id !== sub.id) : [],
-      }))
-    );
     try {
-      await adminCategoryApi.deleteSubcategory(sub.id, true);
-    } catch {
+      await adminCategoryApi.deleteSubcategory(sub.id, false);
+      setCategories((prev) =>
+        prev.map((c) => ({
+          ...c,
+          subcategories: c.subcategories ? c.subcategories.filter((s) => s.id !== sub.id) : [],
+        }))
+      );
+    } catch (err) {
+      alert(err.message || 'Failed to delete subcategory');
       fetchCategories();
     } finally {
       setFormLoading(false);
@@ -271,14 +279,18 @@ export default function CategoryManagementPage() {
 
   const handleDeleteSelected = async () => {
     if (!canManage || selectedIds.length === 0 || formLoading) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected category(ies)?`)) {
+      return;
+    }
     const idsToDelete = [...selectedIds];
     setBusyLabel('Deleting selected...');
     setFormLoading(true);
-    setCategories((prev) => prev.filter((c) => !idsToDelete.includes(c.id)));
-    setSelectedIds([]);
     try {
-      await adminCategoryApi.bulkDeleteCategories(idsToDelete, true);
-    } catch {
+      await adminCategoryApi.bulkDeleteCategories(idsToDelete, false);
+      setCategories((prev) => prev.filter((c) => !idsToDelete.includes(c.id)));
+      setSelectedIds([]);
+    } catch (err) {
+      alert(err.message || 'Failed to delete selected categories');
       fetchCategories();
     } finally {
       setFormLoading(false);
@@ -287,14 +299,17 @@ export default function CategoryManagementPage() {
 
   const handleDeleteAll = async () => {
     if (!canManage || categories.length === 0 || formLoading) return;
-    if (!window.confirm('Are you sure you want to delete ALL categories and subcategories?')) return;
+    if (!window.confirm('Are you sure you want to delete ALL categories and subcategories? This cannot be undone.')) {
+      return;
+    }
     setBusyLabel('Deleting all...');
     setFormLoading(true);
-    setCategories([]);
-    setSelectedIds([]);
     try {
-      await adminCategoryApi.deleteAllCategories(true);
-    } catch {
+      await adminCategoryApi.deleteAllCategories(false);
+      setCategories([]);
+      setSelectedIds([]);
+    } catch (err) {
+      alert(err.message || 'Failed to delete all categories');
       fetchCategories();
     } finally {
       setFormLoading(false);

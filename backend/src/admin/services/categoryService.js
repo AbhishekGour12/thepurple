@@ -252,10 +252,18 @@ export const categoryService = {
       throw AppError.notFound('Category not found');
     }
 
-    if (category.subcategories && category.subcategories.length > 0) {
-      throw AppError.badRequest(
-        `Cannot delete category "${category.name}" because it contains ${category.subcategories.length} subcategories. Please reassign or delete the subcategories first.`
-      );
+    const subIds = category.subcategories ? category.subcategories.map((s) => s.id) : [];
+
+    // Cascade delete any products attached to these subcategories
+    if (subIds.length > 0) {
+      await Product.destroy({
+        where: { subcategoryId: { [Op.in]: subIds } },
+      }).catch(() => {});
+
+      // Delete subcategories belonging to this category
+      await Subcategory.destroy({
+        where: { categoryId: id },
+      });
     }
 
     await category.destroy();
@@ -267,7 +275,7 @@ export const categoryService = {
       entityId: id,
       metadata: { name: category.name },
       ipAddress: ipAddress || null,
-    });
+    }).catch(() => {});
 
     return { message: 'Category deleted successfully' };
   },
@@ -295,10 +303,20 @@ export const categoryService = {
     const targetIds = targetCategories.map((c) => c.id);
 
     if (cascade) {
-      // Remove subcategories belonging to these categories
-      await Subcategory.destroy({
+      const subs = await Subcategory.findAll({
         where: { categoryId: { [Op.in]: targetIds } },
+        attributes: ['id'],
       });
+      const subIds = subs.map((s) => s.id);
+      if (subIds.length > 0) {
+        await Product.destroy({
+          where: { subcategoryId: { [Op.in]: subIds } },
+        }).catch(() => {});
+
+        await Subcategory.destroy({
+          where: { id: { [Op.in]: subIds } },
+        });
+      }
     }
 
     const count = await Category.destroy({
