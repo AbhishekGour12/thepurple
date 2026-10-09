@@ -616,9 +616,15 @@ export default function ProductDetailPage({ slug }) {
         /* Product Main 3-Column Layout */
         .pdp-layout-grid {
           display: grid;
-          grid-template-columns: minmax(360px, 480px) minmax(320px, 1fr) 280px;
+          grid-template-columns: minmax(320px, 480px) minmax(300px, 1fr) 280px;
           gap: 28px;
           align-items: start;
+          min-width: 0;
+          max-width: 100%;
+        }
+        .pdp-layout-grid > * {
+          min-width: 0;
+          max-width: 100%;
         }
 
         /* Gallery Layout */
@@ -627,6 +633,10 @@ export default function ProductDetailPage({ slug }) {
           gap: 14px;
           position: sticky;
           top: 90px;
+          min-width: 0;
+          max-width: 100%;
+          width: 100%;
+          box-sizing: border-box;
         }
         .pdp-thumbnails-rail {
           display: flex;
@@ -634,9 +644,30 @@ export default function ProductDetailPage({ slug }) {
           gap: 10px;
           max-height: 520px;
           overflow-y: auto;
+          overflow-x: hidden;
+          min-width: 0;
+          max-width: 100%;
+          scrollbar-width: thin;
+          scrollbar-color: #DDD6FE transparent;
+          -webkit-overflow-scrolling: touch;
+          padding: 2px 2px 4px;
+          box-sizing: border-box;
+        }
+        .pdp-thumbnails-rail::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .pdp-thumbnails-rail::-webkit-scrollbar-track {
+          background: rgba(237, 233, 254, 0.4);
+          border-radius: 999px;
+        }
+        .pdp-thumbnails-rail::-webkit-scrollbar-thumb {
+          background: #C4B5FD;
+          border-radius: 999px;
         }
         .pdp-main-image-viewport {
           flex: 1;
+          min-width: 0;
           height: 520px;
           border-radius: 16px;
           background-color: #FFFFFF;
@@ -684,8 +715,34 @@ export default function ProductDetailPage({ slug }) {
         /* Tablet Breakpoint (max-width: 1120px) */
         @media (max-width: 1120px) {
           .pdp-layout-grid {
-            grid-template-columns: minmax(320px, 440px) 1fr;
+            grid-template-columns: minmax(300px, 440px) 1fr;
             gap: 24px;
+          }
+          .pdp-gallery-container {
+            flex-direction: column-reverse;
+            position: static;
+            gap: 12px;
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+          }
+          .pdp-thumbnails-rail {
+            flex-direction: row !important;
+            max-height: none !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            padding: 4px 2px 8px !important;
+            scrollbar-width: thin !important;
+            scrollbar-color: #DDD6FE transparent !important;
+            -webkit-overflow-scrolling: touch !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            flex-wrap: nowrap !important;
+          }
+          .pdp-thumbnails-rail::-webkit-scrollbar {
+            display: block !important;
+            height: 5px !important;
           }
           .pdp-sidebar-column {
             grid-column: 1 / -1;
@@ -713,28 +770,36 @@ export default function ProductDetailPage({ slug }) {
             position: static;
             gap: 12px;
             width: 100%;
+            min-width: 0;
+            max-width: 100%;
           }
           .pdp-thumbnails-rail {
-            flex-direction: row;
-            max-height: none;
-            overflow-x: auto;
-            overflow-y: hidden;
-            padding-bottom: 6px;
-            scrollbar-width: none;
-            -webkit-overflow-scrolling: touch;
-            width: 100%;
+            flex-direction: row !important;
+            max-height: none !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            padding: 4px 2px 8px !important;
+            scrollbar-width: thin !important;
+            scrollbar-color: #DDD6FE transparent !important;
+            -webkit-overflow-scrolling: touch !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            flex-wrap: nowrap !important;
           }
           .pdp-thumbnails-rail::-webkit-scrollbar {
-            display: none;
+            display: block !important;
+            height: 5px !important;
           }
           .pdp-thumbnail-btn {
             width: 60px !important;
             height: 60px !important;
-            flex-shrink: 0;
+            flex-shrink: 0 !important;
           }
           .pdp-main-image-viewport {
             height: clamp(300px, 85vw, 440px);
             width: 100%;
+            min-width: 0;
             cursor: pointer;
           }
           .pdp-sidebar-column {
@@ -866,9 +931,9 @@ export default function ProductDetailPage({ slug }) {
           {/* ========================================================================= */}
           {/* COLUMN 1: INTERACTIVE IMAGE GALLERY & HOVER ZOOM */}
           {/* ========================================================================= */}
-          <div className="pdp-gallery-container">
+          <div className="pdp-gallery-container" style={{ minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
             {/* Gallery Thumbnails (Vertical on desktop, horizontal on mobile) */}
-            <div className="pdp-thumbnails-rail">
+            <div className="pdp-thumbnails-rail" style={{ minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
               {galleryImages.map((imgUrl, idx) => {
                 const isActive = idx === selectedImageIdx;
                 return (
