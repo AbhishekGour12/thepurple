@@ -66,12 +66,47 @@ const startServer = async () => {
             IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'cart_items_cart_id_product_id') THEN
               DROP INDEX "cart_items_cart_id_product_id";
             END IF;
+
+            -- product_images columns
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'product_images') THEN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'product_images' AND column_name = 'colorId') THEN
+                ALTER TABLE "product_images" ADD COLUMN "colorId" UUID;
+              END IF;
+            END IF;
+
+            -- cart_items columns
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cart_items') THEN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'cart_items' AND column_name = 'variantId') THEN
+                ALTER TABLE "cart_items" ADD COLUMN "variantId" UUID;
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'cart_items' AND column_name = 'colorId') THEN
+                ALTER TABLE "cart_items" ADD COLUMN "colorId" UUID;
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'cart_items' AND column_name = 'sizeId') THEN
+                ALTER TABLE "cart_items" ADD COLUMN "sizeId" UUID;
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'cart_items' AND column_name = 'priceSnapshot') THEN
+                ALTER TABLE "cart_items" ADD COLUMN "priceSnapshot" NUMERIC(10,2);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'cart_items' AND column_name = 'selectedColor') THEN
+                ALTER TABLE "cart_items" ADD COLUMN "selectedColor" VARCHAR(100);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'cart_items' AND column_name = 'selectedSize') THEN
+                ALTER TABLE "cart_items" ADD COLUMN "selectedSize" VARCHAR(100);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'cart_items' AND column_name = 'metaSubtitle') THEN
+                ALTER TABLE "cart_items" ADD COLUMN "metaSubtitle" VARCHAR(255);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'cart_items' AND column_name = 'imageUrl') THEN
+                ALTER TABLE "cart_items" ADD COLUMN "imageUrl" TEXT;
+              END IF;
+            END IF;
           EXCEPTION WHEN OTHERS THEN
             NULL;
           END$$;
         `);
       } catch (cartConstraintErr) {
-        logger.warn(`Cart constraint update notice: ${cartConstraintErr.message}`);
+        logger.warn(`Cart constraint & column update notice: ${cartConstraintErr.message}`);
       }
 
       await sequelize.sync({ alter: false });
