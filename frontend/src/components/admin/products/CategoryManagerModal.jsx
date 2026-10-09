@@ -94,7 +94,8 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
 
-  // Single form
+  // Connected category + subcategories state
+  const [createMode, setCreateMode] = useState('NEW_CATEGORY'); // 'NEW_CATEGORY' | 'EXISTING_CATEGORY'
   const [singleType, setSingleType] = useState('CATEGORY'); // CATEGORY | SUBCATEGORY
   const [singleName, setSingleName] = useState('');
   const [singleSlug, setSingleSlug] = useState('');
@@ -104,6 +105,8 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
   const [singleIsFeatured, setSingleIsFeatured] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [subcategoriesList, setSubcategoriesList] = useState([]);
+  const [subInput, setSubInput] = useState('');
 
   const fileInputRef = useRef(null);
 
@@ -175,15 +178,38 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
     }
   };
 
+  const handleAddSubcategoryChip = (text) => {
+    const raw = text !== undefined ? text : subInput;
+    if (!raw || !raw.trim()) return;
+    const parts = raw
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return;
+
+    setSubcategoriesList((prev) => {
+      const existingNames = new Set(prev.map((s) => s.name.toLowerCase()));
+      const newItems = parts
+        .filter((name) => !existingNames.has(name.toLowerCase()))
+        .map((name) => ({ id: `temp-${Date.now()}-${Math.random()}`, name }));
+      return [...prev, ...newItems];
+    });
+    setSubInput('');
+  };
+
+  const handleRemoveSubcategoryChip = (index) => {
+    setSubcategoriesList((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSingleSave = async (e) => {
     e.preventDefault();
     setError('');
-    setBusyLabel(editingItem ? 'Updating...' : 'Saving...');
+    setBusyLabel(editingItem ? 'Updating Category...' : 'Saving Category & Subcategories...');
     setSubmitting(true);
 
     try {
-      if (singleType === 'CATEGORY') {
-        if (editingItem) {
+      if (editingItem) {
+        if (singleType === 'CATEGORY') {
           await adminCategoryApi.updateCategory(editingItem.id, {
             name: singleName,
             slug: singleSlug || undefined,
@@ -191,22 +217,17 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
             imageUrl: singleImageUrl || undefined,
             isFeatured: singleIsFeatured,
           });
+
+          // Also create any newly added subcategories in the list
+          if (subcategoriesList.length > 0) {
+            for (const sub of subcategoriesList) {
+              await adminCategoryApi.createSubcategory({
+                categoryId: editingItem.id,
+                name: sub.name,
+              }).catch(() => {});
+            }
+          }
         } else {
-          await adminCategoryApi.createCategory({
-            name: singleName,
-            slug: singleSlug || undefined,
-            description: singleDescription || undefined,
-            imageUrl: singleImageUrl || undefined,
-            isFeatured: singleIsFeatured,
-          });
-        }
-      } else {
-        if (!singleParentId) {
-          setError('Please select a parent category');
-          setSubmitting(false);
-          return;
-        }
-        if (editingItem) {
           await adminCategoryApi.updateSubcategory(editingItem.id, {
             categoryId: singleParentId,
             name: singleName,
@@ -214,14 +235,57 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
             description: singleDescription || undefined,
             imageUrl: singleImageUrl || undefined,
           });
-        } else {
+        }
+      } else if (createMode === 'NEW_CATEGORY') {
+        if (!singleName.trim()) {
+          setError('Category name is required');
+          setSubmitting(false);
+          return;
+        }
+
+        // 1. Create Parent Category
+        const newCatRes = await adminCategoryApi.createCategory({
+          name: singleName.trim(),
+          slug: singleSlug || undefined,
+          description: singleDescription || undefined,
+          imageUrl: singleImageUrl || undefined,
+          isFeatured: singleIsFeatured,
+        });
+
+        const createdCatId = newCatRes?.category?.id || newCatRes?.id;
+
+        // 2. Automatically create all attached subcategories under this newly created category
+        if (createdCatId && subcategoriesList.length > 0) {
+          for (const sub of subcategoriesList) {
+            await adminCategoryApi.createSubcategory({
+              categoryId: createdCatId,
+              name: sub.name,
+            }).catch(() => {});
+          }
+        }
+      } else {
+        // EXISTING_CATEGORY mode
+        if (!singleParentId) {
+          setError('Please select an existing parent category');
+          setSubmitting(false);
+          return;
+        }
+        if (subcategoriesList.length === 0 && !subInput.trim()) {
+          setError('Please enter at least one subcategory name');
+          setSubmitting(false);
+          return;
+        }
+
+        const allSubs = [...subcategoriesList];
+        if (subInput.trim() && !allSubs.some((s) => s.name.toLowerCase() === subInput.trim().toLowerCase())) {
+          allSubs.push({ name: subInput.trim() });
+        }
+
+        for (const sub of allSubs) {
           await adminCategoryApi.createSubcategory({
             categoryId: singleParentId,
-            name: singleName,
-            slug: singleSlug || undefined,
-            description: singleDescription || undefined,
-            imageUrl: singleImageUrl || undefined,
-          });
+            name: sub.name,
+          }).catch(() => {});
         }
       }
 
@@ -229,12 +293,14 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
       setSingleSlug('');
       setSingleDescription('');
       setSingleImageUrl('');
+      setSubcategoriesList([]);
+      setSubInput('');
       setEditingItem(null);
       await loadCategories();
       if (onCategoriesUpdated) onCategoriesUpdated();
       setActiveTab('browse');
     } catch (err) {
-      setError(err?.message || 'Failed to save');
+      setError(err?.message || 'Failed to save category');
     } finally {
       setSubmitting(false);
     }
@@ -458,7 +524,7 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
         >
           {[
             { id: 'browse', label: `Categories (${categories.length})` },
-            { id: 'single', label: '+ Add Single' },
+            { id: 'single', label: '+ Add Category & Subcategories' },
             { id: 'bulk', label: '⚡ Bulk Subcategories' },
             { id: 'presets', label: '✨ Industry Presets' },
           ].map((tab) => (
@@ -705,253 +771,450 @@ export default function CategoryManagerModal({ open, onClose, onCategoriesUpdate
           )}
 
           {activeTab === 'single' && (
-            <form onSubmit={handleSingleSave} style={{ maxWidth: '450px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-                  Item Type
-                </label>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="singleType"
-                      checked={singleType === 'CATEGORY'}
-                      onChange={() => setSingleType('CATEGORY')}
-                      style={{ accentColor: '#7E22CE' }}
-                    />
-                    <span>Parent Category</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="singleType"
-                      checked={singleType === 'SUBCATEGORY'}
-                      onChange={() => setSingleType('SUBCATEGORY')}
-                      style={{ accentColor: '#7E22CE' }}
-                    />
-                    <span>Subcategory</span>
-                  </label>
-                </div>
-              </div>
-
-              {singleType === 'SUBCATEGORY' && (
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-                    Parent Category *
-                  </label>
-                  <select
-                    required
-                    value={singleParentId}
-                    onChange={(e) => setSingleParentId(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E5E7EB', backgroundColor: '#FAF5FF', fontSize: '13px', outline: 'none' }}
+            <form onSubmit={handleSingleSave} style={{ maxWidth: '960px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* Header Mode Switcher: Create New vs Add to Existing */}
+              {!editingItem && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: '#F5F3FF', padding: '6px', borderRadius: '12px', border: '1px solid #E9D5FF' }}>
+                  <button
+                    type="button"
+                    onClick={() => setCreateMode('NEW_CATEGORY')}
+                    style={{
+                      flex: 1,
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      fontSize: '13px',
+                      fontWeight: createMode === 'NEW_CATEGORY' ? 800 : 600,
+                      backgroundColor: createMode === 'NEW_CATEGORY' ? '#7E22CE' : 'transparent',
+                      color: createMode === 'NEW_CATEGORY' ? '#FFFFFF' : '#6B21A8',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                    }}
                   >
-                    <option value="">Select Parent Category</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                    <Sparkles size={15} />
+                    <span>✨ Create New Category &amp; Subcategories</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreateMode('EXISTING_CATEGORY')}
+                    style={{
+                      flex: 1,
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      fontSize: '13px',
+                      fontWeight: createMode === 'EXISTING_CATEGORY' ? 800 : 600,
+                      backgroundColor: createMode === 'EXISTING_CATEGORY' ? '#7E22CE' : 'transparent',
+                      color: createMode === 'EXISTING_CATEGORY' ? '#FFFFFF' : '#6B21A8',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <Layers size={15} />
+                    <span>↳ Add Subcategories to Existing Category</span>
+                  </button>
                 </div>
               )}
 
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-                  Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={singleName}
-                  onChange={(e) => setSingleName(e.target.value)}
-                  placeholder={singleType === 'CATEGORY' ? 'e.g. Jewellery' : 'e.g. Earrings & Studs'}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E5E7EB', backgroundColor: '#FAF5FF', fontSize: '13px', outline: 'none' }}
-                />
-              </div>
-
-              {/* Cloudflare R2 Category/Subcategory Image Upload */}
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-                  Image (R2 Cloud Storage)
-                </label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleUploadSingleImage}
-                  style={{ display: 'none' }}
-                />
-
-                {singleImageUrl ? (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '10px 14px',
-                      backgroundColor: '#FAF5FF',
-                      border: '1.5px solid #E9D5FF',
-                      borderRadius: '10px',
-                    }}
-                  >
-                    <img
-                      src={singleImageUrl}
-                      alt="Category Preview"
-                      style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '8px',
-                        objectFit: 'cover',
-                        border: '1px solid #D8B4FE',
-                      }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#581C87' }}>Uploaded Image</div>
-                      <div
-                        style={{
-                          fontSize: '11px',
-                          color: '#7E22CE',
-                          fontFamily: 'monospace',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {singleImageUrl}
-                      </div>
+              {/* 2-Column Connected Layout */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px', alignItems: 'start' }}>
+                
+                {/* ── LEFT COLUMN: PARENT CATEGORY DETAILS ── */}
+                <div style={{ backgroundColor: '#ffffff', border: '1.5px solid #E9D5FF', borderRadius: '14px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: '0 2px 8px rgba(126, 34, 206, 0.04)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #F3E8FF', paddingBottom: '10px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: '#FAF5FF', color: '#7E22CE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FolderTree size={16} />
                     </div>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploadingImage}
-                        style={{
-                          padding: '5px 8px',
-                          borderRadius: '6px',
-                          backgroundColor: '#7E22CE',
-                          color: '#ffffff',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {uploadingImage ? '...' : 'Replace'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSingleImageUrl('')}
-                        style={{
-                          padding: '5px 8px',
-                          borderRadius: '6px',
-                          backgroundColor: '#FEE2E2',
-                          color: '#DC2626',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Remove
-                      </button>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#1E1B4B' }}>
+                        {createMode === 'EXISTING_CATEGORY' ? 'Select Parent Category' : 'Parent Category Info'}
+                      </h4>
+                      <div style={{ fontSize: '11px', color: '#6B7280' }}>
+                        {createMode === 'EXISTING_CATEGORY' ? 'Choose which category to attach subcategories to' : 'Main shop department / collection'}
+                      </div>
                     </div>
                   </div>
-                ) : (
-                  <div
-                    onClick={() => !uploadingImage && fileInputRef.current?.click()}
-                    style={{
-                      border: '2px dashed #C084FC',
-                      borderRadius: '10px',
-                      padding: '14px',
-                      textAlign: 'center',
-                      backgroundColor: '#FAF5FF',
-                      cursor: uploadingImage ? 'wait' : 'pointer',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    {uploadingImage ? (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#7E22CE' }}>
-                        <Loader2 size={18} className="animate-spin" />
-                        <span style={{ fontSize: '12px', fontWeight: 600 }}>Uploading image to R2...</span>
+
+                  {createMode === 'EXISTING_CATEGORY' ? (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>
+                        Parent Category *
+                      </label>
+                      <select
+                        required
+                        value={singleParentId}
+                        onChange={(e) => setSingleParentId(e.target.value)}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E5E7EB', backgroundColor: '#FAF5FF', fontSize: '13px', outline: 'none', fontWeight: 600, color: '#1E1B4B' }}
+                      >
+                        <option value="">-- Choose Category --</option>
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.subcategories?.length || 0} subcategories)
+                          </option>
+                        ))}
+                      </select>
+                      {singleParentId && (
+                        <div style={{ marginTop: '8px', padding: '8px 12px', backgroundColor: '#FAF5FF', borderRadius: '8px', fontSize: '11.5px', color: '#7E22CE', fontWeight: 600 }}>
+                          ✓ Selected: <strong>{categories.find((c) => c.id === singleParentId)?.name}</strong>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>
+                          Category Name *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={singleName}
+                          onChange={(e) => setSingleName(e.target.value)}
+                          placeholder="e.g. Teddy bear, Jewellery, Gifts & Hampers"
+                          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E5E7EB', backgroundColor: '#FAF5FF', fontSize: '13px', outline: 'none', fontWeight: 600 }}
+                        />
+                      </div>
+
+                      {/* Cloudflare R2 Category Image Upload */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>
+                          Category Banner Image (R2 Cloud Storage)
+                        </label>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleUploadSingleImage}
+                          style={{ display: 'none' }}
+                        />
+
+                        {singleImageUrl ? (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              padding: '10px 14px',
+                              backgroundColor: '#FAF5FF',
+                              border: '1.5px solid #E9D5FF',
+                              borderRadius: '10px',
+                            }}
+                          >
+                            <img
+                              src={singleImageUrl}
+                              alt="Category Preview"
+                              style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '8px',
+                                objectFit: 'cover',
+                                border: '1px solid #D8B4FE',
+                              }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '12px', fontWeight: 700, color: '#581C87' }}>Uploaded to Cloud</div>
+                              <div
+                                style={{
+                                  fontSize: '11px',
+                                  color: '#7E22CE',
+                                  fontFamily: 'monospace',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {singleImageUrl}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploadingImage}
+                                style={{
+                                  padding: '5px 8px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#7E22CE',
+                                  color: '#ffffff',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {uploadingImage ? '...' : 'Replace'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSingleImageUrl('')}
+                                style={{
+                                  padding: '5px 8px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#FEE2E2',
+                                  color: '#DC2626',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => !uploadingImage && fileInputRef.current?.click()}
+                            style={{
+                              border: '2px dashed #C084FC',
+                              borderRadius: '10px',
+                              padding: '14px',
+                              textAlign: 'center',
+                              backgroundColor: '#FAF5FF',
+                              cursor: uploadingImage ? 'wait' : 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            {uploadingImage ? (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#7E22CE' }}>
+                                <Loader2 size={18} className="animate-spin" />
+                                <span style={{ fontSize: '12px', fontWeight: 600 }}>Uploading image to R2...</span>
+                              </div>
+                            ) : (
+                              <div>
+                                <Upload size={20} color="#7E22CE" style={{ margin: '0 auto 4px' }} />
+                                <div style={{ fontSize: '12px', fontWeight: 700, color: '#581C87' }}>
+                                  Upload category image (R2 Cloud)
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>
+                          Description (Optional)
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={singleDescription}
+                          onChange={(e) => setSingleDescription(e.target.value)}
+                          placeholder="Brief summary..."
+                          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E5E7EB', backgroundColor: '#FAF5FF', fontSize: '13px', outline: 'none' }}
+                        />
+                      </div>
+
+                      <div
+                        onClick={() => setSingleIsFeatured((prev) => !prev)}
+                        style={{
+                          padding: '10px 12px',
+                          backgroundColor: singleIsFeatured ? '#FAF5FF' : '#F9FAFB',
+                          border: singleIsFeatured ? '1.5px solid #C084FC' : '1px solid #E5E7EB',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#1E1B4B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Sparkles size={14} color={singleIsFeatured ? '#7E22CE' : '#9CA3AF'} />
+                            <span>Show in Home Navigation Bar</span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '2px' }}>
+                            Feature this category in the top navigation tabs.
+                          </div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={singleIsFeatured}
+                          onChange={(e) => setSingleIsFeatured(e.target.checked)}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ accentColor: '#7E22CE', width: '16px', height: '16px', cursor: 'pointer' }}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* ── RIGHT COLUMN: CONNECTED SUBCATEGORIES BUILDER ── */}
+                <div style={{ backgroundColor: '#ffffff', border: '1.5px solid #E9D5FF', borderRadius: '14px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: '0 2px 8px rgba(126, 34, 206, 0.04)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F3E8FF', paddingBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: '#FAF5FF', color: '#7E22CE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Zap size={16} />
+                      </div>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#1E1B4B' }}>
+                          Connected Subcategories
+                        </h4>
+                        <div style={{ fontSize: '11px', color: '#7E22CE', fontWeight: 600 }}>
+                          For: <strong>{createMode === 'EXISTING_CATEGORY' ? (categories.find((c) => c.id === singleParentId)?.name || 'Select Category') : (singleName.trim() || 'New Category')}</strong>
+                        </div>
+                      </div>
+                    </div>
+                    {subcategoriesList.length > 0 && (
+                      <span style={{ fontSize: '11px', backgroundColor: '#FAF5FF', color: '#7E22CE', border: '1px solid #E9D5FF', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>
+                        {subcategoriesList.length} ready
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>
+                      Add Subcategories (Type &amp; press Enter or comma)
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        value={subInput}
+                        onChange={(e) => setSubInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ',') {
+                            e.preventDefault();
+                            handleAddSubcategoryChip();
+                          }
+                        }}
+                        placeholder="e.g. Classic Teddy Bears, Giant Bears..."
+                        style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid #E5E7EB', backgroundColor: '#FAF5FF', fontSize: '13px', outline: 'none' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddSubcategoryChip()}
+                        style={{
+                          padding: '10px 16px',
+                          borderRadius: '8px',
+                          backgroundColor: '#7E22CE',
+                          color: '#ffffff',
+                          fontWeight: 700,
+                          fontSize: '12.5px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Plus size={14} />
+                        <span>Add</span>
+                      </button>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px' }}>
+                      💡 Tip: You can paste multiple comma-separated subcategories to add them all at once!
+                    </div>
+                  </div>
+
+                  {/* Subcategories Chips Rail */}
+                  <div style={{ minHeight: '130px', padding: '12px', backgroundColor: '#FAF5FF', borderRadius: '10px', border: '1px dashed #D8B4FE', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    {subcategoriesList.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '24px 10px', color: '#8B5CF6' }}>
+                        <Layers size={24} style={{ margin: '0 auto 6px', opacity: 0.7 }} />
+                        <div style={{ fontSize: '12px', fontWeight: 600 }}>No subcategories added yet</div>
+                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Subcategories will automatically attach to this category on save</div>
                       </div>
                     ) : (
-                      <div>
-                        <Upload size={20} color="#7E22CE" style={{ margin: '0 auto 4px' }} />
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#581C87' }}>
-                          Upload image (R2 Cloud)
-                        </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '180px', overflowY: 'auto', padding: '2px' }}>
+                        {subcategoriesList.map((sub, idx) => (
+                          <div
+                            key={sub.id || idx}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '5px 10px',
+                              borderRadius: '8px',
+                              backgroundColor: '#ffffff',
+                              border: '1.5px solid #C084FC',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              color: '#581C87',
+                              boxShadow: '0 1px 3px rgba(126, 34, 206, 0.08)',
+                            }}
+                          >
+                            <span>{sub.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSubcategoryChip(idx)}
+                              style={{
+                                border: 'none',
+                                background: 'none',
+                                cursor: 'pointer',
+                                color: '#DC2626',
+                                padding: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                              }}
+                              title="Remove subcategory"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {subcategoriesList.length > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #E9D5FF', marginTop: '8px' }}>
+                        <span style={{ fontSize: '11.5px', color: '#6B7280', fontWeight: 600 }}>
+                          Total: <strong>{subcategoriesList.length} subcategories</strong>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSubcategoriesList([])}
+                          style={{ border: 'none', background: 'none', color: '#DC2626', fontSize: '11px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
+                        >
+                          Clear all
+                        </button>
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-                  Description (Optional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={singleDescription}
-                  onChange={(e) => setSingleDescription(e.target.value)}
-                  placeholder="Brief summary..."
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E5E7EB', backgroundColor: '#FAF5FF', fontSize: '13px', outline: 'none' }}
-                />
-              </div>
-
-              {singleType === 'CATEGORY' && (
-                <div
-                  onClick={() => setSingleIsFeatured((prev) => !prev)}
-                  style={{
-                    padding: '10px 12px',
-                    backgroundColor: singleIsFeatured ? '#FAF5FF' : '#F9FAFB',
-                    border: singleIsFeatured ? '1.5px solid #C084FC' : '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E1B4B', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Sparkles size={14} color={singleIsFeatured ? '#7E22CE' : '#9CA3AF'} />
-                      <span>Show in Home Navigation Bar</span>
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '2px' }}>
-                      Feature this category in the top navigation tabs.
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={singleIsFeatured}
-                    onChange={(e) => setSingleIsFeatured(e.target.checked)}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ accentColor: '#7E22CE', width: '16px', height: '16px', cursor: 'pointer' }}
-                  />
                 </div>
-              )}
+              </div>
 
+              {/* Bottom Unified Submit Action Bar */}
               <button
                 type="submit"
                 disabled={submitting}
                 style={{
-                  padding: '12px',
-                  borderRadius: '10px',
+                  padding: '14px 20px',
+                  borderRadius: '12px',
                   backgroundColor: '#7E22CE',
                   color: '#ffffff',
-                  fontWeight: 700,
-                  fontSize: '13px',
+                  fontWeight: 800,
+                  fontSize: '14px',
                   border: 'none',
                   cursor: submitting ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 12px rgba(126, 34, 206, 0.2)',
+                  boxShadow: '0 4px 14px rgba(126, 34, 206, 0.28)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.15s ease',
                 }}
               >
                 {submitting ? (
-                  <BusyButtonLabel busy busyText={editingItem ? 'Updating...' : 'Saving...'}>
-                    Saving...
+                  <BusyButtonLabel busy busyText={busyLabel}>
+                    Saving Category &amp; Subcategories...
                   </BusyButtonLabel>
-                ) : editingItem ? 'Update Item' : '+ Create Item'}
+                ) : editingItem ? (
+                  `💾 Update Category ${subcategoriesList.length > 0 ? `& Add ${subcategoriesList.length} Subcategories` : ''}`
+                ) : createMode === 'NEW_CATEGORY' ? (
+                  `💾 Save Category ${singleName.trim() ? `"${singleName.trim()}"` : ''} & ${subcategoriesList.length} Subcategories (1-Click)`
+                ) : (
+                  `💾 Save ${subcategoriesList.length || 1} Subcategories to Selected Category`
+                )}
               </button>
             </form>
           )}
