@@ -2176,8 +2176,8 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                       <div
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                          gap: '12px',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(195px, 1fr))',
+                          gap: '14px',
                         }}
                       >
                         {prod.images.map((img, imgIdx) => {
@@ -2186,16 +2186,25 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                             <div
                               key={imgIdx}
                               style={{
-                                border: img.isPrimary ? '2px solid #7E22CE' : '1px solid #E9D5FF',
-                                borderRadius: '10px',
-                                overflow: 'hidden',
+                                border: img.isPrimary ? '2px solid #7E22CE' : '1.5px solid #E9D5FF',
+                                borderRadius: '12px',
                                 backgroundColor: '#ffffff',
                                 position: 'relative',
                                 display: 'flex',
                                 flexDirection: 'column',
+                                boxShadow: '0 2px 6px rgba(107, 33, 168, 0.04)',
                               }}
                             >
-                              <div style={{ position: 'relative', height: '115px', backgroundColor: '#F9FAFB' }}>
+                              <div
+                                style={{
+                                  position: 'relative',
+                                  height: '140px',
+                                  backgroundColor: '#F9FAFB',
+                                  borderTopLeftRadius: '10px',
+                                  borderTopRightRadius: '10px',
+                                  overflow: 'hidden',
+                                }}
+                              >
                                 <img
                                   src={img.imageUrl}
                                   alt=""

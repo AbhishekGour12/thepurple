@@ -140,7 +140,7 @@ export default function SearchableColorSelect({
   const isSmall = size === 'sm';
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', zIndex: open ? 99999 : 1 }}>
       {/* Trigger Button */}
       <button
         type="button"
@@ -151,7 +151,7 @@ export default function SearchableColorSelect({
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '6px',
-          padding: isSmall ? '5px 8px' : '8px 12px',
+          padding: isSmall ? '6px 9px' : '8px 12px',
           borderRadius: '8px',
           border: selectedColor ? '1.5px solid #7E22CE' : '1px solid #CBD5E1',
           backgroundColor: selectedColor ? '#FAF5FF' : '#FFFFFF',
@@ -195,11 +195,13 @@ export default function SearchableColorSelect({
             position: 'absolute',
             top: 'calc(100% + 4px)',
             left: 0,
-            zIndex: 9999,
-            width: '260px',
+            zIndex: 99999,
+            minWidth: '220px',
+            width: 'max(100%, 220px)',
+            maxWidth: '300px',
             backgroundColor: '#FFFFFF',
             borderRadius: '12px',
-            boxShadow: '0 12px 30px rgba(15, 23, 42, 0.18)',
+            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.22)',
             border: '1.5px solid #E9D5FF',
             padding: '8px',
             display: 'flex',
