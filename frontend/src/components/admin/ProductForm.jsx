@@ -94,6 +94,7 @@ const createInitialProduct = (template = null, isEditData = null) => {
           mrp: v.mrp || '',
           salePrice: v.salePrice || '',
           stock: v.stock !== undefined ? v.stock : '0',
+          imageUrl: v.imageUrl || '',
         })) || [],
       matrixColors: [],
       matrixSizes: [],
@@ -140,6 +141,7 @@ const createInitialProduct = (template = null, isEditData = null) => {
       variants: (template.variants || []).map((v) => ({
         ...v,
         sku: v.sku ? `${v.sku}-COPY` : '',
+        imageUrl: '',
       })),
       matrixColors: [...(template.matrixColors || [])],
       matrixSizes: [...(template.matrixSizes || [])],
@@ -444,30 +446,74 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
     });
   };
 
-  // Image Upload for specific product
-  const handleFileUpload = async (e, prodIndex) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Multi-Image Upload for specific product (and optional target color/variant)
+  const handleFileUpload = async (e, prodIndex, targetColorId = null, targetVariantIdx = null) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList);
     const prod = products[prodIndex];
+    if (!prod) return;
+
     updateProduct(prodIndex, { uploadingImage: true });
+
     try {
-      const res = await adminProductApi.uploadImage(file);
-      if (res?.imageUrl) {
-        const nextImages = [
-          ...prod.images,
-          {
-            imageUrl: res.imageUrl,
+      let uploadedUrls = [];
+      if (files.length === 1) {
+        const res = await adminProductApi.uploadImage(files[0]);
+        if (res?.imageUrl) uploadedUrls.push(res.imageUrl);
+      } else {
+        try {
+          const res = await adminProductApi.uploadMultipleImages(files);
+          if (res?.images && Array.isArray(res.images)) {
+            uploadedUrls = res.images.map((img) => (typeof img === 'string' ? img : img.imageUrl)).filter(Boolean);
+          }
+        } catch {
+          for (const f of files) {
+            try {
+              const res = await adminProductApi.uploadImage(f);
+              if (res?.imageUrl) uploadedUrls.push(res.imageUrl);
+            } catch {}
+          }
+        }
+      }
+
+      if (uploadedUrls.length > 0) {
+        const nextImages = [...prod.images];
+        uploadedUrls.forEach((url, i) => {
+          nextImages.push({
+            imageUrl: url,
             altText: prod.name || 'Product Image',
-            isPrimary: prod.images.length === 0,
-            displayOrder: prod.images.length,
-            colorId: '',
-          },
-        ];
-        updateProduct(prodIndex, { images: nextImages, uploadingImage: false });
+            isPrimary: nextImages.length === 0 && i === 0,
+            displayOrder: nextImages.length,
+            colorId: targetColorId || '',
+          });
+        });
+
+        // Also update target variant's imageUrl if specified
+        let nextVariants = prod.variants;
+        if (targetVariantIdx !== null && targetVariantIdx !== undefined && nextVariants[targetVariantIdx]) {
+          nextVariants = [...nextVariants];
+          if (!nextVariants[targetVariantIdx].imageUrl || nextVariants[targetVariantIdx].imageUrl.trim() === '') {
+            nextVariants[targetVariantIdx] = {
+              ...nextVariants[targetVariantIdx],
+              imageUrl: uploadedUrls[0],
+            };
+          }
+        }
+
+        updateProduct(prodIndex, {
+          images: nextImages,
+          variants: nextVariants,
+          uploadingImage: false,
+        });
+      } else {
+        updateProduct(prodIndex, { uploadingImage: false });
       }
     } catch (err) {
       alert(err.message || 'Image upload failed');
       updateProduct(prodIndex, { uploadingImage: false });
+    } finally {
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -1895,9 +1941,23 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
 
                   {/* Section 6: Product Images (Clean upload/add, empty on copied form) */}
                   <div style={sectionStyle}>
-                    <div style={sectionHeaderStyle}>
-                      <ImageIcon size={18} style={{ color: '#7E22CE' }} />
-                      <span>6. Product Images (Fresh Upload for this Product)</span>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '14px',
+                        flexWrap: 'wrap',
+                        gap: '10px',
+                      }}
+                    >
+                      <div style={sectionHeaderStyle}>
+                        <ImageIcon size={18} style={{ color: '#7E22CE' }} />
+                        <span>6. Product Images Gallery (Supports Multi-Select Upload)</span>
+                      </div>
+                      <span style={{ fontSize: '11.5px', color: '#6B7280', fontWeight: 600 }}>
+                        {prod.images.length} {prod.images.length === 1 ? 'image' : 'images'} added
+                      </span>
                     </div>
 
                     <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
@@ -1928,20 +1988,23 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '6px',
-                          padding: '8px 16px',
+                          gap: '8px',
+                          padding: '8px 18px',
                           borderRadius: '8px',
                           backgroundColor: '#7E22CE',
                           color: '#ffffff',
                           fontWeight: 700,
                           fontSize: '12.5px',
                           cursor: 'pointer',
+                          boxShadow: '0 2px 5px rgba(126, 34, 206, 0.2)',
+                          transition: 'all 0.15s ease',
                         }}
                       >
-                        <Upload size={14} />
-                        <span>{prod.uploadingImage ? 'Uploading...' : 'Upload Image File'}</span>
+                        <Upload size={15} />
+                        <span>{prod.uploadingImage ? 'Uploading Selected Images...' : 'Upload Image Files (Select Multiple)'}</span>
                         <input
                           type="file"
+                          multiple
                           accept="image/*"
                           onChange={(e) => handleFileUpload(e, pIdx)}
                           style={{ display: 'none' }}
@@ -1952,7 +2015,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                     {prod.images.length === 0 ? (
                       <div
                         style={{
-                          padding: '20px',
+                          padding: '24px 20px',
                           backgroundColor: '#FAF5FF',
                           borderRadius: '10px',
                           textAlign: 'center',
@@ -1961,112 +2024,150 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                           border: '1.5px dashed #D8B4FE',
                         }}
                       >
-                        📷 No images added yet for this product. Upload image files or paste URLs above.
+                        📷 No images added yet. Click &quot;Upload Image Files&quot; above to select multiple images at once, or paste image URLs.
                       </div>
                     ) : (
                       <div
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
                           gap: '12px',
                         }}
                       >
-                        {prod.images.map((img, imgIdx) => (
-                          <div
-                            key={imgIdx}
-                            style={{
-                              border: img.isPrimary ? '2px solid #7E22CE' : '1px solid #E9D5FF',
-                              borderRadius: '10px',
-                              overflow: 'hidden',
-                              backgroundColor: '#ffffff',
-                              position: 'relative',
-                            }}
-                          >
-                            <img
-                              src={img.imageUrl}
-                              alt=""
-                              style={{ width: '100%', height: '110px', objectFit: 'cover' }}
-                            />
+                        {prod.images.map((img, imgIdx) => {
+                          const assignedColor = colors.find((c) => c.id === img.colorId);
+                          return (
                             <div
+                              key={imgIdx}
                               style={{
-                                padding: '6px 8px 4px',
+                                border: img.isPrimary ? '2px solid #7E22CE' : '1px solid #E9D5FF',
+                                borderRadius: '10px',
+                                overflow: 'hidden',
+                                backgroundColor: '#ffffff',
+                                position: 'relative',
                                 display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
+                                flexDirection: 'column',
                               }}
                             >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const nextImgs = prod.images.map((m, k) => ({
-                                    ...m,
-                                    isPrimary: k === imgIdx,
-                                  }));
-                                  updateProduct(pIdx, { images: nextImgs });
-                                }}
+                              <div style={{ position: 'relative', height: '115px', backgroundColor: '#F9FAFB' }}>
+                                <img
+                                  src={img.imageUrl}
+                                  alt=""
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                                {assignedColor && (
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      top: '6px',
+                                      left: '6px',
+                                      backgroundColor: 'rgba(255, 255, 255, 0.92)',
+                                      padding: '2px 6px',
+                                      borderRadius: '6px',
+                                      fontSize: '10px',
+                                      fontWeight: 800,
+                                      color: '#7E22CE',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        borderRadius: '50%',
+                                        backgroundColor: assignedColor.hexCode,
+                                        display: 'inline-block',
+                                        border: '1px solid #cbd5e1',
+                                      }}
+                                    />
+                                    <span>{assignedColor.name}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div
                                 style={{
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  border: 'none',
-                                  background: 'none',
-                                  cursor: 'pointer',
-                                  color: img.isPrimary ? '#7E22CE' : '#9CA3AF',
+                                  padding: '6px 8px 4px',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
                                 }}
                               >
-                                {img.isPrimary ? '★ Primary' : 'Set Primary'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const nextImgs = prod.images.filter((_, k) => k !== imgIdx);
-                                  updateProduct(pIdx, { images: nextImgs });
-                                }}
-                                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#DC2626' }}
-                                title="Remove Image"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextImgs = prod.images.map((m, k) => ({
+                                      ...m,
+                                      isPrimary: k === imgIdx,
+                                    }));
+                                    updateProduct(pIdx, { images: nextImgs });
+                                  }}
+                                  style={{
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    border: 'none',
+                                    background: 'none',
+                                    cursor: 'pointer',
+                                    color: img.isPrimary ? '#7E22CE' : '#9CA3AF',
+                                  }}
+                                >
+                                  {img.isPrimary ? '★ Primary' : 'Set Primary'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextImgs = prod.images.filter((_, k) => k !== imgIdx);
+                                    updateProduct(pIdx, { images: nextImgs });
+                                  }}
+                                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#DC2626' }}
+                                  title="Remove Image"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
 
-                            {/* Color Tag Selector per Image */}
-                            <div style={{ padding: '0 8px 8px' }}>
-                              <select
-                                value={img.colorId || ''}
-                                onChange={(e) => {
-                                  const nextImgs = prod.images.map((m, k) =>
-                                    k === imgIdx ? { ...m, colorId: e.target.value } : m
-                                  );
-                                  updateProduct(pIdx, { images: nextImgs });
-                                }}
-                                style={{
-                                  width: '100%',
-                                  padding: '4px 6px',
-                                  borderRadius: '6px',
-                                  border: img.colorId ? '1.5px solid #7E22CE' : '1px solid #D1D5DB',
-                                  backgroundColor: img.colorId ? '#FAF5FF' : '#FFFFFF',
-                                  fontSize: '11px',
-                                  color: img.colorId ? '#6B21A8' : '#4B5563',
-                                  fontWeight: img.colorId ? 700 : 500,
-                                  outline: 'none',
-                                  cursor: 'pointer',
-                                }}
-                                title="Tag image to a specific color or keep as general for all colors"
-                              >
-                                <option value="">All Colors / General</option>
-                                {colors.map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    🎨 {c.name}
-                                  </option>
-                                ))}
-                              </select>
+                              {/* Color Tag Selector per Image */}
+                              <div style={{ padding: '0 8px 8px' }}>
+                                <select
+                                  value={img.colorId || ''}
+                                  onChange={(e) => {
+                                    const nextImgs = prod.images.map((m, k) =>
+                                      k === imgIdx ? { ...m, colorId: e.target.value } : m
+                                    );
+                                    updateProduct(pIdx, { images: nextImgs });
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '4px 6px',
+                                    borderRadius: '6px',
+                                    border: img.colorId ? '1.5px solid #7E22CE' : '1px solid #D1D5DB',
+                                    backgroundColor: img.colorId ? '#FAF5FF' : '#FFFFFF',
+                                    fontSize: '11px',
+                                    color: img.colorId ? '#6B21A8' : '#4B5563',
+                                    fontWeight: img.colorId ? 700 : 500,
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                  }}
+                                  title="Tag image to a specific color (Amazon style) or keep as general for all colors"
+                                >
+                                  <option value="">All Colors / General</option>
+                                  {colors.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      🎨 {c.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
 
-                  {/* Section 7: Variants Matrix */}
+                  {/* Section 7: Variants Matrix (Amazon Style with Variant Images & Spacious Clean Selectors) */}
                   <div style={sectionStyle}>
                     <div
                       style={{
@@ -2080,7 +2181,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                     >
                       <div style={sectionHeaderStyle}>
                         <Palette size={18} style={{ color: '#7E22CE' }} />
-                        <span>7. Variants Matrix (Visual Colors & Sizes)</span>
+                        <span>7. Variants Matrix (Amazon-Style Color & Size Variations with Images)</span>
                       </div>
 
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -2161,6 +2262,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                               mrp: prod.price || '',
                               salePrice: prod.salePrice || '',
                               stock: '10',
+                              imageUrl: '',
                             };
                             updateProduct(pIdx, { variants: [...prod.variants, newV] });
                           }}
@@ -2178,27 +2280,28 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                             gap: '4px',
                           }}
                         >
-                          <Plus size={13} /> Add Variant
+                          <Plus size={13} /> Add Variant Row
                         </button>
                       </div>
                     </div>
 
-                    {/* Direct Inline Quick Add Strip */}
+                    {/* Direct Inline Quick Add Strip (Spacious, Clean, Uncluttered) */}
                     <div
                       style={{
-                        padding: '12px 14px',
+                        padding: '14px 16px',
                         backgroundColor: '#FFFFFF',
                         borderRadius: '12px',
                         border: '1.5px solid #E9D5FF',
-                        marginBottom: '14px',
+                        marginBottom: '16px',
+                        boxShadow: '0 1px 3px rgba(126, 34, 206, 0.04)',
                       }}
                     >
                       <div
                         style={{
-                          fontSize: '12px',
+                          fontSize: '12.5px',
                           fontWeight: 800,
                           color: '#581C87',
-                          marginBottom: '8px',
+                          marginBottom: '10px',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px',
@@ -2208,46 +2311,48 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                         <span>Direct Quick-Add (Instant Database Save & Real-Time Sync):</span>
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
                         {/* Quick Add Color Box */}
                         <div
                           style={{
                             backgroundColor: '#FAF5FF',
-                            padding: '8px 10px',
-                            borderRadius: '8px',
+                            padding: '10px 12px',
+                            borderRadius: '10px',
                             border: '1px solid #E9D5FF',
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '6px',
+                            gap: '8px',
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#7E22CE', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 800, color: '#7E22CE', whiteSpace: 'nowrap' }}>
                               + Color:
                             </span>
                             <input
                               type="text"
                               value={quickColorName}
                               onChange={(e) => setQuickColorName(e.target.value)}
-                              placeholder="e.g. Emerald Green / Gold"
-                              style={{ ...inputStyle, padding: '5px 8px', fontSize: '11.5px', flex: 1, backgroundColor: '#fff' }}
+                              placeholder="e.g. Emerald Green / Rose Gold"
+                              style={{ ...inputStyle, padding: '7px 10px', fontSize: '12px', flex: 1, backgroundColor: '#fff', height: '36px' }}
                             />
                             <label
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '3px',
-                                padding: '2px 5px',
+                                padding: '4px 6px',
                                 backgroundColor: '#fff',
                                 border: '1px solid #CBD5E1',
-                                borderRadius: '6px',
+                                borderRadius: '8px',
                                 cursor: 'pointer',
+                                height: '36px',
                               }}
+                              title="Pick Hex Color"
                             >
                               <span
                                 style={{
-                                  width: '16px',
-                                  height: '16px',
+                                  width: '20px',
+                                  height: '20px',
                                   borderRadius: '50%',
                                   backgroundColor: quickColorHex,
                                   border: '1px solid #94A3B8',
@@ -2266,17 +2371,19 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                               onClick={(e) => handleQuickAddColor(e, pIdx)}
                               disabled={quickColorLoading || !quickColorName.trim()}
                               style={{
-                                padding: '5px 10px',
-                                borderRadius: '6px',
+                                padding: '7px 14px',
+                                borderRadius: '8px',
                                 backgroundColor: quickColorSuccess ? '#16A34A' : '#7E22CE',
                                 color: '#fff',
-                                fontSize: '11.5px',
+                                fontSize: '12px',
                                 fontWeight: 700,
                                 border: 'none',
                                 cursor: 'pointer',
+                                height: '36px',
+                                whiteSpace: 'nowrap',
                               }}
                             >
-                              {quickColorLoading ? '...' : quickColorSuccess ? '✓' : '+ Add'}
+                              {quickColorLoading ? '...' : quickColorSuccess ? '✓ Saved' : '+ Add'}
                             </button>
                           </div>
                         </div>
@@ -2285,85 +2392,115 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                         <div
                           style={{
                             backgroundColor: '#FAF5FF',
-                            padding: '8px 10px',
-                            borderRadius: '8px',
+                            padding: '10px 12px',
+                            borderRadius: '10px',
                             border: '1px solid #E9D5FF',
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '6px',
+                            gap: '8px',
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#7E22CE', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 800, color: '#7E22CE', whiteSpace: 'nowrap' }}>
                               + Size:
                             </span>
                             <input
                               type="text"
                               value={quickSizeName}
                               onChange={(e) => setQuickSizeName(e.target.value)}
-                              placeholder='e.g. 18" (45.7 cm)'
-                              style={{ ...inputStyle, padding: '5px 8px', fontSize: '11.5px', flex: 1, backgroundColor: '#fff' }}
+                              placeholder='e.g. 18" (45.7 cm) or Free Size'
+                              style={{ ...inputStyle, padding: '7px 10px', fontSize: '12px', flex: 1, backgroundColor: '#fff', height: '36px' }}
                             />
                             <input
                               type="text"
                               value={quickSizeCode}
                               onChange={(e) => setQuickSizeCode(e.target.value)}
                               placeholder="Code"
-                              style={{ ...inputStyle, padding: '5px 6px', fontSize: '11.5px', width: '70px', backgroundColor: '#fff' }}
+                              style={{ ...inputStyle, padding: '7px 8px', fontSize: '12px', width: '75px', backgroundColor: '#fff', height: '36px' }}
                             />
                             <button
                               type="button"
                               onClick={(e) => handleQuickAddSize(e, pIdx)}
                               disabled={quickSizeLoading || !quickSizeName.trim()}
                               style={{
-                                padding: '5px 10px',
-                                borderRadius: '6px',
+                                padding: '7px 14px',
+                                borderRadius: '8px',
                                 backgroundColor: quickSizeSuccess ? '#16A34A' : '#7E22CE',
                                 color: '#fff',
-                                fontSize: '11.5px',
+                                fontSize: '12px',
                                 fontWeight: 700,
                                 border: 'none',
                                 cursor: 'pointer',
+                                height: '36px',
+                                whiteSpace: 'nowrap',
                               }}
                             >
-                              {quickSizeLoading ? '...' : quickSizeSuccess ? '✓' : '+ Add'}
+                              {quickSizeLoading ? '...' : quickSizeSuccess ? '✓ Saved' : '+ Add'}
                             </button>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Quick Matrix Combination Generator */}
+                    {/* Quick Matrix Combination Generator with Spacious, Clean, High Boxes */}
                     <div
                       style={{
-                        padding: '12px',
+                        padding: '16px',
                         backgroundColor: '#FAF5FF',
-                        borderRadius: '10px',
-                        border: '1px solid #E9D5FF',
-                        marginBottom: '14px',
+                        borderRadius: '12px',
+                        border: '1.5px solid #E9D5FF',
+                        marginBottom: '16px',
                       }}
                     >
                       <div
                         style={{
-                          fontSize: '12px',
-                          fontWeight: 700,
+                          fontSize: '13px',
+                          fontWeight: 800,
                           color: '#2E1065',
-                          marginBottom: '8px',
+                          marginBottom: '12px',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px',
                         }}
                       >
-                        <Zap size={14} color="#D97706" />
+                        <Zap size={16} color="#D97706" />
                         <span>Quick Matrix Generator: Select colors & sizes to auto-generate all variants</span>
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '10px', alignItems: 'center' }}>
-                        <div>
-                          <span style={{ fontSize: '11px', color: '#6B7280', display: 'block', marginBottom: '3px' }}>
-                            Colors:
-                          </span>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxHeight: '50px', overflowY: 'auto' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '14px', alignItems: 'flex-start' }}>
+                        {/* Colors Multi-Select Container (High, Spacious & Clean) */}
+                        <div
+                          style={{
+                            backgroundColor: '#FFFFFF',
+                            border: '1.5px solid #E9D5FF',
+                            borderRadius: '10px',
+                            padding: '10px 12px',
+                            minHeight: '120px',
+                            maxHeight: '180px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' }}>
+                              🎨 Available Colors ({colors.length})
+                            </span>
+                            {prod.matrixColors.length > 0 && (
+                              <span style={{ fontSize: '11px', fontWeight: 700, color: '#7E22CE' }}>
+                                {prod.matrixColors.length} selected
+                              </span>
+                            )}
+                          </div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: '6px',
+                              overflowY: 'auto',
+                              flex: 1,
+                              paddingRight: '4px',
+                            }}
+                          >
                             {colors.map((c) => {
                               const isSelected = prod.matrixColors.includes(c.id);
                               return (
@@ -2379,36 +2516,69 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                   style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    gap: '3px',
-                                    padding: '2px 7px',
-                                    borderRadius: '10px',
+                                    gap: '6px',
+                                    padding: '5px 12px',
+                                    borderRadius: '16px',
                                     border: isSelected ? '1.5px solid #7E22CE' : '1px solid #E5E7EB',
-                                    backgroundColor: isSelected ? '#7E22CE' : '#ffffff',
+                                    backgroundColor: isSelected ? '#7E22CE' : '#FAF5FF',
                                     color: isSelected ? '#ffffff' : '#374151',
-                                    fontSize: '10.5px',
+                                    fontSize: '11.5px',
+                                    fontWeight: isSelected ? 700 : 500,
                                     cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
                                   }}
                                 >
                                   <span
                                     style={{
-                                      width: '7px',
-                                      height: '7px',
+                                      width: '10px',
+                                      height: '10px',
                                       borderRadius: '50%',
                                       backgroundColor: c.hexCode,
+                                      border: '1px solid #CBD5E1',
+                                      display: 'inline-block',
                                     }}
                                   />
                                   <span>{c.name}</span>
+                                  {isSelected && <Check size={12} />}
                                 </button>
                               );
                             })}
                           </div>
                         </div>
 
-                        <div>
-                          <span style={{ fontSize: '11px', color: '#6B7280', display: 'block', marginBottom: '3px' }}>
-                            Sizes:
-                          </span>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxHeight: '50px', overflowY: 'auto' }}>
+                        {/* Sizes Multi-Select Container (High, Spacious & Clean) */}
+                        <div
+                          style={{
+                            backgroundColor: '#FFFFFF',
+                            border: '1.5px solid #E9D5FF',
+                            borderRadius: '10px',
+                            padding: '10px 12px',
+                            minHeight: '120px',
+                            maxHeight: '180px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' }}>
+                              📐 Available Sizes ({sizes.length})
+                            </span>
+                            {prod.matrixSizes.length > 0 && (
+                              <span style={{ fontSize: '11px', fontWeight: 700, color: '#7E22CE' }}>
+                                {prod.matrixSizes.length} selected
+                              </span>
+                            )}
+                          </div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: '6px',
+                              overflowY: 'auto',
+                              flex: 1,
+                              paddingRight: '4px',
+                            }}
+                          >
                             {sizes.map((s) => {
                               const isSelected = prod.matrixSizes.includes(s.id);
                               return (
@@ -2422,16 +2592,22 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                     updateProduct(pIdx, { matrixSizes: next });
                                   }}
                                   style={{
-                                    padding: '2px 7px',
-                                    borderRadius: '10px',
+                                    padding: '5px 12px',
+                                    borderRadius: '16px',
                                     border: isSelected ? '1.5px solid #7E22CE' : '1px solid #E5E7EB',
-                                    backgroundColor: isSelected ? '#7E22CE' : '#ffffff',
+                                    backgroundColor: isSelected ? '#7E22CE' : '#FAF5FF',
                                     color: isSelected ? '#ffffff' : '#374151',
-                                    fontSize: '10.5px',
+                                    fontSize: '11.5px',
+                                    fontWeight: isSelected ? 700 : 500,
                                     cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    transition: 'all 0.15s ease',
                                   }}
                                 >
-                                  {s.name}
+                                  <span>{s.name}</span>
+                                  {isSelected && <Check size={12} />}
                                 </button>
                               );
                             })}
@@ -2444,51 +2620,59 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                             onClick={() => handleGenerateMatrix(pIdx)}
                             disabled={prod.matrixColors.length === 0 && prod.matrixSizes.length === 0}
                             style={{
-                              padding: '7px 12px',
-                              borderRadius: '8px',
+                              padding: '12px 18px',
+                              borderRadius: '10px',
                               backgroundColor: '#7E22CE',
                               color: '#ffffff',
-                              fontSize: '11.5px',
-                              fontWeight: 700,
+                              fontSize: '13px',
+                              fontWeight: 800,
                               border: 'none',
                               cursor: 'pointer',
                               opacity: prod.matrixColors.length === 0 && prod.matrixSizes.length === 0 ? 0.5 : 1,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '4px',
+                              boxShadow: '0 2px 6px rgba(126, 34, 206, 0.25)',
                             }}
                           >
-                            Generate
+                            <Sparkles size={16} />
+                            <span>Generate Variants</span>
                           </button>
                         </div>
                       </div>
                     </div>
 
-                    {/* Variants Table */}
+                    {/* Variants Table (Amazon Style: Image Gallery Upload, Color, Size, Pricing) */}
                     {prod.variants.length === 0 ? (
                       <div
                         style={{
-                          padding: '16px',
+                          padding: '20px',
                           backgroundColor: '#FAF5FF',
                           borderRadius: '10px',
                           textAlign: 'center',
-                          color: '#9CA3AF',
-                          fontSize: '12.5px',
+                          color: '#6B7280',
+                          fontSize: '13px',
+                          border: '1px dashed #E9D5FF',
                         }}
                       >
-                        No variants configured. Product will use the base SKU and price.
+                        ⚡ No variants configured. The product will use the base price, stock, and default images.
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div
                           style={{
                             display: 'grid',
-                            gridTemplateColumns: '1.2fr 1.4fr 1.3fr 0.9fr 1.1fr 0.8fr 32px',
+                            gridTemplateColumns: '76px 1.2fr 1.3fr 1.3fr 0.9fr 1.1fr 0.8fr 32px',
                             gap: '8px',
                             padding: '4px 10px',
                             fontSize: '11px',
-                            fontWeight: 700,
+                            fontWeight: 800,
                             color: '#6B7280',
                             textTransform: 'uppercase',
                           }}
                         >
+                          <span>Photo</span>
                           <span>Variant SKU</span>
                           <span>Color</span>
                           <span>Size / Dim</span>
@@ -2500,20 +2684,64 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
 
                         {prod.variants.map((v, vIdx) => {
                           const selectedColor = colors.find((c) => c.id === v.colorId);
+                          // Images tagged for this color
+                          const colorImages = prod.images.filter((img) => v.colorId && img.colorId === v.colorId);
+                          const primaryImgUrl = v.imageUrl || colorImages[0]?.imageUrl || prod.images.find((i) => i.isPrimary)?.imageUrl || prod.images[0]?.imageUrl;
+
                           return (
                             <div
                               key={vIdx}
                               style={{
                                 display: 'grid',
-                                gridTemplateColumns: '1.2fr 1.4fr 1.3fr 0.9fr 1.1fr 0.8fr 32px',
+                                gridTemplateColumns: '76px 1.2fr 1.3fr 1.3fr 0.9fr 1.1fr 0.8fr 32px',
                                 gap: '8px',
                                 alignItems: 'center',
-                                padding: '10px',
+                                padding: '10px 12px',
                                 backgroundColor: '#FAF5FF',
-                                borderRadius: '8px',
+                                borderRadius: '10px',
                                 border: '1px solid #E9D5FF',
                               }}
                             >
+                              {/* Amazon-style Variant Image / Color Gallery Upload */}
+                              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                                <label
+                                  style={{
+                                    width: '42px',
+                                    height: '42px',
+                                    borderRadius: '8px',
+                                    border: primaryImgUrl ? '1.5px solid #7E22CE' : '1.5px dashed #C084FC',
+                                    backgroundColor: '#FFFFFF',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    overflow: 'hidden',
+                                    cursor: 'pointer',
+                                    position: 'relative',
+                                  }}
+                                  title="Click to upload/set images for this variant & color (Supports multiple files)"
+                                >
+                                  {primaryImgUrl ? (
+                                    <img
+                                      src={primaryImgUrl}
+                                      alt=""
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                  ) : (
+                                    <Upload size={16} color="#7E22CE" />
+                                  )}
+                                  <input
+                                    type="file"
+                                    multiple
+                                    accept="image/*"
+                                    onChange={(e) => handleFileUpload(e, pIdx, v.colorId, vIdx)}
+                                    style={{ display: 'none' }}
+                                  />
+                                </label>
+                                <span style={{ fontSize: '9.5px', fontWeight: 700, color: '#7E22CE', whiteSpace: 'nowrap' }}>
+                                  {colorImages.length > 0 ? `${colorImages.length} imgs` : '+ Photo'}
+                                </span>
+                              </div>
+
                               <input
                                 type="text"
                                 value={v.sku}
@@ -2625,8 +2853,9 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                   updateProduct(pIdx, { variants: nextV });
                                 }}
                                 style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#DC2626' }}
+                                title="Remove Variant"
                               >
-                                <Trash2 size={14} />
+                                <Trash2 size={15} />
                               </button>
                             </div>
                           );

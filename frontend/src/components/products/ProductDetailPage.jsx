@@ -1168,7 +1168,7 @@ export default function ProductDetailPage({ slug }) {
               </button>
             </div>
 
-            {/* Variant Option 1: Colors (If Available) */}
+            {/* Variant Option 1: Colors (Amazon-Style Visual Swatches with Variant Preview Images) */}
             {availableColors.length > 0 && (
               <div>
                 <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#374151', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1177,9 +1177,11 @@ export default function ProductDetailPage({ slug }) {
                     {availableColors.find((c) => c.id === selectedColorId)?.name || 'Select Color'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   {availableColors.map((c) => {
                     const isSelected = c.id === selectedColorId;
+                    const colorImg = c.variantImg || galleryImageObjects.find((img) => img.colorId === c.id)?.imageUrl;
+
                     return (
                       <button
                         key={c.id}
@@ -1188,19 +1190,44 @@ export default function ProductDetailPage({ slug }) {
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          borderRadius: '20px',
-                          border: isSelected ? '2px solid #7E22CE' : '1px solid #E5E7EB',
+                          gap: '8px',
+                          padding: colorImg ? '4px 12px 4px 6px' : '6px 14px',
+                          borderRadius: '12px',
+                          border: isSelected ? '2px solid #7E22CE' : '1.5px solid #E5E7EB',
                           backgroundColor: isSelected ? '#FAF5FF' : '#ffffff',
                           color: isSelected ? '#7E22CE' : '#374151',
-                          fontSize: '12px',
+                          fontSize: '12.5px',
                           fontWeight: isSelected ? 800 : 600,
                           cursor: 'pointer',
-                          boxShadow: isSelected ? '0 2px 6px rgba(126, 34, 206, 0.15)' : 'none',
+                          boxShadow: isSelected ? '0 2px 8px rgba(126, 34, 206, 0.18)' : '0 1px 2px rgba(0,0,0,0.03)',
+                          transition: 'all 0.15s ease',
                         }}
                       >
-                        <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: c.hexCode, border: '1px solid #ccc', flexShrink: 0 }} />
+                        {colorImg ? (
+                          <img
+                            src={colorImg}
+                            alt={c.name}
+                            style={{
+                              width: '30px',
+                              height: '30px',
+                              borderRadius: '8px',
+                              objectFit: 'cover',
+                              border: isSelected ? '1.5px solid #7E22CE' : '1px solid #CBD5E1',
+                              flexShrink: 0,
+                            }}
+                          />
+                        ) : (
+                          <span
+                            style={{
+                              width: '14px',
+                              height: '14px',
+                              borderRadius: '50%',
+                              backgroundColor: c.hexCode,
+                              border: '1px solid #CBD5E1',
+                              flexShrink: 0,
+                            }}
+                          />
+                        )}
                         <span>{c.name}</span>
                       </button>
                     );
