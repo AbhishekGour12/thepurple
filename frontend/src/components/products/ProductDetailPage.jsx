@@ -712,6 +712,25 @@ export default function ProductDetailPage({ slug }) {
           margin-top: 6px;
         }
 
+        /* Related Products Grid */
+        .pdp-related-products-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap: 16px;
+        }
+        @media (max-width: 640px) {
+          .pdp-related-products-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 12px !important;
+          }
+        }
+        @media (max-width: 360px) {
+          .pdp-related-products-grid {
+            grid-template-columns: 1fr !important;
+            gap: 12px !important;
+          }
+        }
+
         /* Tablet Breakpoint (max-width: 1120px) */
         @media (max-width: 1120px) {
           .pdp-layout-grid {
@@ -1973,7 +1992,7 @@ export default function ProductDetailPage({ slug }) {
               </Link>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
+            <div className="pdp-related-products-grid">
               {relatedProducts.map((rel) => {
                 const relImg = rel.images?.[0]?.imageUrl || '/images/storefront/cat-chains.jpg';
                 const relPrice = parseFloat(rel.salePrice || rel.price || 0);
@@ -1997,13 +2016,47 @@ export default function ProductDetailPage({ slug }) {
                       transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                     }}
                   >
-                    <div style={{ position: 'relative', height: '180px', backgroundColor: '#FAF5FF' }}>
+                    <div
+                      style={{
+                        position: 'relative',
+                        width: '100%',
+                        aspectRatio: '1 / 1',
+                        backgroundColor: '#FAF5FF',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
                       {relBadge && (
-                        <div style={{ position: 'absolute', top: '10px', left: '10px', backgroundColor: '#7E22CE', color: '#fff', fontSize: '10px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', zIndex: 2 }}>
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: '8px',
+                            left: '8px',
+                            backgroundColor: '#7E22CE',
+                            color: '#fff',
+                            fontSize: '10px',
+                            fontWeight: 800,
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            zIndex: 2,
+                          }}
+                        >
                           {relBadge}
                         </div>
                       )}
-                      <img src={relImg} alt={rel.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img
+                        src={relImg}
+                        alt={rel.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          objectPosition: 'center',
+                          transition: 'transform 0.25s ease',
+                        }}
+                      />
                     </div>
                     <div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                       <h4 style={{ fontSize: '12.5px', fontWeight: 700, color: '#1E1B4B', margin: '0 0 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
