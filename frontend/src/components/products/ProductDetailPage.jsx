@@ -295,24 +295,36 @@ export default function ProductDetailPage({ slug }) {
   const availableSizes = useMemo(() => {
     if (!product?.variants) return [];
     const map = new Map();
-    product.variants.forEach((v) => {
+    const matchingVariants = selectedColorId
+      ? product.variants.filter((v) => !v.colorId || v.colorId === selectedColorId)
+      : product.variants;
+
+    const targetVariants = matchingVariants.some((v) => v.size) ? matchingVariants : product.variants;
+
+    targetVariants.forEach((v) => {
       if (v.size && !map.has(v.size.id)) {
         map.set(v.size.id, v.size);
       }
     });
     return Array.from(map.values());
-  }, [product]);
+  }, [product, selectedColorId]);
 
   // Current active matching variant
   const activeVariant = useMemo(() => {
     if (!product?.variants || product.variants.length === 0) return null;
-    return (
-      product.variants.find((v) => {
-        const matchesColor = selectedColorId ? v.colorId === selectedColorId : true;
-        const matchesSize = selectedSizeId ? v.sizeId === selectedSizeId : true;
-        return matchesColor && matchesSize;
-      }) || product.variants[0]
-    );
+    const exactMatch = product.variants.find((v) => {
+      const matchesColor = selectedColorId ? v.colorId === selectedColorId : true;
+      const matchesSize = selectedSizeId ? v.sizeId === selectedSizeId : true;
+      return matchesColor && matchesSize;
+    });
+    if (exactMatch) return exactMatch;
+
+    if (selectedColorId) {
+      const colorMatch = product.variants.find((v) => v.colorId === selectedColorId);
+      if (colorMatch) return colorMatch;
+    }
+
+    return product.variants[0];
   }, [product, selectedColorId, selectedSizeId]);
 
   // Gallery Images Array (Preserves stable fixed order without jumping/re-arranging)
@@ -357,9 +369,20 @@ export default function ProductDetailPage({ slug }) {
     return galleryImages[selectedImageIdx] || galleryImages[0] || '/images/storefront/cat-chains.jpg';
   }, [galleryImages, selectedImageIdx]);
 
-  // Color Switcher Handler: switches color & smoothly slides gallery to the image of that color
+  // Color Switcher Handler: switches color, syncs available sizes/price/stock & flips gallery to that color's image
   const handleSelectColor = (colorId) => {
     setSelectedColorId(colorId);
+
+    // Auto-sync size for this color if previous size doesn't exist on new color
+    if (product?.variants && product.variants.length > 0) {
+      const colorVariants = product.variants.filter((v) => v.colorId === colorId);
+      if (colorVariants.length > 0) {
+        const stillValidSize = colorVariants.some((v) => v.sizeId === selectedSizeId);
+        if (!stillValidSize && colorVariants[0].sizeId) {
+          setSelectedSizeId(colorVariants[0].sizeId);
+        }
+      }
+    }
 
     // Find the first image in gallery assigned to this color
     const colorImgIdx = galleryImageObjects.findIndex((img) => img.colorId === colorId);
@@ -1177,11 +1200,54 @@ export default function ProductDetailPage({ slug }) {
                     {availableColors.find((c) => c.id === selectedColorId)?.name || 'Select Color'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                   {availableColors.map((c) => {
                     const isSelected = c.id === selectedColorId;
                     const colorImg = c.variantImg || galleryImageObjects.find((img) => img.colorId === c.id)?.imageUrl;
 
+                    // 1. If variant has an image: Render ONLY the image thumbnail (Amazon Style)
+                    if (colorImg) {
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleSelectColor(c.id)}
+                          title={c.name}
+                          style={{
+                            width: '56px',
+                            height: '56px',
+                            borderRadius: '10px',
+                            border: isSelected ? '2.5px solid #7E22CE' : '1.5px solid #E5E7EB',
+                            backgroundColor: '#ffffff',
+                            padding: '2px',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: isSelected
+                              ? '0 0 0 1.5px #7E22CE, 0 4px 12px rgba(126, 34, 206, 0.25)'
+                              : '0 1px 3px rgba(0,0,0,0.04)',
+                            transform: isSelected ? 'scale(1.05)' : 'scale(1)',
+                            transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+                          }}
+                        >
+                          <img
+                            src={colorImg}
+                            alt={c.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              borderRadius: '7px',
+                            }}
+                          />
+                        </button>
+                      );
+                    }
+
+                    // 2. If no variant image exists: Render color circle + color name
                     return (
                       <button
                         key={c.id}
@@ -1191,8 +1257,8 @@ export default function ProductDetailPage({ slug }) {
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '8px',
-                          padding: colorImg ? '4px 12px 4px 6px' : '6px 14px',
-                          borderRadius: '12px',
+                          padding: '6px 14px',
+                          borderRadius: '20px',
                           border: isSelected ? '2px solid #7E22CE' : '1.5px solid #E5E7EB',
                           backgroundColor: isSelected ? '#FAF5FF' : '#ffffff',
                           color: isSelected ? '#7E22CE' : '#374151',
@@ -1203,31 +1269,16 @@ export default function ProductDetailPage({ slug }) {
                           transition: 'all 0.15s ease',
                         }}
                       >
-                        {colorImg ? (
-                          <img
-                            src={colorImg}
-                            alt={c.name}
-                            style={{
-                              width: '30px',
-                              height: '30px',
-                              borderRadius: '8px',
-                              objectFit: 'cover',
-                              border: isSelected ? '1.5px solid #7E22CE' : '1px solid #CBD5E1',
-                              flexShrink: 0,
-                            }}
-                          />
-                        ) : (
-                          <span
-                            style={{
-                              width: '14px',
-                              height: '14px',
-                              borderRadius: '50%',
-                              backgroundColor: c.hexCode,
-                              border: '1px solid #CBD5E1',
-                              flexShrink: 0,
-                            }}
-                          />
-                        )}
+                        <span
+                          style={{
+                            width: '14px',
+                            height: '14px',
+                            borderRadius: '50%',
+                            backgroundColor: c.hexCode || '#E5E7EB',
+                            border: '1px solid #CBD5E1',
+                            flexShrink: 0,
+                          }}
+                        />
                         <span>{c.name}</span>
                       </button>
                     );
