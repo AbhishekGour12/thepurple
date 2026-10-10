@@ -224,7 +224,7 @@ class ShiprocketService {
         billing_pincode: String(order.pincode || '110001'),
         billing_state: order.state || 'State',
         billing_country: 'India',
-        billing_email: order.customerEmail || 'customer@thepurple.online',
+        billing_email: order.customerEmail || 'nowthepurple25@gmail.com',
         billing_phone: order.customerMobile || '9999999999',
         shipping_is_billing: true,
         order_items: items,

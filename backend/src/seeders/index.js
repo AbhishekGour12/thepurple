@@ -28,8 +28,8 @@ export const runSeeds = async () => {
       await User.bulkCreate([
         {
           name: 'Super Admin',
-          mobile: '9876543210',
-          email: 'admin@thepurple.in',
+          mobile: '8966080203',
+          email: 'nowthepurple25@gmail.com',
           role: 'SUPER_ADMIN',
           status: 'ACTIVE',
         },

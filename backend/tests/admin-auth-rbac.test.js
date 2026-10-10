@@ -23,7 +23,7 @@ async function runTests() {
   const superAdminLoginRes = await request(app)
     .post('/api/v1/admin/auth/login')
     .send({
-      email: env.ADMIN_INITIAL_EMAIL || 'superadmin@gmail.com',
+      email: env.ADMIN_INITIAL_EMAIL || 'nowthepurple25@gmail.com',
       password: env.ADMIN_INITIAL_PASSWORD || '123456',
     });
 

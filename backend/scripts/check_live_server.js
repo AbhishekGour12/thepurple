@@ -9,7 +9,7 @@ async function checkLiveServer() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: process.env.ADMIN_INITIAL_EMAIL || 'superadmin@gmail.com',
+      email: process.env.ADMIN_INITIAL_EMAIL || 'nowthepurple25@gmail.com',
       password: process.env.ADMIN_INITIAL_PASSWORD || '123456',
     }),
   });

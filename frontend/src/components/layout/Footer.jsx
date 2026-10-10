@@ -196,7 +196,6 @@ export default function Footer() {
                 { label: 'Contact Us', href: '/contact' },
                 { label: 'Privacy Policy', href: '/privacy-policy' },
                 { label: 'Terms & Conditions', href: '/terms' },
-                { label: 'Admin Panel', href: '/admin' },
               ].map((link) => (
                 <li key={link.label}>
                   <Link
@@ -204,13 +203,12 @@ export default function Footer() {
                     style={{
                       textDecoration: 'none',
                       fontSize: '13.5px',
-                      color: link.href === '/admin' ? '#7C3AED' : '#5F5A6B',
-                      fontWeight: link.href === '/admin' ? 600 : 400,
+                      color: '#5F5A6B',
                       transition: 'color 0.15s ease',
                       fontFamily: "var(--font-body, 'Plus Jakarta Sans', sans-serif)",
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.color = '#6D28D9')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = link.href === '/admin' ? '#7C3AED' : '#5F5A6B')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#5F5A6B')}
                   >
                     {link.label}
                   </Link>
@@ -295,7 +293,7 @@ export default function Footer() {
                   <Mail size={14} />
                 </div>
                 <a
-                  href="mailto:support@thepurple.com"
+                  href="mailto:nowthepurple25@gmail.com"
                   style={{
                     color: '#18181B',
                     fontWeight: 600,
@@ -305,7 +303,7 @@ export default function Footer() {
                     minWidth: 0,
                   }}
                 >
-                  support@thepurple.com
+                  nowthepurple25@gmail.com
                 </a>
               </div>
 
@@ -335,7 +333,7 @@ export default function Footer() {
                     color: '#5F5A6B',
                   }}
                 >
-                  104, Jewellery Plaza, Karol Bagh, New Delhi, India – 110005
+                  Shop No. B22, Rajat Complex, Scheme No. 54, Vijay Nagar, Indore, Madhya Pradesh – 452010
                 </span>
               </div>
 
@@ -391,24 +389,6 @@ export default function Footer() {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <span suppressHydrationWarning>&copy; {currentYear} ThePurple. All Rights Reserved.</span>
-            <span style={{ color: '#D1D5DB' }}>•</span>
-            <Link
-              href="/admin"
-              style={{
-                color: '#6D28D9',
-                textDecoration: 'none',
-                fontWeight: 600,
-                fontSize: '12.5px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                transition: 'opacity 0.15s ease',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
-              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
-            >
-              Admin Portal
-            </Link>
           </div>
 
           {/* Payment Method Badges */}

@@ -52,9 +52,9 @@ export const env = {
   // Admin Auth & Bootstrap
   JWT_SECRET: process.env.JWT_SECRET || 'thepurple_default_dev_jwt_secret_change_me',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
-  ADMIN_INITIAL_EMAIL: process.env.ADMIN_INITIAL_EMAIL || 'superadmin@gmail.com',
+  ADMIN_INITIAL_EMAIL: process.env.ADMIN_INITIAL_EMAIL || 'nowthepurple25@gmail.com',
   ADMIN_INITIAL_PASSWORD: process.env.ADMIN_INITIAL_PASSWORD || '123456',
-  ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'superadmin@gmail.com',
+  ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'nowthepurple25@gmail.com',
 
   // Zoho ZeptoMail / CPaaS REST API & SMTP Mail Service
   ZEPTOMAIL_API_KEY:

@@ -10,7 +10,7 @@ import logger from '../config/logger.js';
  */
 export async function bootstrapSuperAdmin() {
   try {
-    const email = (env.ADMIN_INITIAL_EMAIL || 'superadmin@gmail.com').toLowerCase().trim();
+    const email = (env.ADMIN_INITIAL_EMAIL || 'nowthepurple25@gmail.com').toLowerCase().trim();
     const initialPassword = env.ADMIN_INITIAL_PASSWORD || '123456';
 
     const salt = await bcrypt.genSalt(12);

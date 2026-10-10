@@ -121,6 +121,43 @@ export default function ContactPage() {
         backgroundColor: '#FCFBFE',
       }}
     >
+      {/* Schema.org Structured Data for LocalBusiness / Store */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'JewelryStore',
+            name: 'ThePurple',
+            image: '/images/contact/contact-hero-giftbox.jpg',
+            telephone: '+918966080203',
+            email: 'nowthepurple25@gmail.com',
+            priceRange: '₹₹',
+            address: {
+              '@type': 'PostalAddress',
+              streetAddress: 'Shop No. B22, Rajat Complex, Scheme No. 54, Vijay Nagar',
+              addressLocality: 'Indore',
+              addressRegion: 'Madhya Pradesh',
+              postalCode: '452010',
+              addressCountry: 'IN',
+            },
+            geo: {
+              '@type': 'GeoCoordinates',
+              latitude: 22.7533,
+              longitude: 75.8945,
+            },
+            openingHoursSpecification: [
+              {
+                '@type': 'OpeningHoursSpecification',
+                dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+                opens: '10:00',
+                closes: '19:00',
+              },
+            ],
+          }),
+        }}
+      />
+
       {/* 1. Global Announcement Bar */}
       <AnnouncementBar />
 
@@ -502,13 +539,13 @@ export default function ContactPage() {
                 Email Us
               </h3>
               <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#6D28D9', marginBottom: '4px', wordBreak: 'break-all' }}>
-                support@thepurple.com
+                nowthepurple25@gmail.com
               </div>
               <div style={{ fontSize: '12px', color: '#8B8795', marginBottom: '18px' }}>
                 We usually reply within 24 hours.
               </div>
               <a
-                href="mailto:support@thepurple.com"
+                href="mailto:nowthepurple25@gmail.com"
                 style={{
                   marginTop: 'auto',
                   width: '100%',
@@ -649,7 +686,7 @@ export default function ContactPage() {
                 Visit Us
               </h3>
               <div style={{ fontSize: '12.5px', color: '#5F5A6B', marginBottom: '4px', lineHeight: 1.4 }}>
-                123, Purple Street, Mumbai, Maharashtra - 400001
+                Shop No. B22, Rajat Complex, Scheme No. 54, Vijay Nagar, Indore - 452010
               </div>
               <div style={{ fontSize: '12px', color: '#8B8795', marginBottom: '18px' }}>
                 Mon – Sat, 10 AM – 7 PM
@@ -1333,8 +1370,8 @@ export default function ContactPage() {
               }}
             >
               <iframe
-                title="ThePurple Mumbai Boutique Location"
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3769.756285493922!2d72.85324547596008!3d19.118318850654634!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7c83c272584e9%3A0xc3f3458bfb511394!2sAndheri%20East%2C%20Mumbai%2C%20Maharashtra!5e0!3m2!1sen!2sin!4v1710000000000!5m2!1sen!2sin"
+                title="ThePurple Indore Flagship Store Location"
+                src="https://maps.google.com/maps?q=Shop+No.+B22,+Rajat+Complex,+Scheme+No.+54,+Vijay+Nagar,+Indore,+Madhya+Pradesh+452010&t=&z=16&ie=UTF8&iwloc=&output=embed"
                 width="100%"
                 height="100%"
                 style={{ border: 0, minHeight: '320px', display: 'block' }}
@@ -1376,7 +1413,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#18181B' }}>ThePurple</div>
-                  <div style={{ fontSize: '10.5px', color: '#6B7280' }}>Mumbai, Maharashtra</div>
+                  <div style={{ fontSize: '10.5px', color: '#6B7280' }}>Indore, Madhya Pradesh</div>
                 </div>
               </div>
             </div>
@@ -1423,7 +1460,7 @@ export default function ContactPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13.5px', color: '#4B5563' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                     <MapPin size={16} color="#6D28D9" style={{ marginTop: '2px', flexShrink: 0 }} />
-                    <span style={{ lineHeight: 1.45 }}>123, Purple Street, Andheri East, Mumbai, Maharashtra - 400001</span>
+                    <span style={{ lineHeight: 1.45 }}>Shop No. B22, Rajat Complex, Scheme No. 54, Vijay Nagar, Indore, Madhya Pradesh - 452010</span>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1435,8 +1472,8 @@ export default function ContactPage() {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <Mail size={16} color="#6D28D9" style={{ flexShrink: 0 }} />
-                    <a href="mailto:support@thepurple.com" style={{ color: '#18181B', fontWeight: 600, textDecoration: 'none' }}>
-                      support@thepurple.com
+                    <a href="mailto:nowthepurple25@gmail.com" style={{ color: '#18181B', fontWeight: 600, textDecoration: 'none' }}>
+                      nowthepurple25@gmail.com
                     </a>
                   </div>
 
@@ -1451,7 +1488,7 @@ export default function ContactPage() {
               </div>
 
               <a
-                href="https://maps.google.com/?q=ThePurple+Jewellery+Mumbai"
+                href="https://www.google.com/maps/search/?api=1&query=Shop+No.+B22,+Rajat+Complex,+Scheme+No.+54,+Vijay+Nagar,+Indore,+Madhya+Pradesh+452010"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -1508,7 +1545,7 @@ export default function ContactPage() {
               >
                 <img
                   src="/images/contact/contact-boutique-store.jpg"
-                  alt="ThePurple Flagship Boutique Store Mumbai"
+                  alt="ThePurple Flagship Boutique Store Indore"
                   style={{
                     width: '100%',
                     height: '100%',

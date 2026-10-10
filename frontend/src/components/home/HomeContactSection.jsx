@@ -226,7 +226,7 @@ export default function HomeContactSection() {
 
               {/* Email Us */}
               <a
-                href="mailto:support@thepurple.com"
+                href="mailto:nowthepurple25@gmail.com"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -269,7 +269,7 @@ export default function HomeContactSection() {
                     Email Support
                   </div>
                   <div style={{ fontSize: '13px', fontWeight: 800, color: '#18181B' }}>
-                    support@thepurple.com
+                    nowthepurple25@gmail.com
                   </div>
                 </div>
               </a>
