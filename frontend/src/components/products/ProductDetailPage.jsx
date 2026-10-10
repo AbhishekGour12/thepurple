@@ -242,13 +242,27 @@ export default function ProductDetailPage({ slug }) {
         if (isMounted) {
           setProduct(prod);
 
-          // Default variant setup
+          // Default variant & color setup
+          let initialColorId = '';
+          let initialSizeId = '';
+
           if (prod.variants && prod.variants.length > 0) {
             const firstWithColor = prod.variants.find((v) => v.colorId);
             const firstWithSize = prod.variants.find((v) => v.sizeId);
-            if (firstWithColor) setSelectedColorId(firstWithColor.colorId);
-            if (firstWithSize) setSelectedSizeId(firstWithSize.sizeId);
+            if (firstWithColor) initialColorId = firstWithColor.colorId;
+            if (firstWithSize) initialSizeId = firstWithSize.sizeId;
           }
+
+          // Fallback: Check colors assigned directly to product images
+          if (!initialColorId && prod.images && prod.images.length > 0) {
+            const firstImgWithColor = prod.images.find((img) => img.colorId || img.color?.id);
+            if (firstImgWithColor) {
+              initialColorId = firstImgWithColor.colorId || firstImgWithColor.color?.id;
+            }
+          }
+
+          if (initialColorId) setSelectedColorId(initialColorId);
+          if (initialSizeId) setSelectedSizeId(initialSizeId);
 
           // Fetch Related Products from same subcategory/category
           const categorySlug = prod.subcategory?.category?.slug || prod.subcategory?.categoryId;
@@ -277,18 +291,59 @@ export default function ProductDetailPage({ slug }) {
     };
   }, [slug]);
 
-  // Available unique colors and sizes from variants
+  // Available unique colors from variants AND/OR product images
   const availableColors = useMemo(() => {
-    if (!product?.variants) return [];
     const map = new Map();
-    product.variants.forEach((v) => {
-      if (v.color && !map.has(v.color.id)) {
-        map.set(v.color.id, {
-          ...v.color,
-          variantImg: v.imageUrl,
-        });
-      }
-    });
+
+    // 1. From variants (if any)
+    if (product?.variants && product.variants.length > 0) {
+      product.variants.forEach((v) => {
+        if (v.color && !map.has(v.color.id)) {
+          map.set(v.color.id, {
+            ...v.color,
+            variantImg: v.imageUrl,
+          });
+        }
+      });
+    }
+
+    // 2. From product images tagged with color (for products without variants or image-specific colors)
+    if (product?.images && product.images.length > 0) {
+      product.images.forEach((img) => {
+        const cId = img.colorId || img.color?.id;
+        if (cId) {
+          if (!map.has(cId)) {
+            const cObj = img.color || { id: cId, name: 'Color', hexCode: '#E5E7EB' };
+            map.set(cId, {
+              id: cId,
+              name: cObj.name || 'Color',
+              hexCode: cObj.hexCode || '#E5E7EB',
+              variantImg: img.imageUrl,
+            });
+          } else {
+            const existing = map.get(cId);
+            if (!existing.variantImg && img.imageUrl) {
+              existing.variantImg = img.imageUrl;
+            }
+          }
+        }
+      });
+    }
+
+    // 3. From direct product.colors array (if provided)
+    if (product?.colors && Array.isArray(product.colors)) {
+      product.colors.forEach((c) => {
+        if (c && c.id && !map.has(c.id)) {
+          map.set(c.id, {
+            id: c.id,
+            name: c.name || 'Color',
+            hexCode: c.hexCode || '#E5E7EB',
+            variantImg: product.images?.find((img) => img.colorId === c.id || img.color?.id === c.id)?.imageUrl || null,
+          });
+        }
+      });
+    }
+
     return Array.from(map.values());
   }, [product]);
 
@@ -390,7 +445,9 @@ export default function ProductDetailPage({ slug }) {
     }
 
     // Find the first image in gallery assigned to this color
-    const colorImgIdx = galleryImageObjects.findIndex((img) => img.colorId === colorId);
+    const colorImgIdx = galleryImageObjects.findIndex(
+      (img) => img.colorId === colorId || img.color?.id === colorId
+    );
     if (colorImgIdx !== -1) {
       setSelectedImageIdx(colorImgIdx);
     } else {
@@ -411,8 +468,9 @@ export default function ProductDetailPage({ slug }) {
     if (idx < 0 || idx >= galleryImages.length) return;
     setSelectedImageIdx(idx);
     const clickedImg = galleryImageObjects[idx];
-    if (clickedImg?.colorId && clickedImg.colorId !== selectedColorId) {
-      setSelectedColorId(clickedImg.colorId);
+    const clickedColorId = clickedImg?.colorId || clickedImg?.color?.id;
+    if (clickedColorId && clickedColorId !== selectedColorId) {
+      setSelectedColorId(clickedColorId);
     }
   };
 
@@ -1328,7 +1386,7 @@ export default function ProductDetailPage({ slug }) {
                 >
                   {availableColors.map((c) => {
                     const isSelected = c.id === selectedColorId;
-                    const colorImg = c.variantImg || galleryImageObjects.find((img) => img.colorId === c.id)?.imageUrl;
+                    const colorImg = c.variantImg || galleryImageObjects.find((img) => img.colorId === c.id || img.color?.id === c.id)?.imageUrl;
 
                     // 1. If variant has an image: Render ONLY the image thumbnail (Amazon Style)
                     if (colorImg) {

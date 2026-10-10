@@ -362,14 +362,30 @@ router.get(
         }));
       }
 
-      const matchingVariants = await ProductVariant.findAll({
-        include: [
-          hasColorFilter ? { model: Color, as: 'color', where: colorWhere, required: true } : null,
-          hasSizeFilter ? { model: Size, as: 'size', where: sizeWhere, required: true } : null,
-        ].filter(Boolean),
-        attributes: ['productId'],
-      });
-      const prodIds = [...new Set(matchingVariants.map((v) => v.productId))];
+      let variantProdIds = [];
+      if (hasColorFilter || hasSizeFilter) {
+        const matchingVariants = await ProductVariant.findAll({
+          include: [
+            hasColorFilter ? { model: Color, as: 'color', where: colorWhere, required: true } : null,
+            hasSizeFilter ? { model: Size, as: 'size', where: sizeWhere, required: true } : null,
+          ].filter(Boolean),
+          attributes: ['productId'],
+        });
+        variantProdIds = matchingVariants.map((v) => v.productId);
+      }
+
+      let imageProdIds = [];
+      if (hasColorFilter && !hasSizeFilter) {
+        const matchingImages = await ProductImage.findAll({
+          include: [
+            { model: Color, as: 'color', where: colorWhere, required: true },
+          ],
+          attributes: ['productId'],
+        });
+        imageProdIds = matchingImages.map((img) => img.productId);
+      }
+
+      const prodIds = [...new Set([...variantProdIds, ...imageProdIds])];
       where.id = { [Op.in]: prodIds };
     }
 
