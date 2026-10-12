@@ -48,6 +48,11 @@ export const Coupon = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 1000,
     },
+    usageLimitPerUser: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1, // Max redemptions allowed per individual customer (e.g. 1 per user)
+      allowNull: true,
+    },
     usedCount: {
       type: DataTypes.INTEGER,
       defaultValue: 0,

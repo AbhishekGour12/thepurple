@@ -43,6 +43,7 @@ import MainHeader from '@/components/layout/MainHeader';
 import Footer from '@/components/layout/Footer';
 import ProductReviewsSection from './ProductReviewsSection';
 import ProductFormattedDescription from './ProductFormattedDescription';
+import ProductShareModal from './ProductShareModal';
 
 export default function ProductDetailPage({ slug }) {
   const router = useRouter();
@@ -79,6 +80,7 @@ export default function ProductDetailPage({ slug }) {
   const [quantity, setQuantity] = useState(1);
   const [couponCopied, setCouponCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
   const [cartSuccessNotice, setCartSuccessNotice] = useState(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
@@ -1090,6 +1092,35 @@ export default function ProductDetailPage({ slug }) {
                 </div>
               )}
 
+              {/* Share Button Top Right (beside Wishlist) */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsShareModalOpen(true);
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '54px',
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E5E7EB',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  zIndex: 10,
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+                  transition: 'transform 0.15s ease',
+                }}
+                title="Share with Friends"
+              >
+                <Share2 size={16} color="#4B5563" />
+              </button>
+
               {/* Wishlist Heart Top Right */}
               <button
                 type="button"
@@ -1241,12 +1272,36 @@ export default function ProductDetailPage({ slug }) {
           {/* COLUMN 2: PRODUCT BUY BOX & DYNAMIC VARIANT SELECTOR */}
           {/* ========================================================================= */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Category Tag */}
+            {/* Category Tag & Share Button Row */}
             <div>
-              <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7E22CE' }}>
-                {product.subcategory?.name || 'FINE JEWELLERY'}
-              </span>
-              <h1 style={{ fontSize: 'clamp(1.4rem, 4vw, 1.75rem)', fontWeight: 800, color: '#1E1B4B', margin: '4px 0 6px', lineHeight: '1.25' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7E22CE' }}>
+                  {product.subcategory?.name || 'FINE JEWELLERY'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsShareModalOpen(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid #E9D5FF',
+                    backgroundColor: '#FAF5FF',
+                    color: '#7E22CE',
+                    fontSize: '11.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title="Share with Friends & Family"
+                >
+                  <Share2 size={13} />
+                  <span>Share</span>
+                </button>
+              </div>
+              <h1 style={{ fontSize: 'clamp(1.4rem, 4vw, 1.75rem)', fontWeight: 800, color: '#1E1B4B', margin: '0 0 6px', lineHeight: '1.25' }}>
                 {product.name}
               </h1>
               <p style={{ fontSize: '13px', color: '#6B7280', margin: 0, lineHeight: '1.5' }}>
@@ -2311,6 +2366,15 @@ export default function ProductDetailPage({ slug }) {
             />
           </div>
         </div>
+      )}
+
+      {/* Product Share Modal with Image Preview */}
+      {product && (
+        <ProductShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          product={product}
+        />
       )}
 
       {/* 9. Footer */}

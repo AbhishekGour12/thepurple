@@ -97,6 +97,7 @@ export const couponController = {
       startDate,
       endDate,
       usageLimit = 1000,
+      usageLimitPerUser = 1,
       isAutoApply = false,
       isActive = true,
     } = req.body;
@@ -130,6 +131,7 @@ export const couponController = {
       startDate: start,
       endDate: end,
       usageLimit: parseInt(usageLimit || 1000, 10),
+      usageLimitPerUser: usageLimitPerUser !== undefined && usageLimitPerUser !== null && usageLimitPerUser !== '' ? parseInt(usageLimitPerUser, 10) : 1,
       usedCount: 0,
       isAutoApply: Boolean(isAutoApply),
       isActive: Boolean(isActive),
@@ -154,6 +156,7 @@ export const couponController = {
       startDate,
       endDate,
       usageLimit,
+      usageLimitPerUser,
       isAutoApply,
       isActive,
     } = req.body;
@@ -190,6 +193,9 @@ export const couponController = {
     if (startDate !== undefined) coupon.startDate = new Date(startDate);
     if (endDate !== undefined) coupon.endDate = new Date(endDate);
     if (usageLimit !== undefined) coupon.usageLimit = parseInt(usageLimit, 10);
+    if (usageLimitPerUser !== undefined) {
+      coupon.usageLimitPerUser = usageLimitPerUser !== null && usageLimitPerUser !== '' ? parseInt(usageLimitPerUser, 10) : null;
+    }
     if (isAutoApply !== undefined) coupon.isAutoApply = Boolean(isAutoApply);
     if (isActive !== undefined) coupon.isActive = Boolean(isActive);
 

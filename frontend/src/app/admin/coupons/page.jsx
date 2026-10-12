@@ -50,6 +50,7 @@ export default function AdminCouponsPage() {
     startDate: '',
     endDate: '',
     usageLimit: '1000',
+    usageLimitPerUser: '1',
     isAutoApply: false,
     isActive: true,
   });
@@ -125,6 +126,7 @@ export default function AdminCouponsPage() {
       startDate: formatDateForInput(today),
       endDate: formatDateForInput(nextMonth),
       usageLimit: '1000',
+      usageLimitPerUser: '1',
       isAutoApply: false,
       isActive: true,
     });
@@ -150,6 +152,7 @@ export default function AdminCouponsPage() {
       startDate: formatDateForInput(coupon.startDate),
       endDate: formatDateForInput(coupon.endDate),
       usageLimit: String(coupon.usageLimit || '1000'),
+      usageLimitPerUser: String(coupon.usageLimitPerUser !== undefined && coupon.usageLimitPerUser !== null ? coupon.usageLimitPerUser : '1'),
       isAutoApply: Boolean(coupon.isAutoApply),
       isActive: Boolean(coupon.isActive),
     });
@@ -202,6 +205,7 @@ export default function AdminCouponsPage() {
         startDate: modal.startDate ? new Date(modal.startDate) : new Date(),
         endDate: modal.endDate ? new Date(modal.endDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         usageLimit: parseInt(modal.usageLimit || 1000, 10),
+        usageLimitPerUser: modal.usageLimitPerUser ? parseInt(modal.usageLimitPerUser, 10) : 1,
         isAutoApply: Boolean(modal.isAutoApply),
         isActive: Boolean(modal.isActive),
       };
@@ -596,7 +600,9 @@ export default function AdminCouponsPage() {
                         <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E1B4B' }}>
                           {coupon.usedCount || 0} / {coupon.usageLimit || '∞'}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#6B7280' }}>redeemed</div>
+                        <div style={{ fontSize: '11px', color: '#7E22CE', fontWeight: 600 }}>
+                          {coupon.usageLimitPerUser ? `${coupon.usageLimitPerUser}/user limit` : 'No user limit'}
+                        </div>
                       </td>
 
                       {/* Status Toggle */}
@@ -1027,11 +1033,11 @@ export default function AdminCouponsPage() {
                   </div>
                 </div>
 
-                {/* 6. Usage Limit, Auto-Apply on Cart & Active Switch */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* 6. Usage Limits (Total Store vs Per User Limit) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 800, color: '#374151', marginBottom: '6px' }}>
-                      Max Redemptions Limit
+                      Total Store Redemptions
                     </label>
                     <input
                       type="number"
@@ -1049,7 +1055,36 @@ export default function AdminCouponsPage() {
                         outline: 'none',
                       }}
                     />
+                    <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px' }}>
+                      Total times across all customers (e.g. 1000)
+                    </div>
                   </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 800, color: '#374151', marginBottom: '6px' }}>
+                      Per-User Limit (Per Customer)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={modal.usageLimitPerUser}
+                      onChange={(e) => setModal({ ...modal, usageLimitPerUser: e.target.value })}
+                      placeholder="1"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: '1px solid #E5E7EB',
+                        fontSize: '13px',
+                        color: '#1E1B4B',
+                        outline: 'none',
+                      }}
+                    />
+                    <div style={{ fontSize: '11px', color: '#7E22CE', fontWeight: 600, marginTop: '4px' }}>
+                      1 = Each customer can use only 1 time
+                    </div>
+                  </div>
+                </div>
 
                   <div style={{ padding: '14px', backgroundColor: '#FAF5FF', border: '1px solid #E9D5FF', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>

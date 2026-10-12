@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import { Order, OrderItem, Payment, Shipment, Product, ProductImage, Coupon, Cart, CartItem, User, sequelize } from '../models/index.js';
 import razorpayService from '../services/razorpayService.js';
 import shiprocketService from '../services/shiprocketService.js';
@@ -196,6 +197,38 @@ export const orderController = {
         });
 
         if (validCoupon) {
+          // 1. Check Total Usage Limit
+          if (validCoupon.usageLimit && validCoupon.usedCount >= validCoupon.usageLimit) {
+            return res.status(400).json({
+              success: false,
+              message: `Coupon "${cleanCode}" total usage limit has been reached.`,
+            });
+          }
+
+          // 2. Check Per-User Redemption Limit
+          const effectiveUserId = req.user?.id || customerDetails?.userId;
+          const userConditions = [];
+          if (effectiveUserId) {
+            userConditions.push({ userId: effectiveUserId });
+          }
+
+          if (validCoupon.usageLimitPerUser && userConditions.length > 0) {
+            const userOrdersCount = await Order.count({
+              where: {
+                appliedCouponCode: cleanCode,
+                paymentStatus: { [Op.ne]: 'FAILED' },
+                [Op.or]: userConditions,
+              },
+            });
+
+            if (userOrdersCount >= validCoupon.usageLimitPerUser) {
+              return res.status(400).json({
+                success: false,
+                message: `You have already redeemed coupon "${validCoupon.code}" (Limit: ${validCoupon.usageLimitPerUser} time per customer).`,
+              });
+            }
+          }
+
           const minOrder = parseFloat(validCoupon.minOrderAmount || 0);
           if (subtotal >= minOrder) {
             if (validCoupon.discountType === 'PERCENTAGE') {

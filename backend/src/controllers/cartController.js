@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { Cart, CartItem, Product, ProductImage, ProductVariant, Color, Size, Coupon } from '../models/index.js';
+import { Cart, CartItem, Product, ProductImage, ProductVariant, Color, Size, Coupon, Order } from '../models/index.js';
 import logger from '../config/logger.js';
 
 // Helper: Get or create active cart for User or Guest Session
@@ -528,6 +528,24 @@ export const applyCoupon = async (req, res) => {
     }
     if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
       return res.status(400).json({ success: false, message: 'This coupon usage limit has been reached.' });
+    }
+
+    // Check per-user redemption limit
+    if (coupon.usageLimitPerUser && req.user?.id) {
+      const userRedemptionCount = await Order.count({
+        where: {
+          userId: req.user.id,
+          appliedCouponCode: cleanCode,
+          paymentStatus: { [Op.ne]: 'FAILED' },
+        },
+      });
+
+      if (userRedemptionCount >= coupon.usageLimitPerUser) {
+        return res.status(400).json({
+          success: false,
+          message: `You have already redeemed coupon "${coupon.code}" the maximum allowed number of times (${coupon.usageLimitPerUser} time${coupon.usageLimitPerUser > 1 ? 's' : ''} per customer).`,
+        });
+      }
     }
     if (coupon.minOrderAmount && subtotal < parseFloat(coupon.minOrderAmount)) {
       return res.status(400).json({
