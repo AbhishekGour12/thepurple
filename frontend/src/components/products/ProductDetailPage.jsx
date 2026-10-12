@@ -301,10 +301,15 @@ export default function ProductDetailPage({ slug }) {
     // 1. From variants (if any)
     if (product?.variants && product.variants.length > 0) {
       product.variants.forEach((v) => {
-        if (v.color && !map.has(v.color.id)) {
-          map.set(v.color.id, {
-            ...v.color,
-            variantImg: v.imageUrl,
+        const cId = v.color?.id || v.colorId;
+        if (cId && !map.has(cId)) {
+          const cName = v.color?.name || (v.name ? v.name.split(' ')[0] : 'Color');
+          const cHex = v.color?.hexCode || '#9333EA';
+          map.set(cId, {
+            id: cId,
+            name: cName,
+            hexCode: cHex,
+            variantImg: v.imageUrl || null,
           });
         }
       });
@@ -316,11 +321,11 @@ export default function ProductDetailPage({ slug }) {
         const cId = img.colorId || img.color?.id;
         if (cId) {
           if (!map.has(cId)) {
-            const cObj = img.color || { id: cId, name: 'Color', hexCode: '#E5E7EB' };
+            const cObj = img.color || { id: cId, name: 'Color', hexCode: '#9333EA' };
             map.set(cId, {
               id: cId,
               name: cObj.name || 'Color',
-              hexCode: cObj.hexCode || '#E5E7EB',
+              hexCode: cObj.hexCode || '#9333EA',
               variantImg: img.imageUrl,
             });
           } else {
@@ -340,7 +345,7 @@ export default function ProductDetailPage({ slug }) {
           map.set(c.id, {
             id: c.id,
             name: c.name || 'Color',
-            hexCode: c.hexCode || '#E5E7EB',
+            hexCode: c.hexCode || '#9333EA',
             variantImg: product.images?.find((img) => img.colorId === c.id || img.color?.id === c.id)?.imageUrl || null,
           });
         }
@@ -357,15 +362,41 @@ export default function ProductDetailPage({ slug }) {
       ? product.variants.filter((v) => !v.colorId || v.colorId === selectedColorId)
       : product.variants;
 
-    const targetVariants = matchingVariants.some((v) => v.size) ? matchingVariants : product.variants;
+    const targetVariants = matchingVariants.some((v) => v.size || v.sizeId) ? matchingVariants : product.variants;
 
     targetVariants.forEach((v) => {
-      if (v.size && !map.has(v.size.id)) {
-        map.set(v.size.id, v.size);
+      const sId = v.size?.id || v.sizeId;
+      if (sId && !map.has(sId)) {
+        map.set(sId, {
+          id: sId,
+          name: v.size?.name || v.name || 'Standard',
+          code: v.size?.code || v.size?.name || 'STD',
+        });
       }
     });
     return Array.from(map.values());
   }, [product, selectedColorId]);
+
+  // Grouped Dynamic Attributes (Material, Gemstone, Occasion, etc.)
+  const dynamicAttributeGroups = useMemo(() => {
+    if (!Array.isArray(product?.attributeValues) || product.attributeValues.length === 0) return [];
+    const groups = new Map();
+    product.attributeValues.forEach((av) => {
+      const attrName = av.attribute?.name || 'Specification';
+      const val = av.value || av.name || '';
+      if (!val) return;
+      if (!groups.has(attrName)) {
+        groups.set(attrName, []);
+      }
+      if (!groups.get(attrName).includes(val)) {
+        groups.get(attrName).push(val);
+      }
+    });
+    return Array.from(groups.entries()).map(([name, values]) => ({
+      name,
+      values,
+    }));
+  }, [product?.attributeValues]);
 
   // Current active matching variant
   const activeVariant = useMemo(() => {
@@ -477,10 +508,25 @@ export default function ProductDetailPage({ slug }) {
     }
   };
 
-  // Price & Offer Calculations
-  const currentSalePrice = parseFloat(activeVariant?.salePrice || product?.salePrice || product?.price || 0);
-  const currentMrp = parseFloat(activeVariant?.mrp || product?.mrp || (currentSalePrice * 1.5) || 0);
-  const discountPercent = currentMrp > currentSalePrice ? Math.round(((currentMrp - currentSalePrice) / currentMrp) * 100) : product?.discountPercent || 0;
+  // Price & Offer Calculations (Accurate Nominal MRP & Selling Price)
+  const currentSalePrice = parseFloat(
+    activeVariant?.salePrice !== undefined && activeVariant?.salePrice !== '' && activeVariant?.salePrice !== null
+      ? activeVariant.salePrice
+      : (product?.salePrice !== undefined && product?.salePrice !== null && product?.salePrice !== ''
+        ? product.salePrice
+        : (product?.price || 0))
+  );
+  const currentMrp = parseFloat(
+    activeVariant?.mrp !== undefined && activeVariant?.mrp !== '' && activeVariant?.mrp !== null
+      ? activeVariant.mrp
+      : (product?.price !== undefined && product?.price !== null && product?.price !== ''
+        ? product.price
+        : (product?.mrp || currentSalePrice || 0))
+  );
+  const discountPercent =
+    currentMrp > currentSalePrice && currentMrp > 0
+      ? Math.round(((currentMrp - currentSalePrice) / currentMrp) * 100)
+      : (product?.discountPercent || 0);
   const currentStock = activeVariant?.stock !== undefined ? activeVariant.stock : (product?.stock || 50);
 
   // Parsed Material & Craftsmanship Specifications
@@ -1595,6 +1641,61 @@ export default function ProductDetailPage({ slug }) {
               </div>
             )}
 
+            {/* Quick Dynamic Specifications & Material Highlights (Material, Gemstone, Occasion, etc.) */}
+            {(dynamicAttributeGroups.length > 0 || parsedMaterialSpecs.length > 0) && (
+              <div
+                style={{
+                  padding: '14px 16px',
+                  backgroundColor: '#FAF5FF',
+                  borderRadius: '12px',
+                  border: '1.5px solid #E9D5FF',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  boxShadow: '0 1px 4px rgba(126, 34, 206, 0.05)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: '#581C87', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <Sparkles size={14} color="#7E22CE" />
+                    <span>Material &amp; Specifications</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('specifications');
+                      document.getElementById('pdp-tabs-container')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#7E22CE',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    View All →
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                  {dynamicAttributeGroups.map((g, gIdx) => (
+                    <div key={`dag-${gIdx}`} style={{ backgroundColor: '#FFFFFF', padding: '8px 10px', borderRadius: '8px', border: '1px solid #E9D5FF' }}>
+                      <span style={{ fontSize: '10.5px', color: '#6B7280', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>{g.name}</span>
+                      <span style={{ fontSize: '12.5px', color: '#1E1B4B', fontWeight: 800, marginTop: '2px', display: 'block' }}>{g.values.join(', ')}</span>
+                    </div>
+                  ))}
+                  {dynamicAttributeGroups.length === 0 && parsedMaterialSpecs.slice(0, 4).map((spec, sIdx) => (
+                    <div key={`pms-${sIdx}`} style={{ backgroundColor: '#FFFFFF', padding: '8px 10px', borderRadius: '8px', border: '1px solid #E9D5FF' }}>
+                      <span style={{ fontSize: '10.5px', color: '#6B7280', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>{spec.label}</span>
+                      <span style={{ fontSize: '12.5px', color: '#1E1B4B', fontWeight: 800, marginTop: '2px', display: 'block' }}>{spec.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Quantity Selector & Stock Indicator */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
               <div>
@@ -1928,12 +2029,75 @@ export default function ProductDetailPage({ slug }) {
 
             {activeTab === 'specifications' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '850px' }}>
-                {/* 1. Material, Craftsmanship & Product Specs */}
-                {parsedMaterialSpecs.length > 0 && (
+                {/* 1. Dynamic Specifications & Custom Attributes (Material, Gemstone, Occasion, etc.) */}
+                {dynamicAttributeGroups.length > 0 && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                       <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: '#FAF5FF', color: '#7E22CE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Sparkles size={16} />
+                      </div>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1E1B4B', margin: 0 }}>
+                        Dynamic Specifications &amp; Attributes (Material, Gemstone, etc.)
+                      </h3>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                        gap: '12px',
+                      }}
+                    >
+                      {dynamicAttributeGroups.map((group, gIdx) => (
+                        <div
+                          key={`dyn-attr-${gIdx}`}
+                          style={{
+                            padding: '14px 16px',
+                            borderRadius: '12px',
+                            backgroundColor: '#FFFFFF',
+                            border: '1.5px solid #E9D5FF',
+                            boxShadow: '0 2px 10px rgba(126, 34, 206, 0.04)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#7E22CE' }} />
+                            <span style={{ fontSize: '11px', color: '#7E22CE', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              {group.name}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingLeft: '13px' }}>
+                            {group.values.map((v, vIdx) => (
+                              <span
+                                key={vIdx}
+                                style={{
+                                  fontSize: '13px',
+                                  fontWeight: 800,
+                                  color: '#1E1B4B',
+                                  backgroundColor: '#FAF5FF',
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #E9D5FF',
+                                }}
+                              >
+                                {v}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Material, Craftsmanship & Product Specs */}
+                {parsedMaterialSpecs.length > 0 && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: '#FAF5FF', color: '#7E22CE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Award size={16} />
                       </div>
                       <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1E1B4B', margin: 0 }}>
                         Material &amp; Craftsmanship Specifications
@@ -1977,7 +2141,7 @@ export default function ProductDetailPage({ slug }) {
                   </div>
                 )}
 
-                {/* 2. Technical & Packaging Specifications */}
+                {/* 3. Technical & Packaging Specifications */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                     <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: '#FAF5FF', color: '#7E22CE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -2026,33 +2190,6 @@ export default function ProductDetailPage({ slug }) {
                       ))}
                   </div>
                 </div>
-
-                {/* 3. Custom Attributes (if any) */}
-                {Array.isArray(product.attributeValues) && product.attributeValues.length > 0 && (
-                  <div>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#1E1B4B', marginBottom: '10px' }}>
-                      Additional Attributes
-                    </h3>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      {product.attributeValues.map((av, avIdx) => (
-                        <div
-                          key={avIdx}
-                          style={{
-                            padding: '6px 14px',
-                            borderRadius: '20px',
-                            backgroundColor: '#F3E8FF',
-                            border: '1px solid #D8B4FE',
-                            fontSize: '12px',
-                            color: '#581C87',
-                            fontWeight: 700,
-                          }}
-                        >
-                          {av.attribute?.name ? `${av.attribute.name}: ` : ''}{av.value || av.name}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -2123,7 +2260,7 @@ export default function ProductDetailPage({ slug }) {
               {relatedProducts.map((rel) => {
                 const relImg = rel.images?.[0]?.imageUrl || '/images/storefront/cat-chains.jpg';
                 const relPrice = parseFloat(rel.salePrice || rel.price || 0);
-                const relMrp = parseFloat(rel.mrp || relPrice * 1.5);
+                const relMrp = parseFloat(rel.price || rel.mrp || relPrice);
                 const relDiscount = relMrp > relPrice ? Math.round(((relMrp - relPrice) / relMrp) * 100) : 0;
                 const relBadge = rel.badge || (rel.isBestSeller ? 'BESTSELLER' : null);
 

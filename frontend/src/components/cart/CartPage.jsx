@@ -197,7 +197,7 @@ export default function CartPage() {
               p.image ||
               '/images/storefront/prod-gold-rope.jpg';
             const price = parseFloat(p.price || p.salePrice || 999);
-            const mrp = parseFloat(p.originalPrice || p.mrp || price * 1.4);
+            const mrp = parseFloat(p.originalPrice || p.price || p.mrp || price);
             const discount =
               p.discountPercent || (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
 

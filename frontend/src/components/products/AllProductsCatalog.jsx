@@ -620,7 +620,7 @@ export default function AllProductsCatalog({
           imageUrl: prod.image || (Array.isArray(prod.images) && prod.images[0]?.imageUrl) || (Array.isArray(prod.images) && prod.images[0]) || '/images/storefront/cat-fashion-jewellery.jpg',
           badge: prod.badge,
           price: salePrice,
-          mrp: prod.originalPrice || prod.mrp || salePrice * 1.5,
+          mrp: prod.originalPrice || prod.mrp || prod.price || salePrice,
           discountPercent: prod.discountPercent || 0,
           quantity: 1,
           stock: prod.stock || 20,

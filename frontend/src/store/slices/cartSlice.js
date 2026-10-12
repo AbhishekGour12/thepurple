@@ -146,9 +146,9 @@ export const syncMergeCart = createAsyncThunk(
 
 export const syncApplyCoupon = createAsyncThunk(
   'cart/syncApplyCoupon',
-  async ({ code, subtotal }, { rejectWithValue }) => {
+  async ({ code, subtotal, email, mobile }, { rejectWithValue }) => {
     try {
-      const data = await cartApi.applyCoupon(code, subtotal);
+      const data = await cartApi.applyCoupon(code, subtotal, { email, mobile });
       return data;
     } catch (err) {
       return rejectWithValue(err.message || 'Invalid coupon');
@@ -214,7 +214,7 @@ export const cartSlice = createSlice({
         state.items[existingIdx].quantity += payload.quantity || 1;
       } else {
         const salePrice = parseFloat(payload.price || payload.salePrice || 0);
-        const originalPrice = parseFloat(payload.mrp || payload.originalPrice || salePrice * 1.4);
+        const originalPrice = parseFloat(payload.mrp || payload.originalPrice || payload.price || salePrice);
         const discount =
           payload.discountPercent ||
           (originalPrice > salePrice && originalPrice > 0
@@ -290,7 +290,7 @@ export const cartSlice = createSlice({
         saveCartToStorage(state.items);
       } else {
         const salePrice = parseFloat(payload.price || payload.salePrice || 0);
-        const originalPrice = parseFloat(payload.mrp || payload.originalPrice || salePrice * 1.4);
+        const originalPrice = parseFloat(payload.mrp || payload.originalPrice || payload.price || salePrice);
         const discount =
           payload.discountPercent ||
           (originalPrice > salePrice && originalPrice > 0
@@ -353,42 +353,12 @@ export const cartSlice = createSlice({
       saveCartToStorage(state.items);
     },
 
-    // 7. Apply coupon code
+    // 7. Apply coupon code - sets pending state and clears previous errors
     applyCouponCode: (state, action) => {
       const code = (action.payload || '').trim().toUpperCase();
       state.couponError = null;
-
       if (!code) {
         state.couponError = 'Please enter a valid coupon code.';
-        return;
-      }
-
-      if (code === 'WELCOME10') {
-        state.appliedCoupon = {
-          code: 'WELCOME10',
-          discountAmount: 0,
-          discountPercent: 10,
-          isApplied: true,
-        };
-        state.couponSuccess = 'Coupon WELCOME10 applied! 10% Discount applied.';
-      } else if (code === 'PURPLE20') {
-        state.appliedCoupon = {
-          code: 'PURPLE20',
-          discountAmount: 0,
-          discountPercent: 20,
-          isApplied: true,
-        };
-        state.couponSuccess = 'Coupon PURPLE20 applied! 20% Discount applied.';
-      } else if (code === 'GOLD500') {
-        state.appliedCoupon = {
-          code: 'GOLD500',
-          discountAmount: 500,
-          discountPercent: 0,
-          isApplied: true,
-        };
-        state.couponSuccess = 'Coupon GOLD500 applied! Flat ₹500 OFF.';
-      } else {
-        state.couponError = 'Invalid or expired coupon code. Try code "WELCOME10".';
       }
     },
 
@@ -485,6 +455,8 @@ export const cartSlice = createSlice({
       })
       .addCase(syncApplyCoupon.rejected, (state, action) => {
         state.isCouponLoading = false;
+        state.appliedCoupon = null;
+        state.couponSuccess = null;
         state.couponError = action.payload || 'Invalid or expired coupon code.';
       });
   },

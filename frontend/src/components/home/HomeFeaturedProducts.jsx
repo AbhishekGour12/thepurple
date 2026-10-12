@@ -288,7 +288,7 @@ export default function HomeFeaturedProducts() {
           imageUrl: prod.image,
           badge: prod.badge,
           price: salePrice,
-          mrp: prod.originalPrice || salePrice * 1.4,
+          mrp: prod.originalPrice || prod.price || prod.mrp || salePrice,
           discountPercent: prod.discount || 0,
           quantity: 1,
           stock: 20,

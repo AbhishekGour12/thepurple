@@ -211,12 +211,19 @@ export const orderController = {
           if (effectiveUserId) {
             userConditions.push({ userId: effectiveUserId });
           }
+          if (cleanMobile && cleanMobile.length === 10) {
+            userConditions.push({ customerMobile: { [Op.iLike]: `%${cleanMobile}` } });
+          }
+          if (customerEmail && customerEmail.trim()) {
+            userConditions.push({ customerEmail: { [Op.iLike]: customerEmail.trim() } });
+          }
 
-          if (validCoupon.usageLimitPerUser && userConditions.length > 0) {
+          if (validCoupon.usageLimitPerUser && validCoupon.usageLimitPerUser > 0 && userConditions.length > 0) {
             const userOrdersCount = await Order.count({
               where: {
-                appliedCouponCode: cleanCode,
+                appliedCouponCode: { [Op.iLike]: cleanCode },
                 paymentStatus: { [Op.ne]: 'FAILED' },
+                status: { [Op.ne]: 'CANCELLED' },
                 [Op.or]: userConditions,
               },
             });
@@ -224,7 +231,7 @@ export const orderController = {
             if (userOrdersCount >= validCoupon.usageLimitPerUser) {
               return res.status(400).json({
                 success: false,
-                message: `You have already redeemed coupon "${validCoupon.code}" (Limit: ${validCoupon.usageLimitPerUser} time per customer).`,
+                message: `You have already redeemed coupon "${validCoupon.code}" (Limit: ${validCoupon.usageLimitPerUser} time${validCoupon.usageLimitPerUser > 1 ? 's' : ''} per customer).`,
               });
             }
           }

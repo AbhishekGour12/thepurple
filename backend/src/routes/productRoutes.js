@@ -626,6 +626,16 @@ router.get(
             { model: Size, as: 'size' },
           ],
         },
+        {
+          model: AttributeValue,
+          as: 'attributeValues',
+          include: [{ model: Attribute, as: 'attribute' }],
+        },
+      ],
+      order: [
+        [{ model: ProductImage, as: 'images' }, 'isPrimary', 'DESC'],
+        [{ model: ProductImage, as: 'images' }, 'displayOrder', 'ASC'],
+        [{ model: ProductVariant, as: 'variants' }, 'displayOrder', 'ASC'],
       ],
     });
 

@@ -430,6 +430,8 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
         const sizeName = sObj ? (sObj.code || sObj.name).toUpperCase().replace(/\s+/g, '') : '';
         const suffix = [colorName, sizeName].filter(Boolean).join('-') || `V${count}`;
 
+        const existingColorImg = prod.images.find((img) => cId && img.colorId === cId)?.imageUrl || '';
+
         newVariants.push({
           sku: prod.sku ? `${prod.sku}-${suffix}` : `VAR-${suffix}`,
           name: `${cObj?.name || ''} ${sObj?.name || ''}`.trim(),
@@ -438,6 +440,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
           mrp: prod.price || '',
           salePrice: prod.salePrice || '',
           stock: '10',
+          imageUrl: existingColorImg,
         });
       }
     }
@@ -481,6 +484,12 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
       }
 
       if (uploadedUrls.length > 0) {
+        // Resolve effective target color ID (from targetColorId parameter or variant's current colorId)
+        const effectiveColorId =
+          targetColorId ||
+          (targetVariantIdx !== null && targetVariantIdx !== undefined && prod.variants[targetVariantIdx]?.colorId) ||
+          '';
+
         const nextImages = [...prod.images];
         uploadedUrls.forEach((url, i) => {
           nextImages.push({
@@ -488,7 +497,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
             altText: prod.name || 'Product Image',
             isPrimary: nextImages.length === 0 && i === 0,
             displayOrder: nextImages.length,
-            colorId: targetColorId || '',
+            colorId: effectiveColorId || '',
           });
         });
 
@@ -496,12 +505,10 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
         let nextVariants = prod.variants;
         if (targetVariantIdx !== null && targetVariantIdx !== undefined && nextVariants[targetVariantIdx]) {
           nextVariants = [...nextVariants];
-          if (!nextVariants[targetVariantIdx].imageUrl || nextVariants[targetVariantIdx].imageUrl.trim() === '') {
-            nextVariants[targetVariantIdx] = {
-              ...nextVariants[targetVariantIdx],
-              imageUrl: uploadedUrls[0],
-            };
-          }
+          nextVariants[targetVariantIdx] = {
+            ...nextVariants[targetVariantIdx],
+            imageUrl: uploadedUrls[0],
+          };
         }
 
         updateProduct(prodIndex, {
@@ -2290,9 +2297,18 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                   value={img.colorId || ''}
                                   onChange={(colorId) => {
                                     const nextImgs = prod.images.map((m, k) =>
-                                      k === imgIdx ? { ...m, colorId: colorId } : m
+                                      k === imgIdx ? { ...m, colorId: colorId || '' } : m
                                     );
-                                    updateProduct(pIdx, { images: nextImgs });
+                                    let nextV = [...prod.variants];
+                                    if (colorId) {
+                                      nextV = nextV.map((v) => {
+                                        if (v.colorId === colorId && (!v.imageUrl || v.imageUrl.trim() === '')) {
+                                          return { ...v, imageUrl: img.imageUrl };
+                                        }
+                                        return v;
+                                      });
+                                    }
+                                    updateProduct(pIdx, { images: nextImgs, variants: nextV });
                                   }}
                                   colors={colors}
                                   onColorCreated={async () => {
@@ -2903,8 +2919,24 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                   value={v.colorId || ''}
                                   onChange={(colorId) => {
                                     const nextV = [...prod.variants];
-                                    nextV[vIdx].colorId = colorId;
-                                    updateProduct(pIdx, { variants: nextV });
+                                    const currentVarImg = nextV[vIdx].imageUrl;
+                                    nextV[vIdx].colorId = colorId || '';
+
+                                    let nextImages = [...prod.images];
+                                    // 1. If variant has an image, auto-assign this color to that image in Images section
+                                    if (currentVarImg) {
+                                      nextImages = nextImages.map((img) =>
+                                        img.imageUrl === currentVarImg ? { ...img, colorId: colorId || '' } : img
+                                      );
+                                    } else if (colorId) {
+                                      // 2. If variant has no image yet, link image with matching color if exists
+                                      const matchedImg = nextImages.find((img) => img.colorId === colorId);
+                                      if (matchedImg) {
+                                        nextV[vIdx].imageUrl = matchedImg.imageUrl;
+                                      }
+                                    }
+
+                                    updateProduct(pIdx, { variants: nextV, images: nextImages });
                                   }}
                                   colors={colors}
                                   onColorCreated={async () => {

@@ -121,12 +121,17 @@ export const cartApi = {
     return json.data;
   },
 
-  applyCoupon: async (code, subtotal) => {
+  applyCoupon: async (code, subtotal, options = {}) => {
     const { headers } = getCartHeaders();
     const res = await fetch(`${API_URL}/cart/apply-coupon`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ code, subtotal }),
+      body: JSON.stringify({
+        code,
+        subtotal,
+        email: options.email || undefined,
+        mobile: options.mobile || undefined,
+      }),
     });
     const json = await res.json();
     if (!json.success) throw new Error(json.message || 'Failed to apply coupon');

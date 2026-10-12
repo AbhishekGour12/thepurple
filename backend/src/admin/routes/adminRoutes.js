@@ -439,6 +439,12 @@ router.patch(
   authorize(PERMISSIONS.COUPON_MANAGE),
   couponController.updateCouponStatus
 );
+router.delete(
+  '/coupons/:id',
+  authenticateAdmin,
+  authorize(PERMISSIONS.COUPON_MANAGE),
+  couponController.deleteCoupon
+);
 // ─── 14. Order Management & Refund Endpoints ──────────────────────
 router.get(
   '/orders/stats',

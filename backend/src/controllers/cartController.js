@@ -71,7 +71,7 @@ const formatCartResponse = async (cart) => {
     const regularPrice = parseFloat(variantMrp || item.product?.price || item.priceSnapshot || 0);
     const hasDiscount = salePrice !== null && salePrice < regularPrice && regularPrice > 0;
     const finalPrice = parseFloat(item.priceSnapshot || (hasDiscount ? salePrice : regularPrice) || 0);
-    const originalPrice = parseFloat(variantMrp || item.product?.mrp || (hasDiscount ? regularPrice : finalPrice * 1.4));
+    const originalPrice = parseFloat(variantMrp || item.product?.price || item.product?.mrp || (hasDiscount ? regularPrice : finalPrice));
     const discount = item.product?.discountPercent || (originalPrice > finalPrice ? Math.round(((originalPrice - finalPrice) / originalPrice) * 100) : 0);
     const lineTotal = finalPrice * item.quantity;
     subtotal += lineTotal;
@@ -488,15 +488,19 @@ export const getAvailableCoupons = async (req, res) => {
 // POST /api/v1/cart/apply-coupon
 export const applyCoupon = async (req, res) => {
   try {
-    const { code, subtotal = 0 } = req.body;
+    const { code, subtotal = 0, email, mobile } = req.body;
     if (!code) {
       return res.status(400).json({ success: false, message: 'Coupon code is required' });
     }
 
     const cleanCode = code.trim().toUpperCase();
 
-    // Built-in WELCOME10 coupon fallback
-    if (cleanCode === 'WELCOME10') {
+    let coupon = await Coupon.findOne({
+      where: { code: cleanCode, isActive: true },
+    });
+
+    // Built-in WELCOME10 coupon fallback only if not in database
+    if (!coupon && cleanCode === 'WELCOME10') {
       const discount = Math.round(subtotal * 0.1);
       return res.status(200).json({
         success: true,
@@ -510,10 +514,6 @@ export const applyCoupon = async (req, res) => {
         },
       });
     }
-
-    const coupon = await Coupon.findOne({
-      where: { code: cleanCode, isActive: true },
-    });
 
     if (!coupon) {
       return res.status(404).json({ success: false, message: `Invalid or inactive coupon code "${cleanCode}"` });
@@ -530,21 +530,37 @@ export const applyCoupon = async (req, res) => {
       return res.status(400).json({ success: false, message: 'This coupon usage limit has been reached.' });
     }
 
-    // Check per-user redemption limit
-    if (coupon.usageLimitPerUser && req.user?.id) {
-      const userRedemptionCount = await Order.count({
-        where: {
-          userId: req.user.id,
-          appliedCouponCode: cleanCode,
-          paymentStatus: { [Op.ne]: 'FAILED' },
-        },
-      });
+    // Check per-user redemption limit against userId, email, or mobile
+    if (coupon.usageLimitPerUser && coupon.usageLimitPerUser > 0) {
+      const userConditions = [];
+      if (req.user?.id) {
+        userConditions.push({ userId: req.user.id });
+      }
+      const checkEmail = (req.user?.email || email || '').trim().toLowerCase();
+      if (checkEmail) {
+        userConditions.push({ customerEmail: { [Op.iLike]: checkEmail } });
+      }
+      const checkMobile = String(req.user?.mobile || mobile || '').replace(/\D/g, '').slice(-10);
+      if (checkMobile && checkMobile.length === 10) {
+        userConditions.push({ customerMobile: { [Op.iLike]: `%${checkMobile}` } });
+      }
 
-      if (userRedemptionCount >= coupon.usageLimitPerUser) {
-        return res.status(400).json({
-          success: false,
-          message: `You have already redeemed coupon "${coupon.code}" the maximum allowed number of times (${coupon.usageLimitPerUser} time${coupon.usageLimitPerUser > 1 ? 's' : ''} per customer).`,
+      if (userConditions.length > 0) {
+        const userRedemptionCount = await Order.count({
+          where: {
+            appliedCouponCode: { [Op.iLike]: cleanCode },
+            paymentStatus: { [Op.ne]: 'FAILED' },
+            status: { [Op.ne]: 'CANCELLED' },
+            [Op.or]: userConditions,
+          },
         });
+
+        if (userRedemptionCount >= coupon.usageLimitPerUser) {
+          return res.status(400).json({
+            success: false,
+            message: `You have already redeemed coupon "${coupon.code}" (Limit: ${coupon.usageLimitPerUser} time${coupon.usageLimitPerUser > 1 ? 's' : ''} per customer).`,
+          });
+        }
       }
     }
     if (coupon.minOrderAmount && subtotal < parseFloat(coupon.minOrderAmount)) {

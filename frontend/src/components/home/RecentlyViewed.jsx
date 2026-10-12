@@ -293,7 +293,7 @@ export default function RecentlyViewed() {
           imageUrl: prod.image || '/images/storefront/cat-fashion-jewellery.jpg',
           badge: prod.badge,
           price: salePrice,
-          mrp: prod.originalPrice || salePrice * 1.5,
+          mrp: prod.originalPrice || prod.price || prod.mrp || salePrice,
           discountPercent: 0,
           quantity: 1,
           stock: 20,
