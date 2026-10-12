@@ -78,6 +78,16 @@ const startServer = async () => {
               DROP INDEX "cart_items_cart_id_product_id";
             END IF;
 
+            -- products columns (direct colors and sizes without variants)
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'products') THEN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'colorIds') THEN
+                ALTER TABLE "products" ADD COLUMN "colorIds" JSON DEFAULT '[]';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'sizeIds') THEN
+                ALTER TABLE "products" ADD COLUMN "sizeIds" JSON DEFAULT '[]';
+              END IF;
+            END IF;
+
             -- product_images columns
             IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'product_images') THEN
               IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'product_images' AND column_name = 'colorId') THEN

@@ -25,10 +25,10 @@ export default function ProductReviewsSection({
   const router = useRouter();
   const [reviews, setReviews] = useState([]);
   const [stats, setStats] = useState({
-    averageRating: 4.8,
+    averageRating: 0,
     totalReviews: 0,
     starCounts: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
-    starPercentages: { 5: 80, 4: 15, 3: 3, 2: 1, 1: 1 },
+    starPercentages: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
   });
   const [loading, setLoading] = useState(true);
   const [filterRating, setFilterRating] = useState(null);
@@ -156,8 +156,8 @@ export default function ProductReviewsSection({
     }
   };
 
-  const displayRating = stats.averageRating || 4.8;
-  const displayTotalReviews = stats.totalReviews || reviews.length;
+  const displayRating = stats.averageRating || 0;
+  const displayTotalReviews = stats.totalReviews || reviews.length || 0;
   const userDisplayName = customerUser?.name || customerUser?.fullName || (customerUser?.email ? customerUser.email.split('@')[0] : 'User');
   const userAvatar = customerUser?.avatar || null;
 
@@ -165,18 +165,62 @@ export default function ProductReviewsSection({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       {/* ─── 1. TOP RATING SUMMARY SCORECARD (Amazon / Flipkart Style) ─── */}
-      <div
-        style={{
-          backgroundColor: '#FAF8FC',
-          borderRadius: '18px',
-          border: '1px solid #E9D5FF',
-          padding: '24px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '24px',
-          alignItems: 'center',
-        }}
-      >
+      {displayTotalReviews === 0 ? (
+        <div
+          style={{
+            backgroundColor: '#FAF8FC',
+            borderRadius: '18px',
+            border: '1px solid #E9D5FF',
+            padding: '32px 24px',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', marginBottom: '10px' }}>
+            {[1, 2, 3, 4, 5].map((s) => (
+              <Star key={s} size={22} fill="#F1F5F9" stroke="#CBD5E1" />
+            ))}
+          </div>
+          <h4 style={{ fontSize: '18px', fontWeight: 800, color: '#1E1B4B', margin: '0 0 6px' }}>
+            No Reviews Yet
+          </h4>
+          <p style={{ fontSize: '13.5px', color: '#6B7280', margin: '0 0 16px', maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto' }}>
+            Be the first customer to share your thoughts and help others make the right choice!
+          </p>
+          <button
+            type="button"
+            onClick={handleOpenReviewForm}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '11px 22px',
+              backgroundColor: '#7E22CE',
+              color: '#FFFFFF',
+              borderRadius: '12px',
+              fontSize: '13.5px',
+              fontWeight: 800,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(126, 34, 206, 0.25)',
+            }}
+          >
+            <Sparkles size={16} />
+            Write the First Review
+          </button>
+        </div>
+      ) : (
+        <div
+          style={{
+            backgroundColor: '#FAF8FC',
+            borderRadius: '18px',
+            border: '1px solid #E9D5FF',
+            padding: '24px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '24px',
+            alignItems: 'center',
+          }}
+        >
         {/* Left: Overall Big Score */}
         <div style={{ textAlign: 'center', borderRight: '1px solid #E5E7EB', paddingRight: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
@@ -319,6 +363,7 @@ export default function ProductReviewsSection({
           </button>
         </div>
       </div>
+      )}
 
       {/* Success Alert */}
       {formSuccess && (

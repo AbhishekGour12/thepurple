@@ -441,6 +441,8 @@ export const productService = {
           widthCm: widthCm ? parseFloat(widthCm) : null,
           heightCm: heightCm ? parseFloat(heightCm) : null,
           tags: Array.isArray(tags) ? tags : [],
+          colorIds: Array.isArray(colorIds) ? colorIds : [],
+          sizeIds: Array.isArray(sizeIds) ? sizeIds : [],
           badge: badge ? String(badge).trim() : null,
           isFeatured: Boolean(isFeatured),
           isBestSeller: Boolean(isBestSeller),
@@ -575,6 +577,8 @@ export const productService = {
       images,
       variants,
       attributeValueIds,
+      colorIds,
+      sizeIds,
       adminId,
       ipAddress,
     }
@@ -662,6 +666,8 @@ export const productService = {
     if (isBestSeller !== undefined) updates.isBestSeller = Boolean(isBestSeller);
     if (isBulk !== undefined) updates.isBulk = Boolean(isBulk);
     if (minOrderQuantity !== undefined) updates.minOrderQuantity = Math.max(1, parseInt(minOrderQuantity, 10) || 1);
+    if (colorIds !== undefined) updates.colorIds = Array.isArray(colorIds) ? colorIds : [];
+    if (sizeIds !== undefined) updates.sizeIds = Array.isArray(sizeIds) ? sizeIds : [];
 
     const transaction = await sequelize.transaction();
 

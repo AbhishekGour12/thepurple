@@ -65,6 +65,163 @@ const COLOR_PRESETS = [
   { name: 'Midnight Dark', hex: '#9333EA', bg: 'linear-gradient(135deg, #130726 0%, #200D3E 50%, #3B1270 100%)' },
 ];
 
+function RouteHelperSelector({ categories = [], products = [], onSelect }) {
+  const [productSearch, setProductSearch] = useState('');
+  const [showProductSearch, setShowProductSearch] = useState(false);
+
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return products.slice(0, 15);
+    return products
+      .filter((p) => p.name?.toLowerCase().includes(productSearch.toLowerCase()))
+      .slice(0, 20);
+  }, [products, productSearch]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
+      <div style={{ display: 'flex', gap: '6px' }}>
+        <select
+          onChange={(e) => {
+            const val = e.target.value;
+            if (!val) return;
+            if (val === '__DIRECT_PRODUCT__') {
+              setShowProductSearch(true);
+              return;
+            }
+            setShowProductSearch(false);
+            const parts = val.split('::');
+            const type = parts[0];
+            const name = parts[1];
+            const parentCat = parts[2];
+            let url = '/products';
+            let label = 'Shop Now';
+            if (type === 'ALL') {
+              url = '/products';
+              label = 'Shop All';
+            } else if (type === 'BEST') {
+              url = '/products?collection=bestseller';
+              label = 'Best Sellers';
+            } else if (type === 'NEW') {
+              url = '/products?collection=new-arrivals';
+              label = 'New Arrivals';
+            } else if (type === 'CAT') {
+              url = `/products?category=${encodeURIComponent(name)}`;
+              label = `Shop ${name}`;
+            } else if (type === 'SUB') {
+              url = `/products?category=${encodeURIComponent(parentCat)}&subcategory=${encodeURIComponent(name)}`;
+              label = `Explore ${name}`;
+            }
+            onSelect(url, label);
+          }}
+          defaultValue=""
+          style={{
+            flex: 1,
+            padding: '7px 10px',
+            borderRadius: '6px',
+            border: '1px solid #CBD5E1',
+            backgroundColor: '#F8FAFC',
+            fontSize: '11.5px',
+            color: '#334155',
+            outline: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          <option value="">⚡ Quick Route: Pick Collection, Category, or Single Product...</option>
+          <option value="__DIRECT_PRODUCT__">🎯 Direct Single Product Detail Page (Search by Name)...</option>
+          <optgroup label="🛍️ Store Collections">
+            <option value="ALL::All Products">All Products Catalog (/products)</option>
+            <option value="BEST::Best Sellers">🔥 Best Sellers Collection (/products?collection=bestseller)</option>
+            <option value="NEW::New Arrivals">✨ New Arrivals (/products?collection=new-arrivals)</option>
+          </optgroup>
+          {categories.map((cat) => (
+            <optgroup key={cat.id} label={`Category: ${cat.name}`}>
+              <option value={`CAT::${cat.name}`}>All in {cat.name} (/products?category={cat.name})</option>
+              {(cat.subcategories || []).map((sub) => (
+                <option key={sub.id} value={`SUB::${sub.name}::${cat.name}`}>
+                  └─ {sub.name} (/products?category={cat.name}&subcategory={sub.name})
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </div>
+
+      {showProductSearch && (
+        <div style={{ backgroundColor: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: '8px', padding: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#6D28D9' }}>
+              🔍 Search Single Product Detail Page:
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowProductSearch(false)}
+              style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', fontSize: '11px' }}
+            >
+              ✕ Close
+            </button>
+          </div>
+          <input
+            type="text"
+            placeholder="Type product name to search..."
+            value={productSearch}
+            onChange={(e) => setProductSearch(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '6px 10px',
+              borderRadius: '6px',
+              border: '1px solid #CBD5E1',
+              backgroundColor: '#FFFFFF',
+              fontSize: '12px',
+              marginBottom: '6px',
+            }}
+          />
+          <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            {filteredProducts.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => {
+                  const url = `/products/${p.slug || p.id}`;
+                  const label = `Shop ${p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name}`;
+                  onSelect(url, label);
+                  setShowProductSearch(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '5px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: '#FFFFFF',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontSize: '11.5px',
+                  color: '#1E1B4B',
+                  transition: 'background 0.15s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#EDE9FE')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}
+              >
+                <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {p.name}
+                </span>
+                <span style={{ color: '#7E22CE', fontWeight: 700, marginLeft: '8px', flexShrink: 0 }}>
+                  /products/{p.slug || p.id}
+                </span>
+              </button>
+            ))}
+            {filteredProducts.length === 0 && (
+              <div style={{ fontSize: '11.5px', color: '#6B7280', textAlign: 'center', padding: '6px' }}>
+                No products found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BannerManagementPage() {
   const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
   const canManage = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'MANAGER';
@@ -79,23 +236,32 @@ export default function BannerManagementPage() {
 
   const fileInputRef = useRef(null);
   const [categories, setCategories] = useState([]);
+  const [productsList, setProductsList] = useState([]);
 
-  // Fetch categories & subcategories for quick button routing
+  // Fetch categories, subcategories & products for quick button routing
   useEffect(() => {
     let isMounted = true;
-    async function fetchCategories() {
+    async function fetchData() {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-        const res = await fetch(`${apiUrl}/categories`);
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data?.categories) && isMounted) {
-          setCategories(json.data.categories);
+        const [catRes, prodRes] = await Promise.all([
+          fetch(`${apiUrl}/categories`).then((r) => r.json()).catch(() => ({})),
+          fetch(`${apiUrl}/products?limit=200`).then((r) => r.json()).catch(() => ({})),
+        ]);
+        if (isMounted) {
+          if (catRes?.success && Array.isArray(catRes.data?.categories)) {
+            setCategories(catRes.data.categories);
+          }
+          const prods = prodRes?.data?.products || prodRes?.products || [];
+          if (Array.isArray(prods)) {
+            setProductsList(prods);
+          }
         }
       } catch {
         // Fallback
       }
     }
-    fetchCategories();
+    fetchData();
     return () => {
       isMounted = false;
     };
@@ -1344,52 +1510,11 @@ export default function BannerManagementPage() {
                         color: '#1E1B4B',
                       }}
                     />
-                    {categories.length > 0 && (
-                      <div style={{ marginTop: '6px' }}>
-                        <select
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (!val) return;
-                            const parts = val.split('::');
-                            const type = parts[0];
-                            const name = parts[1];
-                            const parentCat = parts[2];
-                            let route = '/products';
-                            if (type === 'CAT') {
-                              route = `/products?category=${encodeURIComponent(name)}`;
-                            } else if (type === 'SUB') {
-                              route = `/products?category=${encodeURIComponent(parentCat)}&subcategory=${encodeURIComponent(name)}`;
-                            }
-                            setModal((m) => ({ ...m, linkUrl: route, primaryBtnUrl: route }));
-                          }}
-                          defaultValue=""
-                          style={{
-                            width: '100%',
-                            padding: '6px 10px',
-                            borderRadius: '6px',
-                            border: '1px solid #CBD5E1',
-                            backgroundColor: '#F8FAFC',
-                            fontSize: '11.5px',
-                            color: '#475569',
-                            outline: 'none',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <option value="">⚡ Quick Route: Pick Category / Subcategory to auto-fill link...</option>
-                          <option value="ALL::All Products">🛍️ All Products Catalog (/products)</option>
-                          {categories.map((cat) => (
-                            <optgroup key={cat.id} label={`Category: ${cat.name}`}>
-                              <option value={`CAT::${cat.name}`}>All in {cat.name} (/products?category={cat.name})</option>
-                              {(cat.subcategories || []).map((sub) => (
-                                <option key={sub.id} value={`SUB::${sub.name}::${cat.name}`}>
-                                  └─ {sub.name} (/products?category={cat.name}&subcategory={sub.name})
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                    <RouteHelperSelector
+                      categories={categories}
+                      products={productsList}
+                      onSelect={(url) => setModal((m) => ({ ...m, linkUrl: url, primaryBtnUrl: url }))}
+                    />
                   </div>
                 )}
 
@@ -1455,60 +1580,17 @@ export default function BannerManagementPage() {
                         }}
                       />
                     </div>
-                    {categories.length > 0 && (
-                      <div style={{ marginTop: '6px' }}>
-                        <select
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (!val) return;
-                            const parts = val.split('::');
-                            const type = parts[0];
-                            const name = parts[1];
-                            const parentCat = parts[2];
-                            if (type === 'ALL') {
-                              setModal((m) => ({ ...m, primaryBtnUrl: '/products' }));
-                            } else if (type === 'CAT') {
-                              setModal((m) => ({
-                                ...m,
-                                primaryBtnUrl: `/products?category=${encodeURIComponent(name)}`,
-                                primaryBtnText: m.primaryBtnText || `Shop ${name}`,
-                              }));
-                            } else if (type === 'SUB') {
-                              setModal((m) => ({
-                                ...m,
-                                primaryBtnUrl: `/products?category=${encodeURIComponent(parentCat)}&subcategory=${encodeURIComponent(name)}`,
-                                primaryBtnText: m.primaryBtnText || `Explore ${name}`,
-                              }));
-                            }
-                          }}
-                          defaultValue=""
-                          style={{
-                            width: '100%',
-                            padding: '6px 10px',
-                            borderRadius: '6px',
-                            border: '1px solid #CBD5E1',
-                            backgroundColor: '#F8FAFC',
-                            fontSize: '11.5px',
-                            color: '#475569',
-                            outline: 'none',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <option value="">⚡ Auto-Fill Route: Select Category / Subcategory...</option>
-                          <option value="ALL::All Products">🛍️ All Products Catalog (/products)</option>
-                          {categories.map((cat) => (
-                            <optgroup key={cat.id} label={`Category: ${cat.name}`}>
-                              <option value={`CAT::${cat.name}`}>All in {cat.name} (/products?category={cat.name})</option>
-                              {(cat.subcategories || []).map((sub) => (
-                                <option key={sub.id} value={`SUB::${sub.name}::${cat.name}`}>
-                                  └─ {sub.name} (/products?category={cat.name}&subcategory={sub.name})
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                    <RouteHelperSelector
+                      categories={categories}
+                      products={productsList}
+                      onSelect={(url, label) =>
+                        setModal((m) => ({
+                          ...m,
+                          primaryBtnUrl: url,
+                          primaryBtnText: m.primaryBtnText || label,
+                        }))
+                      }
+                    />
                   </div>
 
                   {/* Secondary CTA (Optional) */}
@@ -1547,60 +1629,17 @@ export default function BannerManagementPage() {
                           }}
                         />
                       </div>
-                      {categories.length > 0 && (
-                        <div style={{ marginTop: '6px' }}>
-                          <select
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (!val) return;
-                              const parts = val.split('::');
-                              const type = parts[0];
-                              const name = parts[1];
-                              const parentCat = parts[2];
-                              if (type === 'ALL') {
-                                setModal((m) => ({ ...m, secondaryBtnUrl: '/products' }));
-                              } else if (type === 'CAT') {
-                                setModal((m) => ({
-                                  ...m,
-                                  secondaryBtnUrl: `/products?category=${encodeURIComponent(name)}`,
-                                  secondaryBtnText: m.secondaryBtnText || `Explore ${name}`,
-                                }));
-                              } else if (type === 'SUB') {
-                                setModal((m) => ({
-                                  ...m,
-                                  secondaryBtnUrl: `/products?category=${encodeURIComponent(parentCat)}&subcategory=${encodeURIComponent(name)}`,
-                                  secondaryBtnText: m.secondaryBtnText || `View ${name}`,
-                                }));
-                              }
-                            }}
-                            defaultValue=""
-                            style={{
-                              width: '100%',
-                              padding: '6px 10px',
-                              borderRadius: '6px',
-                              border: '1px solid #CBD5E1',
-                              backgroundColor: '#F8FAFC',
-                              fontSize: '11.5px',
-                              color: '#475569',
-                              outline: 'none',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <option value="">⚡ Auto-Fill Route: Select Category / Subcategory...</option>
-                            <option value="ALL::All Products">🛍️ All Products Catalog (/products)</option>
-                            {categories.map((cat) => (
-                              <optgroup key={cat.id} label={`Category: ${cat.name}`}>
-                                <option value={`CAT::${cat.name}`}>All in {cat.name} (/products?category={cat.name})</option>
-                                {(cat.subcategories || []).map((sub) => (
-                                  <option key={sub.id} value={`SUB::${sub.name}::${cat.name}`}>
-                                    └─ {sub.name} (/products?category={cat.name}&subcategory={sub.name})
-                                  </option>
-                                ))}
-                              </optgroup>
-                            ))}
-                          </select>
-                        </div>
-                      )}
+                      <RouteHelperSelector
+                        categories={categories}
+                        products={productsList}
+                        onSelect={(url, label) =>
+                          setModal((m) => ({
+                            ...m,
+                            secondaryBtnUrl: url,
+                            secondaryBtnText: m.secondaryBtnText || label,
+                          }))
+                        }
+                      />
                     </div>
                   )}
                 </div>

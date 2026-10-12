@@ -479,8 +479,8 @@ export default function AllProductsCatalog({
         price: sellingPrice,
         originalPrice: originalPrice,
         discount,
-        rating: Number(p.rating || 4.8),
-        reviews: p.reviewCount || 42,
+        rating: Number(p.rating || 0),
+        reviews: Number(p.reviewCount || 0),
         badge: resolvedBadge,
         badgeColor: resolvedBadgeColor,
         color: p.variants?.[0]?.color?.name || p.images?.find((img) => img.color?.name)?.color?.name || 'Gold',
@@ -1779,12 +1779,18 @@ export default function AllProductsCatalog({
                       </Link>
 
                       {/* Rating */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', color: '#F59E0B' }}>
-                          <Star size={12} fill="#F59E0B" />
-                        </div>
-                        <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#1E1B4B' }}>{prod.rating}</span>
-                        <span style={{ fontSize: '11px', color: '#9CA3AF' }}>({prod.reviews})</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', minHeight: '18px' }}>
+                        {prod.reviews > 0 ? (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', color: '#F59E0B' }}>
+                              <Star size={12} fill="#F59E0B" />
+                            </div>
+                            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#1E1B4B' }}>{prod.rating}</span>
+                            <span style={{ fontSize: '11px', color: '#9CA3AF' }}>({prod.reviews})</span>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: '#9CA3AF' }}>No reviews yet</span>
+                        )}
                       </div>
 
                       {/* Price & Add to Cart */}

@@ -288,6 +288,16 @@ export default function ProductDetailPage({ slug }) {
             }
           }
 
+          // Direct product.colors fallback
+          if (!initialColorId && prod.colors && prod.colors.length > 0) {
+            initialColorId = prod.colors[0]?.id;
+          }
+
+          // Direct product.sizes fallback
+          if (!initialSizeId && prod.sizes && prod.sizes.length > 0) {
+            initialSizeId = prod.sizes[0]?.id;
+          }
+
           if (initialColorId) setSelectedColorId(initialColorId);
           if (initialSizeId) setSelectedSizeId(initialSizeId);
 
@@ -380,24 +390,41 @@ export default function ProductDetailPage({ slug }) {
   }, [product]);
 
   const availableSizes = useMemo(() => {
-    if (!product?.variants) return [];
     const map = new Map();
-    const matchingVariants = selectedColorId
-      ? product.variants.filter((v) => !v.colorId || v.colorId === selectedColorId)
-      : product.variants;
 
-    const targetVariants = matchingVariants.some((v) => v.size || v.sizeId) ? matchingVariants : product.variants;
+    // 1. From variants if present
+    if (product?.variants && product.variants.length > 0) {
+      const matchingVariants = selectedColorId
+        ? product.variants.filter((v) => !v.colorId || v.colorId === selectedColorId)
+        : product.variants;
 
-    targetVariants.forEach((v) => {
-      const sId = v.size?.id || v.sizeId;
-      if (sId && !map.has(sId)) {
-        map.set(sId, {
-          id: sId,
-          name: v.size?.name || v.name || 'Standard',
-          code: v.size?.code || v.size?.name || 'STD',
-        });
-      }
-    });
+      const targetVariants = matchingVariants.some((v) => v.size || v.sizeId) ? matchingVariants : product.variants;
+
+      targetVariants.forEach((v) => {
+        const sId = v.size?.id || v.sizeId;
+        if (sId && !map.has(sId)) {
+          map.set(sId, {
+            id: sId,
+            name: v.size?.name || v.name || 'Standard',
+            code: v.size?.code || v.size?.name || 'STD',
+          });
+        }
+      });
+    }
+
+    // 2. From direct product.sizes (when no variants or direct sizes exist)
+    if (product?.sizes && Array.isArray(product.sizes)) {
+      product.sizes.forEach((s) => {
+        if (s && s.id && !map.has(s.id)) {
+          map.set(s.id, {
+            id: s.id,
+            name: s.name || s.code || 'Standard',
+            code: s.code || s.name || 'STD',
+          });
+        }
+      });
+    }
+
     return Array.from(map.values());
   }, [product, selectedColorId]);
 
@@ -1380,7 +1407,7 @@ export default function ProductDetailPage({ slug }) {
               </p>
             </div>
 
-            {/* Rating Stars & Sales Metric */}
+            {/* Rating Stars & Verified Review Status */}
             <div
               style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flexWrap: 'wrap', cursor: 'pointer' }}
               onClick={() => {
@@ -1388,24 +1415,44 @@ export default function ProductDetailPage({ slug }) {
                 const el = document.getElementById('pdp-tabs-container');
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
-              title="Click to view all verified reviews"
+              title="Click to view verified reviews"
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#F59E0B' }}>
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Star
-                    key={s}
-                    size={15}
-                    fill={s <= Math.round(parseFloat(dynamicRating || product.rating || 4.8)) ? '#F59E0B' : '#E5E7EB'}
-                    stroke={s <= Math.round(parseFloat(dynamicRating || product.rating || 4.8)) ? '#F59E0B' : '#D1D5DB'}
-                  />
-                ))}
-              </div>
-              <span style={{ fontWeight: 800, color: '#1E1B4B' }}>{dynamicRating || product.rating || 4.8} ★</span>
-              <span style={{ color: '#7E22CE', fontWeight: 700, textDecoration: 'underline' }}>
-                ({dynamicReviewCount !== null ? dynamicReviewCount : (product.reviewCount || 0)} customer reviews)
-              </span>
-              <span style={{ color: '#D1D5DB' }}>|</span>
-              <span style={{ color: '#047857', fontWeight: 700 }}>1.2K+ sold</span>
+              {(() => {
+                const count = dynamicReviewCount !== null ? dynamicReviewCount : (product.reviewCount || 0);
+                const rating = (dynamicRating !== null ? dynamicRating : product.rating) || 0;
+                if (count > 0) {
+                  return (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#F59E0B' }}>
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            size={15}
+                            fill={s <= Math.round(parseFloat(rating)) ? '#F59E0B' : '#E5E7EB'}
+                            stroke={s <= Math.round(parseFloat(rating)) ? '#F59E0B' : '#D1D5DB'}
+                          />
+                        ))}
+                      </div>
+                      <span style={{ fontWeight: 800, color: '#1E1B4B' }}>{rating} ★</span>
+                      <span style={{ color: '#7E22CE', fontWeight: 700, textDecoration: 'underline' }}>
+                        ({count} {count === 1 ? 'review' : 'reviews'})
+                      </span>
+                    </>
+                  );
+                }
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#CBD5E1' }}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star key={s} size={14} fill="#F1F5F9" stroke="#CBD5E1" />
+                      ))}
+                    </div>
+                    <span style={{ fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>
+                      No reviews yet • Be the first to review
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Price Row */}
@@ -2316,11 +2363,15 @@ export default function ProductDetailPage({ slug }) {
                           <span style={{ fontSize: '10px', fontWeight: 800, color: '#16A34A' }}>{relDiscount}% OFF</span>
                         )}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: '#F59E0B' }}>
-                        <Star size={12} fill="#F59E0B" stroke="#F59E0B" />
-                        <span style={{ fontWeight: 700, color: '#4B5563' }}>{rel.rating || 4.8}</span>
-                        <span style={{ color: '#9CA3AF' }}>({rel.reviewCount || 42})</span>
-                      </div>
+                      {rel.reviewCount > 0 ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: '#F59E0B' }}>
+                          <Star size={12} fill="#F59E0B" stroke="#F59E0B" />
+                          <span style={{ fontWeight: 700, color: '#4B5563' }}>{rel.rating || 0}</span>
+                          <span style={{ color: '#9CA3AF' }}>({rel.reviewCount})</span>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>No reviews yet</div>
+                      )}
                     </div>
                   </Link>
                 );

@@ -146,6 +146,14 @@ export const Product = sequelize.define(
       type: DataTypes.JSON,
       defaultValue: [],
     },
+    colorIds: {
+      type: DataTypes.JSON,
+      defaultValue: [],
+    },
+    sizeIds: {
+      type: DataTypes.JSON,
+      defaultValue: [],
+    },
     badge: {
       type: DataTypes.STRING(100),
       allowNull: true,

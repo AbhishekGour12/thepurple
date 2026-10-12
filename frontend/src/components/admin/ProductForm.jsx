@@ -100,12 +100,16 @@ const createInitialProduct = (template = null, isEditData = null) => {
         })) || [],
       matrixColors: Array.from(
         new Set([
+          ...(isEditData.colorIds || []),
           ...(isEditData.variants?.map((v) => v.colorId).filter(Boolean) || []),
           ...(isEditData.images?.map((img) => img.colorId).filter(Boolean) || []),
         ])
       ),
       matrixSizes: Array.from(
-        new Set(isEditData.variants?.map((v) => v.sizeId).filter(Boolean) || [])
+        new Set([
+          ...(isEditData.sizeIds || []),
+          ...(isEditData.variants?.map((v) => v.sizeId).filter(Boolean) || []),
+        ])
       ),
       isCollapsed: false,
     };
@@ -677,38 +681,14 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
             displayOrder: typeof img === 'object' && img.displayOrder !== undefined ? img.displayOrder : idx,
             colorId: typeof img === 'object' && img.colorId ? img.colorId : null,
           })),
-          variants: (() => {
-            let finalVariants = Array.isArray(p.variants) ? [...p.variants] : [];
-            // Auto-synthesize variants from matrixColors & matrixSizes if variants list is empty
-            if (finalVariants.length === 0 && (p.matrixColors?.length > 0 || p.matrixSizes?.length > 0)) {
-              const selColors = p.matrixColors.length > 0 ? p.matrixColors : [''];
-              const selSizes = p.matrixSizes.length > 0 ? p.matrixSizes : [''];
-              let vCount = 0;
-              for (const cId of selColors) {
-                for (const sId of selSizes) {
-                  if (!cId && !sId) continue;
-                  vCount++;
-                  const cObj = colors.find((c) => c.id === cId);
-                  const sObj = sizes.find((s) => s.id === sId);
-                  const colorName = cObj ? cObj.name.toUpperCase().replace(/\s+/g, '') : '';
-                  const sizeName = sObj ? (sObj.code || sObj.name).toUpperCase().replace(/\s+/g, '') : '';
-                  const suffix = [colorName, sizeName].filter(Boolean).join('-') || `V${vCount}`;
-                  const existingColorImg = p.images.find((img) => cId && (img.colorId === cId || (typeof img === 'object' && img.colorId === cId)))?.imageUrl || '';
-                  finalVariants.push({
-                    sku: `${p.sku.trim().toUpperCase()}-${suffix}`,
-                    name: `${cObj?.name || ''} ${sObj?.name || ''}`.trim() || p.name.trim(),
-                    colorId: cId || null,
-                    sizeId: sId || null,
-                    mrp: parseFloat(p.price) || 0,
-                    salePrice: parseFloat(p.salePrice) || parseFloat(p.price) || 0,
-                    stock: parseInt(p.stock, 10) || 10,
-                    imageUrl: existingColorImg || null,
-                  });
-                }
-              }
-            }
-            return finalVariants;
-          })(),
+          colorIds: Array.from(
+            new Set([
+              ...(p.matrixColors || []),
+              ...(p.images?.map((img) => (typeof img === 'object' ? img.colorId : null)).filter(Boolean) || []),
+            ])
+          ),
+          sizeIds: p.matrixSizes || [],
+          variants: Array.isArray(p.variants) ? p.variants : [],
         };
 
         if (isEdit && p.id) {
@@ -825,38 +805,14 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
           displayOrder: typeof img === 'object' && img.displayOrder !== undefined ? img.displayOrder : idx,
           colorId: typeof img === 'object' && img.colorId ? img.colorId : null,
         })),
-        variants: (() => {
-          let finalVariants = Array.isArray(p.variants) ? [...p.variants] : [];
-          // Auto-synthesize variants from matrixColors & matrixSizes if variants list is empty
-          if (finalVariants.length === 0 && (p.matrixColors?.length > 0 || p.matrixSizes?.length > 0)) {
-            const selColors = p.matrixColors.length > 0 ? p.matrixColors : [''];
-            const selSizes = p.matrixSizes.length > 0 ? p.matrixSizes : [''];
-            let vCount = 0;
-            for (const cId of selColors) {
-              for (const sId of selSizes) {
-                if (!cId && !sId) continue;
-                vCount++;
-                const cObj = colors.find((c) => c.id === cId);
-                const sObj = sizes.find((s) => s.id === sId);
-                const colorName = cObj ? cObj.name.toUpperCase().replace(/\s+/g, '') : '';
-                const sizeName = sObj ? (sObj.code || sObj.name).toUpperCase().replace(/\s+/g, '') : '';
-                const suffix = [colorName, sizeName].filter(Boolean).join('-') || `V${vCount}`;
-                const existingColorImg = p.images.find((img) => cId && (img.colorId === cId || (typeof img === 'object' && img.colorId === cId)))?.imageUrl || '';
-                finalVariants.push({
-                  sku: `${p.sku.trim().toUpperCase()}-${suffix}`,
-                  name: `${cObj?.name || ''} ${sObj?.name || ''}`.trim() || p.name.trim(),
-                  colorId: cId || null,
-                  sizeId: sId || null,
-                  mrp: parseFloat(p.price) || 0,
-                  salePrice: parseFloat(p.salePrice) || parseFloat(p.price) || 0,
-                  stock: parseInt(p.stock, 10) || 10,
-                  imageUrl: existingColorImg || null,
-                });
-              }
-            }
-          }
-          return finalVariants;
-        })(),
+        colorIds: Array.from(
+          new Set([
+            ...(p.matrixColors || []),
+            ...(p.images?.map((img) => (typeof img === 'object' ? img.colorId : null)).filter(Boolean) || []),
+          ])
+        ),
+        sizeIds: p.matrixSizes || [],
+        variants: Array.isArray(p.variants) ? p.variants : [],
       };
 
       if (isEdit && p.id) {

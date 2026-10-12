@@ -643,7 +643,39 @@ router.get(
       return ApiResponse.error(res, 'Product not found', 404);
     }
 
-    return ApiResponse.success(res, { product }, 'Product details retrieved successfully');
+    const prodJson = product.toJSON();
+
+    // 1. Populate direct colors if product.colorIds has entries or images have colorId
+    const imageColorIds = (prodJson.images || [])
+      .map((img) => img.colorId)
+      .filter(Boolean);
+    const allColorIds = Array.from(new Set([
+      ...(Array.isArray(prodJson.colorIds) ? prodJson.colorIds : []),
+      ...imageColorIds
+    ]));
+
+    if (allColorIds.length > 0) {
+      const directColors = await Color.findAll({
+        where: { id: allColorIds },
+        attributes: ['id', 'name', 'hexCode'],
+      });
+      prodJson.colors = directColors;
+    } else {
+      prodJson.colors = [];
+    }
+
+    // 2. Populate direct sizes if product.sizeIds has entries
+    if (Array.isArray(prodJson.sizeIds) && prodJson.sizeIds.length > 0) {
+      const directSizes = await Size.findAll({
+        where: { id: prodJson.sizeIds },
+        attributes: ['id', 'name', 'code'],
+      });
+      prodJson.sizes = directSizes;
+    } else {
+      prodJson.sizes = [];
+    }
+
+    return ApiResponse.success(res, { product: prodJson }, 'Product details retrieved successfully');
   })
 );
 
