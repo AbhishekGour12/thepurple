@@ -41,6 +41,7 @@ import ColorManagerModal from '@/components/admin/products/ColorManagerModal';
 import SizeManagerModal from '@/components/admin/products/SizeManagerModal';
 import AttributeManagerModal from '@/components/admin/products/AttributeManagerModal';
 import SearchableColorSelect from '@/components/admin/products/SearchableColorSelect';
+import RichDescriptionEditor from '@/components/admin/products/RichDescriptionEditor';
 
 // Helper to create an initial product or clone from a template
 const createInitialProduct = (template = null, isEditData = null) => {
@@ -3004,24 +3005,34 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                       <span>8. Story, Specifications & Care</span>
                     </div>
 
-                    <div style={{ marginBottom: '14px' }}>
-                      <label
+                    <div style={{ marginBottom: '16px' }}>
+                      <div
                         style={{
-                          display: 'block',
-                          fontSize: '13px',
-                          fontWeight: 600,
-                          color: '#374151',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
                           marginBottom: '6px',
                         }}
                       >
-                        Detailed Story / Description
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={prod.description}
-                        onChange={(e) => updateProduct(pIdx, { description: e.target.value })}
-                        placeholder="Comprehensive product storytelling..."
-                        style={inputStyle}
+                        <label
+                          style={{
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            color: '#374151',
+                          }}
+                        >
+                          Detailed Story & Highlights (Bullet Points & Styling)
+                        </label>
+                        <span style={{ fontSize: '11px', color: '#6B7280' }}>
+                          Supports <strong>Bold</strong>, <em>Italic</em>, Emojis & Custom Bullets
+                        </span>
+                      </div>
+                      <RichDescriptionEditor
+                        value={prod.description || ''}
+                        onChange={(val) => updateProduct(pIdx, { description: val })}
+                        productName={prod.name}
+                        productBrand={prod.brand}
+                        placeholder="Describe product highlights, materials, and styling. Use • or ✔ for checkmark bullet lists..."
                       />
                     </div>
 

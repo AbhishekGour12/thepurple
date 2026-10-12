@@ -42,6 +42,7 @@ import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import MainHeader from '@/components/layout/MainHeader';
 import Footer from '@/components/layout/Footer';
 import ProductReviewsSection from './ProductReviewsSection';
+import ProductFormattedDescription from './ProductFormattedDescription';
 
 export default function ProductDetailPage({ slug }) {
   const router = useRouter();
@@ -1792,24 +1793,11 @@ export default function ProductDetailPage({ slug }) {
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1E1B4B', marginBottom: '12px' }}>
                     Product Description
                   </h3>
-                  <p style={{ fontSize: '13px', color: '#4B5563', lineHeight: '1.6', marginBottom: '16px' }}>
-                    {product.description ||
-                      'The 22K Handcrafted Golden Rope Chain is a perfect blend of tradition and modern elegance. Expertly crafted by skilled artisans, this chain features a classic rope design that adds a touch of sophistication to any outfit. Whether for daily wear or special occasions, it’s a timeless piece that never goes out of style.'}
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {[
-                      'Made from certified premium materials',
-                      'Handcrafted by master artisans',
-                      'Durable and long-lasting shine',
-                      'Perfect for daily wear or special occasions',
-                      'Comes in a premium jewellery box',
-                    ].map((bullet, bIdx) => (
-                      <div key={bIdx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#374151' }}>
-                        <CheckCircle2 size={16} color="#7E22CE" style={{ flexShrink: 0 }} />
-                        <span>{bullet}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <ProductFormattedDescription
+                    description={product.description}
+                    fallbackName={product.name}
+                    fallbackBrand={product.brand}
+                  />
                 </div>
 
                 {/* Middle: Why You'll Love It */}
