@@ -1116,7 +1116,6 @@ export default function AdminCouponsPage() {
                       </span>
                     </label>
                   </div>
-                </div>
 
                 {/* Live Preview Card */}
                 <div
