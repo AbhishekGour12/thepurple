@@ -123,14 +123,23 @@ export const cartApi = {
 
   applyCoupon: async (code, subtotal, options = {}) => {
     const { headers } = getCartHeaders();
+    let email = options.email;
+    let mobile = options.mobile;
+    if (!email || !mobile) {
+      const user = getStoredCustomerUser();
+      if (user) {
+        if (!email && user.email) email = user.email;
+        if (!mobile && user.mobile) mobile = user.mobile;
+      }
+    }
     const res = await fetch(`${API_URL}/cart/apply-coupon`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
         code,
         subtotal,
-        email: options.email || undefined,
-        mobile: options.mobile || undefined,
+        email: email || undefined,
+        mobile: mobile || undefined,
       }),
     });
     const json = await res.json();

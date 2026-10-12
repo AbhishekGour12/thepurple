@@ -467,13 +467,62 @@ export const getAvailableCoupons = async (req, res) => {
         'isAutoApply',
         'startDate',
         'endDate',
+        'usageLimit',
+        'usageLimitPerUser',
+        'usedCount',
+        'showOnProductPage',
+        'description',
       ],
     });
+
+    // 1. Filter out coupons that reached total global usageLimit
+    let eligibleCoupons = coupons.filter((c) => {
+      if (c.usageLimit && c.usedCount >= c.usageLimit) return false;
+      return true;
+    });
+
+    // 2. If customer is authenticated or contact was passed in query, check per-user redemption limit
+    const checkUserId = req.user?.id;
+    const checkEmail = (req.user?.email || req.query.email || '').trim().toLowerCase();
+    const checkMobile = String(req.user?.mobile || req.query.mobile || '').replace(/\D/g, '').slice(-10);
+
+    const userConditions = [];
+    if (checkUserId) userConditions.push({ userId: checkUserId });
+    if (checkEmail) userConditions.push({ customerEmail: { [Op.iLike]: checkEmail } });
+    if (checkMobile && checkMobile.length === 10) userConditions.push({ customerMobile: { [Op.iLike]: `%${checkMobile}` } });
+
+    if (userConditions.length > 0) {
+      const userOrders = await Order.findAll({
+        where: {
+          paymentStatus: { [Op.ne]: 'FAILED' },
+          status: { [Op.ne]: 'CANCELLED' },
+          appliedCouponCode: { [Op.ne]: null },
+          [Op.or]: userConditions,
+        },
+        attributes: ['appliedCouponCode'],
+      });
+
+      const userRedemptionCounts = {};
+      userOrders.forEach((o) => {
+        if (o.appliedCouponCode) {
+          const cCode = o.appliedCouponCode.trim().toUpperCase();
+          userRedemptionCounts[cCode] = (userRedemptionCounts[cCode] || 0) + 1;
+        }
+      });
+
+      eligibleCoupons = eligibleCoupons.filter((c) => {
+        if (c.usageLimitPerUser && c.usageLimitPerUser > 0) {
+          const count = userRedemptionCounts[c.code.trim().toUpperCase()] || 0;
+          if (count >= c.usageLimitPerUser) return false;
+        }
+        return true;
+      });
+    }
 
     return res.status(200).json({
       success: true,
       message: 'Available coupons retrieved successfully',
-      data: { coupons },
+      data: { coupons: eligibleCoupons },
     });
   } catch (error) {
     logger.error('Error in getAvailableCoupons:', error);

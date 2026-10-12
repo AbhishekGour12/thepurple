@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import MainHeader from '@/components/layout/MainHeader';
 import ProductsPageCarousel from '@/components/products/ProductsPageCarousel';
@@ -9,10 +10,30 @@ import CategoryGridModal from '@/components/products/CategoryGridModal';
 import AllProductsCatalog from '@/components/products/AllProductsCatalog';
 import Footer from '@/components/layout/Footer';
 
-export default function ProductsPageView({ initialCollection = null }) {
+function ProductsPageContent({ initialCollection = null }) {
+  const searchParams = useSearchParams();
   const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    if (typeof window !== 'undefined' && searchParams) {
+      const catParam = searchParams.get('category') || searchParams.get('categories');
+      if (catParam) {
+        return catParam.includes('||') ? catParam.split('||')[0].trim() : catParam.trim();
+      }
+    }
+    return null;
+  });
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+
+  // Sync selectedCategory when URL searchParams changes
+  useEffect(() => {
+    if (searchParams) {
+      const catParam = searchParams.get('category') || searchParams.get('categories');
+      if (catParam) {
+        const firstCat = catParam.includes('||') ? catParam.split('||')[0].trim() : catParam.trim();
+        setSelectedCategory(firstCat);
+      }
+    }
+  }, [searchParams]);
 
   // Fetch categories for category strip & modal
   useEffect(() => {
@@ -97,5 +118,13 @@ export default function ProductsPageView({ initialCollection = null }) {
       {/* 7. Storefront Footer */}
       <Footer />
     </div>
+  );
+}
+
+export default function ProductsPageView(props) {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FCFBFE', color: '#7E22CE', fontWeight: 700 }}>Loading collection...</div>}>
+      <ProductsPageContent {...props} />
+    </Suspense>
   );
 }

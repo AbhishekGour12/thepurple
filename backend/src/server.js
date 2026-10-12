@@ -55,13 +55,15 @@ const startServer = async () => {
         logger.warn(`Coupon type update notice: ${couponErr.message}`);
       }
 
-      // Ensure 'usageLimitPerUser' column exists in coupons table
+      // Ensure 'usageLimitPerUser', 'showOnProductPage', 'description' columns exist in coupons table
       try {
         await sequelize.query(`
           ALTER TABLE "coupons" ADD COLUMN IF NOT EXISTS "usageLimitPerUser" INTEGER DEFAULT 1;
+          ALTER TABLE "coupons" ADD COLUMN IF NOT EXISTS "showOnProductPage" BOOLEAN DEFAULT false;
+          ALTER TABLE "coupons" ADD COLUMN IF NOT EXISTS "description" VARCHAR(255);
         `);
       } catch (colErr) {
-        logger.warn(`Coupon usageLimitPerUser migration notice: ${colErr.message}`);
+        logger.warn(`Coupon columns migration notice: ${colErr.message}`);
       }
 
       // Ensure CartItem table allows multiple variants per product in cart (drop legacy unique constraint if present)

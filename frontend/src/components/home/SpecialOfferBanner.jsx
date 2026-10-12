@@ -13,7 +13,7 @@ const DEFAULT_OFFER = {
   couponCode: 'WELCOME10',
   imageUrl: '/images/storefront/prod-teddy-gift.jpg',
   btnText: 'Shop Now',
-  btnUrl: '/shop',
+  btnUrl: '/products',
   accentColor: '#6D28D9',
   bgGradient: 'linear-gradient(135deg, #EDE9FE 0%, #F5F3FF 100%)',
 };
@@ -38,7 +38,7 @@ export default function SpecialOfferBanner() {
             couponCode: item.couponCode || 'WELCOME10',
             imageUrl: item.imageUrl || '/images/storefront/prod-teddy-gift.jpg',
             btnText: item.primaryBtnText || 'Shop Now',
-            btnUrl: item.primaryBtnUrl || item.linkUrl || '/shop',
+            btnUrl: item.primaryBtnUrl || item.linkUrl || '/products',
             accentColor: item.accentColor || '#6D28D9',
             bgGradient: item.bgGradient || 'linear-gradient(135deg, #EDE9FE 0%, #F5F3FF 100%)',
           });

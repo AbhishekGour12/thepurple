@@ -524,9 +524,12 @@ export const orderController = {
 
       // 5. Update Coupon Usage Count if coupon used
       if (appliedCouponCode) {
+        const cleanCouponCode = String(appliedCouponCode).trim().toUpperCase();
         await Coupon.increment('usedCount', {
           by: 1,
-          where: { code: appliedCouponCode },
+          where: {
+            code: { [Op.iLike]: cleanCouponCode },
+          },
           transaction,
         });
       }

@@ -61,6 +61,14 @@ export const Coupon = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: true,
     },
+    showOnProductPage: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    description: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
   },
   {
     tableName: 'coupons',

@@ -264,12 +264,22 @@ export default function CartPage() {
     [selectedItems]
   );
 
+  // Track coupons rejected by server (e.g. per-user redemption limit reached)
+  const rejectedCouponsRef = useRef(new Set());
+
+  useEffect(() => {
+    if (couponError) {
+      if (couponInput) rejectedCouponsRef.current.add(couponInput.trim().toUpperCase());
+      if (appliedCoupon?.code) rejectedCouponsRef.current.add(appliedCoupon.code.trim().toUpperCase());
+    }
+  }, [couponError, couponInput, appliedCoupon]);
+
   // Auto-apply eligible coupons (e.g. Free shipping or auto-apply promo when subtotal matches criteria)
   useEffect(() => {
     if (!loadingCoupons && availableCoupons.length > 0 && subtotal > 0) {
-      // Find eligible auto-apply coupon
+      // Find eligible auto-apply coupon not in rejected list
       const autoCoupon = availableCoupons.find(
-        (c) => c.isAutoApply && subtotal >= (parseFloat(c.minOrderAmount) || 0)
+        (c) => c.isAutoApply && subtotal >= (parseFloat(c.minOrderAmount) || 0) && !rejectedCouponsRef.current.has(c.code.trim().toUpperCase())
       );
 
       if (autoCoupon && (!appliedCoupon || appliedCoupon.isAutoApplied)) {

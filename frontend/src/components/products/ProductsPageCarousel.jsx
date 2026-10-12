@@ -337,68 +337,131 @@ export default function ProductsPageCarousel({ onOpenCategoryModal, onSelectCate
 
               {/* Action Buttons */}
               <div className="prod-carousel-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                {/* View All Categories Modal Trigger */}
-                <button
-                  type="button"
-                  onClick={onOpenCategoryModal}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '9px 18px',
-                    borderRadius: '10px',
-                    backgroundColor: '#9333EA',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 15px rgba(147, 51, 234, 0.4)',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#7E22CE';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#9333EA';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  <Grid size={15} />
-                  <span>{slide.primaryBtnText || 'View All Categories'}</span>
-                </button>
-
-                {/* Filter by Category / Explore */}
-                {slide.categoryFilter && onSelectCategory && (
-                  <button
-                    type="button"
-                    onClick={() => onSelectCategory(slide.categoryFilter)}
+                {/* Primary Action Button */}
+                {slide.primaryBtnUrl && slide.primaryBtnUrl !== '#' ? (
+                  <Link
+                    href={slide.primaryBtnUrl}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '6px',
-                      padding: '9px 16px',
+                      gap: '8px',
+                      padding: '9px 18px',
                       borderRadius: '10px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                      backdropFilter: 'blur(8px)',
+                      backgroundColor: '#9333EA',
                       color: '#FFFFFF',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      textDecoration: 'none',
                       fontSize: '13px',
-                      fontWeight: 600,
+                      fontWeight: 700,
                       cursor: 'pointer',
+                      boxShadow: '0 4px 15px rgba(147, 51, 234, 0.4)',
                       transition: 'all 0.15s ease',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                      e.currentTarget.style.backgroundColor = '#7E22CE';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
+                      e.currentTarget.style.backgroundColor = '#9333EA';
+                      e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    <span>Filter {slide.categoryFilter}</span>
-                    <ArrowRight size={14} />
+                    <Grid size={15} />
+                    <span>{slide.primaryBtnText || 'View Collection'}</span>
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onOpenCategoryModal}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '9px 18px',
+                      borderRadius: '10px',
+                      backgroundColor: '#9333EA',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 15px rgba(147, 51, 234, 0.4)',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#7E22CE';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#9333EA';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <Grid size={15} />
+                    <span>{slide.primaryBtnText || 'View All Categories'}</span>
                   </button>
+                )}
+
+                {/* Secondary Action Button */}
+                {slide.secondaryBtnText && (
+                  slide.secondaryBtnUrl && slide.secondaryBtnUrl !== '#' ? (
+                    <Link
+                      href={slide.secondaryBtnUrl}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '9px 16px',
+                        borderRadius: '10px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                        backdropFilter: 'blur(8px)',
+                        color: '#FFFFFF',
+                        textDecoration: 'none',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
+                      }}
+                    >
+                      <span>{slide.secondaryBtnText}</span>
+                      <ArrowRight size={14} />
+                    </Link>
+                  ) : slide.categoryFilter && onSelectCategory ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelectCategory(slide.categoryFilter)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '9px 16px',
+                        borderRadius: '10px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                        backdropFilter: 'blur(8px)',
+                        color: '#FFFFFF',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
+                      }}
+                    >
+                      <span>Filter {slide.categoryFilter}</span>
+                      <ArrowRight size={14} />
+                    </button>
+                  ) : null
                 )}
               </div>
             </div>

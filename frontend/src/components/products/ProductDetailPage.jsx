@@ -84,6 +84,30 @@ export default function ProductDetailPage({ slug }) {
   const [addingToCart, setAddingToCart] = useState(false);
   const [cartSuccessNotice, setCartSuccessNotice] = useState(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
+  const [pdpOfferCoupon, setPdpOfferCoupon] = useState(null);
+
+  // Fetch active coupon configured to show on product detail page
+  useEffect(() => {
+    let isMounted = true;
+    const fetchOfferCoupon = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+        const res = await fetch(`${apiUrl}/cart/available-coupons`);
+        const json = await res.json();
+        const coupons = json?.data?.coupons || json?.coupons || [];
+        const matched = coupons.find((c) => c.showOnProductPage && c.isActive !== false);
+        if (isMounted) {
+          setPdpOfferCoupon(matched || null);
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    };
+    fetchOfferCoupon();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Tabs State: 'details' | 'specifications' | 'shipping' | 'reviews' | 'care'
   const [activeTab, setActiveTab] = useState('details');
@@ -566,8 +590,9 @@ export default function ProductDetailPage({ slug }) {
   };
 
   // Copy Coupon Code Handler
-  const handleCopyCoupon = (code = 'WELCOME10') => {
-    navigator.clipboard?.writeText(code);
+  const handleCopyCoupon = (code) => {
+    const targetCode = code || pdpOfferCoupon?.code || 'WELCOME10';
+    navigator.clipboard?.writeText(targetCode);
     setCouponCopied(true);
     setTimeout(() => setCouponCopied(false), 2500);
   };
@@ -1412,54 +1437,63 @@ export default function ProductDetailPage({ slug }) {
               </div>
             </div>
 
-            {/* Special Offer Box (WELCOME10 Coupon) */}
-            <div
-              style={{
-                padding: '12px 14px',
-                backgroundColor: '#FAF5FF',
-                border: '1px solid #E9D5FF',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '10px',
-                flexWrap: 'wrap',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '200px' }}>
-                <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: '#7E22CE', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Sparkles size={15} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#581C87' }}>Special Offer</div>
-                  <div style={{ fontSize: '12px', color: '#4B5563' }}>
-                    Get 10% off on your first order. Use code <strong>WELCOME10</strong>
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleCopyCoupon('WELCOME10')}
+            {/* Dynamic Special Offer Box (Rendered only when a coupon has showOnProductPage enabled) */}
+            {pdpOfferCoupon && (
+              <div
                 style={{
-                  border: '1px solid #D8B4FE',
-                  backgroundColor: couponCopied ? '#16A34A' : '#ffffff',
-                  color: couponCopied ? '#ffffff' : '#7E22CE',
-                  borderRadius: '8px',
-                  padding: '6px 10px',
-                  fontSize: '11.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
+                  padding: '12px 14px',
+                  backgroundColor: '#FAF5FF',
+                  border: '1px solid #E9D5FF',
+                  borderRadius: '12px',
+                  display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  transition: 'all 0.15s ease',
-                  flexShrink: 0,
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                  flexWrap: 'wrap',
                 }}
               >
-                {couponCopied ? <Check size={13} /> : <Copy size={13} />}
-                <span>{couponCopied ? 'Copied' : 'Copy'}</span>
-              </button>
-            </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '200px' }}>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: '#7E22CE', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Sparkles size={15} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#581C87' }}>Special Offer</div>
+                    <div style={{ fontSize: '12px', color: '#4B5563' }}>
+                      {pdpOfferCoupon.description ? (
+                        <span>{pdpOfferCoupon.description}. Use code <strong>{pdpOfferCoupon.code}</strong></span>
+                      ) : (
+                        <span>
+                          Get {pdpOfferCoupon.discountType === 'PERCENTAGE' ? `${pdpOfferCoupon.discountValue}%` : `₹${pdpOfferCoupon.discountValue}`} off
+                          {parseFloat(pdpOfferCoupon.minOrderAmount || 0) > 0 ? ` on orders above ₹${pdpOfferCoupon.minOrderAmount}` : ''}. Use code <strong>{pdpOfferCoupon.code}</strong>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyCoupon(pdpOfferCoupon.code)}
+                  style={{
+                    border: '1px solid #D8B4FE',
+                    backgroundColor: couponCopied ? '#16A34A' : '#ffffff',
+                    color: couponCopied ? '#ffffff' : '#7E22CE',
+                    borderRadius: '8px',
+                    padding: '6px 10px',
+                    fontSize: '11.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.15s ease',
+                    flexShrink: 0,
+                  }}
+                >
+                  {couponCopied ? <Check size={13} /> : <Copy size={13} />}
+                  <span>{couponCopied ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+            )}
 
             {/* Variant Option 1: Colors (Amazon-Style Visual Swatches with Variant Preview Images) */}
             {availableColors.length > 0 && (
@@ -1641,60 +1675,7 @@ export default function ProductDetailPage({ slug }) {
               </div>
             )}
 
-            {/* Quick Dynamic Specifications & Material Highlights (Material, Gemstone, Occasion, etc.) */}
-            {(dynamicAttributeGroups.length > 0 || parsedMaterialSpecs.length > 0) && (
-              <div
-                style={{
-                  padding: '14px 16px',
-                  backgroundColor: '#FAF5FF',
-                  borderRadius: '12px',
-                  border: '1.5px solid #E9D5FF',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                  boxShadow: '0 1px 4px rgba(126, 34, 206, 0.05)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: '#581C87', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    <Sparkles size={14} color="#7E22CE" />
-                    <span>Material &amp; Specifications</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab('specifications');
-                      document.getElementById('pdp-tabs-container')?.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#7E22CE',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      padding: 0,
-                    }}
-                  >
-                    View All →
-                  </button>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
-                  {dynamicAttributeGroups.map((g, gIdx) => (
-                    <div key={`dag-${gIdx}`} style={{ backgroundColor: '#FFFFFF', padding: '8px 10px', borderRadius: '8px', border: '1px solid #E9D5FF' }}>
-                      <span style={{ fontSize: '10.5px', color: '#6B7280', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>{g.name}</span>
-                      <span style={{ fontSize: '12.5px', color: '#1E1B4B', fontWeight: 800, marginTop: '2px', display: 'block' }}>{g.values.join(', ')}</span>
-                    </div>
-                  ))}
-                  {dynamicAttributeGroups.length === 0 && parsedMaterialSpecs.slice(0, 4).map((spec, sIdx) => (
-                    <div key={`pms-${sIdx}`} style={{ backgroundColor: '#FFFFFF', padding: '8px 10px', borderRadius: '8px', border: '1px solid #E9D5FF' }}>
-                      <span style={{ fontSize: '10.5px', color: '#6B7280', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>{spec.label}</span>
-                      <span style={{ fontSize: '12.5px', color: '#1E1B4B', fontWeight: 800, marginTop: '2px', display: 'block' }}>{spec.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
 
             {/* Quantity Selector & Stock Indicator */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>

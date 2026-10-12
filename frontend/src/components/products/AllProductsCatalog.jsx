@@ -74,6 +74,7 @@ function getPaginationItems(currentPage, totalPages) {
 
 export default function AllProductsCatalog({
   initialCategory = null,
+  initialSubcategory = null,
   initialCollection = null,
   isCategoryModalOpenExternal = false,
   onCategoryModalClose = null,
@@ -116,6 +117,7 @@ export default function AllProductsCatalog({
   });
 
   const [selectedSubcategories, setSelectedSubcategories] = useState(() => {
+    if (initialSubcategory) return [initialSubcategory];
     const subParam = searchParams ? (searchParams.get('subcategory') || searchParams.get('subcategories')) : null;
     if (subParam) {
       return subParam.includes('||') ? subParam.split('||').map((s) => s.trim()).filter(Boolean) : [subParam.trim()];
@@ -169,6 +171,15 @@ export default function AllProductsCatalog({
       scrollToCatalog();
     }
   }, [initialCategory, scrollToCatalog]);
+
+  // Update selected subcategory when initialSubcategory changes
+  useEffect(() => {
+    if (initialSubcategory) {
+      setSelectedSubcategories([initialSubcategory]);
+      setCurrentPage(1);
+      scrollToCatalog();
+    }
+  }, [initialSubcategory, scrollToCatalog]);
 
   // Update active collection when initialCollection changes
   useEffect(() => {

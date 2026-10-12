@@ -78,6 +78,28 @@ export default function BannerManagementPage() {
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, banner: null });
 
   const fileInputRef = useRef(null);
+  const [categories, setCategories] = useState([]);
+
+  // Fetch categories & subcategories for quick button routing
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchCategories() {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+        const res = await fetch(`${apiUrl}/categories`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data?.categories) && isMounted) {
+          setCategories(json.data.categories);
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    fetchCategories();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Modal State for Add / Edit
   const [modal, setModal] = useState({
@@ -1310,7 +1332,7 @@ export default function BannerManagementPage() {
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. /category/chains or https://..."
+                      placeholder="e.g. /products?category=Fashion Jewellery or https://..."
                       value={modal.linkUrl}
                       onChange={(e) => setModal({ ...modal, linkUrl: e.target.value, primaryBtnUrl: e.target.value })}
                       style={{
@@ -1322,6 +1344,52 @@ export default function BannerManagementPage() {
                         color: '#1E1B4B',
                       }}
                     />
+                    {categories.length > 0 && (
+                      <div style={{ marginTop: '6px' }}>
+                        <select
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) return;
+                            const parts = val.split('::');
+                            const type = parts[0];
+                            const name = parts[1];
+                            const parentCat = parts[2];
+                            let route = '/products';
+                            if (type === 'CAT') {
+                              route = `/products?category=${encodeURIComponent(name)}`;
+                            } else if (type === 'SUB') {
+                              route = `/products?category=${encodeURIComponent(parentCat)}&subcategory=${encodeURIComponent(name)}`;
+                            }
+                            setModal((m) => ({ ...m, linkUrl: route, primaryBtnUrl: route }));
+                          }}
+                          defaultValue=""
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid #CBD5E1',
+                            backgroundColor: '#F8FAFC',
+                            fontSize: '11.5px',
+                            color: '#475569',
+                            outline: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <option value="">⚡ Quick Route: Pick Category / Subcategory to auto-fill link...</option>
+                          <option value="ALL::All Products">🛍️ All Products Catalog (/products)</option>
+                          {categories.map((cat) => (
+                            <optgroup key={cat.id} label={`Category: ${cat.name}`}>
+                              <option value={`CAT::${cat.name}`}>All in {cat.name} (/products?category={cat.name})</option>
+                              {(cat.subcategories || []).map((sub) => (
+                                <option key={sub.id} value={`SUB::${sub.name}::${cat.name}`}>
+                                  └─ {sub.name} (/products?category={cat.name}&subcategory={sub.name})
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1374,7 +1442,7 @@ export default function BannerManagementPage() {
                       />
                       <input
                         type="text"
-                        placeholder="URL (/shop)"
+                        placeholder="URL (/products)"
                         value={modal.primaryBtnUrl}
                         onChange={(e) => setModal({ ...modal, primaryBtnUrl: e.target.value })}
                         style={{
@@ -1387,6 +1455,60 @@ export default function BannerManagementPage() {
                         }}
                       />
                     </div>
+                    {categories.length > 0 && (
+                      <div style={{ marginTop: '6px' }}>
+                        <select
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) return;
+                            const parts = val.split('::');
+                            const type = parts[0];
+                            const name = parts[1];
+                            const parentCat = parts[2];
+                            if (type === 'ALL') {
+                              setModal((m) => ({ ...m, primaryBtnUrl: '/products' }));
+                            } else if (type === 'CAT') {
+                              setModal((m) => ({
+                                ...m,
+                                primaryBtnUrl: `/products?category=${encodeURIComponent(name)}`,
+                                primaryBtnText: m.primaryBtnText || `Shop ${name}`,
+                              }));
+                            } else if (type === 'SUB') {
+                              setModal((m) => ({
+                                ...m,
+                                primaryBtnUrl: `/products?category=${encodeURIComponent(parentCat)}&subcategory=${encodeURIComponent(name)}`,
+                                primaryBtnText: m.primaryBtnText || `Explore ${name}`,
+                              }));
+                            }
+                          }}
+                          defaultValue=""
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid #CBD5E1',
+                            backgroundColor: '#F8FAFC',
+                            fontSize: '11.5px',
+                            color: '#475569',
+                            outline: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <option value="">⚡ Auto-Fill Route: Select Category / Subcategory...</option>
+                          <option value="ALL::All Products">🛍️ All Products Catalog (/products)</option>
+                          {categories.map((cat) => (
+                            <optgroup key={cat.id} label={`Category: ${cat.name}`}>
+                              <option value={`CAT::${cat.name}`}>All in {cat.name} (/products?category={cat.name})</option>
+                              {(cat.subcategories || []).map((sub) => (
+                                <option key={sub.id} value={`SUB::${sub.name}::${cat.name}`}>
+                                  └─ {sub.name} (/products?category={cat.name}&subcategory={sub.name})
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   {/* Secondary CTA (Optional) */}
@@ -1412,7 +1534,7 @@ export default function BannerManagementPage() {
                         />
                         <input
                           type="text"
-                          placeholder="URL (/necklaces)"
+                          placeholder="URL (/products?category=...)"
                           value={modal.secondaryBtnUrl}
                           onChange={(e) => setModal({ ...modal, secondaryBtnUrl: e.target.value })}
                           style={{
@@ -1425,6 +1547,60 @@ export default function BannerManagementPage() {
                           }}
                         />
                       </div>
+                      {categories.length > 0 && (
+                        <div style={{ marginTop: '6px' }}>
+                          <select
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (!val) return;
+                              const parts = val.split('::');
+                              const type = parts[0];
+                              const name = parts[1];
+                              const parentCat = parts[2];
+                              if (type === 'ALL') {
+                                setModal((m) => ({ ...m, secondaryBtnUrl: '/products' }));
+                              } else if (type === 'CAT') {
+                                setModal((m) => ({
+                                  ...m,
+                                  secondaryBtnUrl: `/products?category=${encodeURIComponent(name)}`,
+                                  secondaryBtnText: m.secondaryBtnText || `Explore ${name}`,
+                                }));
+                              } else if (type === 'SUB') {
+                                setModal((m) => ({
+                                  ...m,
+                                  secondaryBtnUrl: `/products?category=${encodeURIComponent(parentCat)}&subcategory=${encodeURIComponent(name)}`,
+                                  secondaryBtnText: m.secondaryBtnText || `View ${name}`,
+                                }));
+                              }
+                            }}
+                            defaultValue=""
+                            style={{
+                              width: '100%',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              border: '1px solid #CBD5E1',
+                              backgroundColor: '#F8FAFC',
+                              fontSize: '11.5px',
+                              color: '#475569',
+                              outline: 'none',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <option value="">⚡ Auto-Fill Route: Select Category / Subcategory...</option>
+                            <option value="ALL::All Products">🛍️ All Products Catalog (/products)</option>
+                            {categories.map((cat) => (
+                              <optgroup key={cat.id} label={`Category: ${cat.name}`}>
+                                <option value={`CAT::${cat.name}`}>All in {cat.name} (/products?category={cat.name})</option>
+                                {(cat.subcategories || []).map((sub) => (
+                                  <option key={sub.id} value={`SUB::${sub.name}::${cat.name}`}>
+                                    └─ {sub.name} (/products?category={cat.name}&subcategory={sub.name})
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

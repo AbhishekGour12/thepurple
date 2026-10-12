@@ -100,6 +100,8 @@ export const couponController = {
       usageLimitPerUser = 1,
       isAutoApply = false,
       isActive = true,
+      showOnProductPage = false,
+      description = null,
     } = req.body;
 
     if (!code || !discountType) {
@@ -135,6 +137,8 @@ export const couponController = {
       usedCount: 0,
       isAutoApply: Boolean(isAutoApply),
       isActive: Boolean(isActive),
+      showOnProductPage: Boolean(showOnProductPage),
+      description: description ? String(description).trim() : null,
     });
 
     logger.info(`Admin ${req.admin?.email} created coupon: ${cleanCode}`);
@@ -159,6 +163,8 @@ export const couponController = {
       usageLimitPerUser,
       isAutoApply,
       isActive,
+      showOnProductPage,
+      description,
     } = req.body;
 
     const coupon = await Coupon.findByPk(id);
@@ -198,6 +204,8 @@ export const couponController = {
     }
     if (isAutoApply !== undefined) coupon.isAutoApply = Boolean(isAutoApply);
     if (isActive !== undefined) coupon.isActive = Boolean(isActive);
+    if (showOnProductPage !== undefined) coupon.showOnProductPage = Boolean(showOnProductPage);
+    if (description !== undefined) coupon.description = description ? String(description).trim() : null;
 
     await coupon.save();
 

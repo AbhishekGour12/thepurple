@@ -477,11 +477,12 @@ export const productService = {
       if (Array.isArray(variants) && variants.length > 0) {
         for (let i = 0; i < variants.length; i++) {
           const v = variants[i];
-          if (v.sku) {
+          const variantSku = (v.sku && v.sku.trim().toUpperCase()) || `${(product.sku || 'SKU').trim().toUpperCase()}-V${i + 1}`;
+          if (variantSku && (v.colorId || v.sizeId || v.sku)) {
             await ProductVariant.create(
               {
                 productId: product.id,
-                sku: v.sku.trim().toUpperCase(),
+                sku: variantSku,
                 colorId: v.colorId || null,
                 sizeId: v.sizeId || null,
                 name: v.name || null,
@@ -710,11 +711,12 @@ export const productService = {
         await ProductVariant.destroy({ where: { productId: id }, transaction });
         for (let i = 0; i < variants.length; i++) {
           const v = variants[i];
-          if (v.sku) {
+          const variantSku = (v.sku && v.sku.trim().toUpperCase()) || `${(product.sku || 'SKU').trim().toUpperCase()}-V${i + 1}`;
+          if (variantSku && (v.colorId || v.sizeId || v.sku)) {
             await ProductVariant.create(
               {
                 productId: id,
-                sku: v.sku.trim().toUpperCase(),
+                sku: variantSku,
                 colorId: v.colorId || null,
                 sizeId: v.sizeId || null,
                 name: v.name || null,

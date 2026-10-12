@@ -25,6 +25,7 @@ export default function CategoryPage({ params }) {
 
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(initialCategoryName);
+  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
 
   useEffect(() => {
@@ -35,13 +36,30 @@ export default function CategoryPage({ params }) {
         const res = await fetch(`${apiUrl}/categories`);
         const json = await res.json();
         if (json.success && Array.isArray(json.data?.categories) && isMounted) {
-          setCategories(json.data.categories);
-          // Match slug to exact category name if exists
-          const matched = json.data.categories.find(
-            (c) => c.slug === slug || c.name.toLowerCase() === slug.replace(/-/g, ' ').toLowerCase()
+          const catList = json.data.categories;
+          setCategories(catList);
+
+          // 1. Check if slug matches a Category
+          const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+          const matchedCat = catList.find(
+            (c) => (c.slug && c.slug.toLowerCase() === cleanSlug) || c.name.toLowerCase() === slug.replace(/-/g, ' ').toLowerCase()
           );
-          if (matched) {
-            setSelectedCategory(matched.name);
+
+          if (matchedCat) {
+            setSelectedCategory(matchedCat.name);
+            setSelectedSubcategory(null);
+          } else {
+            // 2. Check if slug matches a Subcategory
+            for (const c of catList) {
+              const matchedSub = (c.subcategories || []).find(
+                (s) => (s.slug && s.slug.toLowerCase() === cleanSlug) || s.name.toLowerCase() === slug.replace(/-/g, ' ').toLowerCase()
+              );
+              if (matchedSub) {
+                setSelectedCategory(c.name);
+                setSelectedSubcategory(matchedSub.name);
+                break;
+              }
+            }
           }
         }
       } catch {
@@ -66,6 +84,7 @@ export default function CategoryPage({ params }) {
 
   const handleSelectCategory = (catName) => {
     setSelectedCategory(catName);
+    setSelectedSubcategory(null);
     const catalogEl = document.getElementById('catalog-products-section');
     if (catalogEl) {
       catalogEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -100,6 +119,7 @@ export default function CategoryPage({ params }) {
         <Suspense fallback={<div style={{ padding: '60px 20px', textAlign: 'center', color: '#7E22CE' }}>Loading products catalog...</div>}>
           <AllProductsCatalog
             initialCategory={selectedCategory}
+            initialSubcategory={selectedSubcategory}
             isCategoryModalOpenExternal={isCatModalOpen}
             onCategoryModalClose={() => setIsCatModalOpen(false)}
           />

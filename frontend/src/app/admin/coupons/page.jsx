@@ -53,6 +53,8 @@ export default function AdminCouponsPage() {
     usageLimitPerUser: '1',
     isAutoApply: false,
     isActive: true,
+    showOnProductPage: false,
+    description: '',
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -129,6 +131,8 @@ export default function AdminCouponsPage() {
       usageLimitPerUser: '1',
       isAutoApply: false,
       isActive: true,
+      showOnProductPage: false,
+      description: '',
     });
   };
 
@@ -155,6 +159,8 @@ export default function AdminCouponsPage() {
       usageLimitPerUser: String(coupon.usageLimitPerUser !== undefined && coupon.usageLimitPerUser !== null ? coupon.usageLimitPerUser : '1'),
       isAutoApply: Boolean(coupon.isAutoApply),
       isActive: Boolean(coupon.isActive),
+      showOnProductPage: Boolean(coupon.showOnProductPage),
+      description: coupon.description || '',
     });
   };
 
@@ -208,6 +214,8 @@ export default function AdminCouponsPage() {
         usageLimitPerUser: modal.usageLimitPerUser ? parseInt(modal.usageLimitPerUser, 10) : 1,
         isAutoApply: Boolean(modal.isAutoApply),
         isActive: Boolean(modal.isActive),
+        showOnProductPage: Boolean(modal.showOnProductPage),
+        description: modal.description?.trim() || null,
       };
 
       if (modal.isEdit) {
@@ -603,6 +611,11 @@ export default function AdminCouponsPage() {
                         <div style={{ fontSize: '11px', color: '#7E22CE', fontWeight: 600 }}>
                           {coupon.usageLimitPerUser ? `${coupon.usageLimitPerUser}/user limit` : 'No user limit'}
                         </div>
+                        {coupon.showOnProductPage && (
+                          <span style={{ display: 'inline-block', marginTop: '3px', fontSize: '10px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', backgroundColor: '#EDE9FE', color: '#6D28D9' }}>
+                            PDP Banner
+                          </span>
+                        )}
                       </td>
 
                       {/* Status Toggle */}
@@ -1103,6 +1116,43 @@ export default function AdminCouponsPage() {
                         </div>
                       </div>
                     </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderTop: '1px solid #F3E8FF', paddingTop: '8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={modal.showOnProductPage}
+                        onChange={(e) => setModal({ ...modal, showOnProductPage: e.target.checked })}
+                        style={{ width: '18px', height: '18px', accentColor: '#7E22CE', cursor: 'pointer' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: '13px', fontWeight: 800, color: '#1E1B4B' }}>
+                          🛍️ Show on Product Detail Page (Special Offer Box)
+                        </span>
+                        <div style={{ fontSize: '11.5px', color: '#6B7280' }}>
+                          If enabled, this coupon will be highlighted as the Special Offer on product detail pages so customers can copy and use it!
+                        </div>
+                      </div>
+                    </label>
+
+                    {modal.showOnProductPage && (
+                      <div style={{ marginTop: '2px' }}>
+                        <input
+                          type="text"
+                          value={modal.description}
+                          onChange={(e) => setModal({ ...modal, description: e.target.value })}
+                          placeholder="Optional Offer Headline (e.g. Get 10% off on your first order)"
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid #D8B4FE',
+                            fontSize: '12px',
+                            color: '#1E1B4B',
+                            backgroundColor: '#FFFFFF',
+                          }}
+                        />
+                      </div>
+                    )}
 
                     <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderTop: '1px solid #F3E8FF', paddingTop: '8px' }}>
                       <input
