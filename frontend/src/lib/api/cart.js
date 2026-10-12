@@ -131,6 +131,12 @@ export const cartApi = {
         if (!email && user.email) email = user.email;
         if (!mobile && user.mobile) mobile = user.mobile;
       }
+      if (!email && typeof window !== 'undefined') {
+        email = localStorage.getItem('thepurple_customer_email') || '';
+      }
+      if (!mobile && typeof window !== 'undefined') {
+        mobile = localStorage.getItem('thepurple_customer_mobile') || '';
+      }
     }
     const res = await fetch(`${API_URL}/cart/apply-coupon`, {
       method: 'POST',
@@ -147,9 +153,30 @@ export const cartApi = {
     return json.data;
   },
 
-  getAvailableCoupons: async () => {
+  getAvailableCoupons: async (params = {}) => {
     const { headers } = getCartHeaders();
-    const res = await fetch(`${API_URL}/cart/available-coupons`, {
+    let email = params.email;
+    let mobile = params.mobile;
+    if (!email || !mobile) {
+      const user = getStoredCustomerUser();
+      if (user) {
+        if (!email && user.email) email = user.email;
+        if (!mobile && user.mobile) mobile = user.mobile;
+      }
+      if (!email && typeof window !== 'undefined') {
+        email = localStorage.getItem('thepurple_customer_email') || '';
+      }
+      if (!mobile && typeof window !== 'undefined') {
+        mobile = localStorage.getItem('thepurple_customer_mobile') || '';
+      }
+    }
+
+    const query = new URLSearchParams();
+    if (email) query.set('email', email.trim());
+    if (mobile) query.set('mobile', mobile.trim());
+    const qs = query.toString() ? `?${query.toString()}` : '';
+
+    const res = await fetch(`${API_URL}/cart/available-coupons${qs}`, {
       method: 'GET',
       headers,
     });

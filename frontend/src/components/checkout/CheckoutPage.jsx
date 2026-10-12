@@ -151,6 +151,8 @@ export default function CheckoutPage() {
             pincode: cleanPin,
             subtotal,
             couponCode: appliedCoupon?.code || null,
+            email: formData.customerEmail || undefined,
+            mobile: formData.customerMobile || undefined,
           });
           if (isSubscribed) {
             setShippingInfo(data);
@@ -175,7 +177,7 @@ export default function CheckoutPage() {
     } else {
       setShippingInfo(null);
     }
-  }, [formData.pincode, subtotal, appliedCoupon]);
+  }, [formData.pincode, formData.customerEmail, formData.customerMobile, subtotal, appliedCoupon]);
 
   // Load Razorpay Script Dynamically
   const loadRazorpayScript = () => {
@@ -321,7 +323,7 @@ export default function CheckoutPage() {
               orderNumber: intentData.orderNumber,
               customerDetails: intentData.customerDetails,
               items: checkoutItems,
-              appliedCouponCode: appliedCoupon?.code || null,
+              appliedCouponCode: appliedCoupon?.code || intentData.breakdown?.couponCode || null,
               amounts: intentData.breakdown,
               guestSessionId,
             });

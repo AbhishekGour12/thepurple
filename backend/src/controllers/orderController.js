@@ -23,7 +23,7 @@ export const orderController = {
    */
   async calculateShipping(req, res, next) {
     try {
-      const { pincode, subtotal = 0, couponCode } = req.body;
+      const { pincode, subtotal = 0, couponCode, email, mobile } = req.body;
 
       if (!pincode || String(pincode).trim().length !== 6) {
         return ApiResponse.error(res, 'Valid 6-digit Pincode is required', 400);
@@ -45,25 +45,56 @@ export const orderController = {
       let isFreeShipping = false;
       let appliedOfferReason = null;
 
+      // Build customer identity conditions to check per-user redemption limit
+      const checkUserId = req.user?.id;
+      const checkEmail = (req.user?.email || email || '').trim().toLowerCase();
+      const checkMobile = String(req.user?.mobile || mobile || '').replace(/\D/g, '').slice(-10);
+
+      const userConditions = [];
+      if (checkUserId) userConditions.push({ userId: checkUserId });
+      if (checkEmail) userConditions.push({ customerEmail: { [Op.iLike]: checkEmail } });
+      if (checkMobile && checkMobile.length === 10) userConditions.push({ customerMobile: { [Op.iLike]: `%${checkMobile}` } });
+
       // Check explicit couponCode if sent
       if (couponCode && String(couponCode).trim()) {
+        const cleanCode = String(couponCode).trim().toUpperCase();
         const coupon = await Coupon.findOne({
           where: {
-            code: String(couponCode).trim().toUpperCase(),
+            code: cleanCode,
             isActive: true,
             startDate: { [sequelize.Sequelize.Op.lte]: now },
             endDate: { [sequelize.Sequelize.Op.gte]: now },
           },
         });
         if (coupon && coupon.discountType === 'FREE_SHIPPING' && numSubtotal >= parseFloat(coupon.minOrderAmount || 0)) {
-          isFreeShipping = true;
-          appliedOfferReason = `Free Shipping coupon "${coupon.code}" applied`;
+          let canApply = true;
+          if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+            canApply = false;
+          }
+          if (canApply && coupon.usageLimitPerUser && coupon.usageLimitPerUser > 0 && userConditions.length > 0) {
+            const userOrdersCount = await Order.count({
+              where: {
+                appliedCouponCode: { [Op.iLike]: cleanCode },
+                paymentStatus: { [Op.ne]: 'FAILED' },
+                status: { [Op.ne]: 'CANCELLED' },
+                [Op.or]: userConditions,
+              },
+            });
+            if (userOrdersCount >= coupon.usageLimitPerUser) {
+              canApply = false;
+            }
+          }
+
+          if (canApply) {
+            isFreeShipping = true;
+            appliedOfferReason = `Free Shipping coupon "${coupon.code}" applied`;
+          }
         }
       }
 
       // Check any active auto-applied FREE_SHIPPING coupon where subtotal >= minOrderAmount
       if (!isFreeShipping) {
-        const autoCoupon = await Coupon.findOne({
+        const autoCoupons = await Coupon.findAll({
           where: {
             discountType: 'FREE_SHIPPING',
             isAutoApply: true,
@@ -75,9 +106,28 @@ export const orderController = {
           order: [['minOrderAmount', 'ASC']],
         });
 
-        if (autoCoupon) {
+        for (const ac of autoCoupons) {
+          // Check global usage limit
+          if (ac.usageLimit && ac.usedCount >= ac.usageLimit) continue;
+
+          // Check per-user redemption limit!
+          if (ac.usageLimitPerUser && ac.usageLimitPerUser > 0 && userConditions.length > 0) {
+            const userOrdersCount = await Order.count({
+              where: {
+                appliedCouponCode: { [Op.iLike]: ac.code.trim().toUpperCase() },
+                paymentStatus: { [Op.ne]: 'FAILED' },
+                status: { [Op.ne]: 'CANCELLED' },
+                [Op.or]: userConditions,
+              },
+            });
+            if (userOrdersCount >= ac.usageLimitPerUser) {
+              continue; // Exceeded per-user limit!
+            }
+          }
+
           isFreeShipping = true;
-          appliedOfferReason = `Free Shipping unlocked on orders above ₹${autoCoupon.minOrderAmount} (Code: ${autoCoupon.code})`;
+          appliedOfferReason = `Free Shipping unlocked on orders above ₹${ac.minOrderAmount} (Code: ${ac.code})`;
+          break;
         }
       }
 
@@ -258,7 +308,7 @@ export const orderController = {
       // Check auto-applied FREE_SHIPPING coupon if not already free
       if (!isCouponFreeShipping) {
         const now = new Date();
-        const autoCoupon = await Coupon.findOne({
+        const autoCoupons = await Coupon.findAll({
           where: {
             discountType: 'FREE_SHIPPING',
             isAutoApply: true,
@@ -269,9 +319,25 @@ export const orderController = {
           },
           order: [['minOrderAmount', 'ASC']],
         });
-        if (autoCoupon) {
+
+        for (const ac of autoCoupons) {
+          if (ac.usageLimit && ac.usedCount >= ac.usageLimit) continue;
+          if (ac.usageLimitPerUser && ac.usageLimitPerUser > 0 && userConditions.length > 0) {
+            const userOrdersCount = await Order.count({
+              where: {
+                appliedCouponCode: { [Op.iLike]: ac.code.trim().toUpperCase() },
+                paymentStatus: { [Op.ne]: 'FAILED' },
+                status: { [Op.ne]: 'CANCELLED' },
+                [Op.or]: userConditions,
+              },
+            });
+            if (userOrdersCount >= ac.usageLimitPerUser) {
+              continue; // Exceeded limit for this customer!
+            }
+          }
           isCouponFreeShipping = true;
-          if (!validCoupon) validCoupon = autoCoupon;
+          if (!validCoupon) validCoupon = ac;
+          break;
         }
       }
 
@@ -462,7 +528,7 @@ export const orderController = {
           totalAmount,
           paymentMethod: 'RAZORPAY',
           paymentStatus: 'PAID',
-          appliedCouponCode: appliedCouponCode || null,
+          appliedCouponCode: (appliedCouponCode || amounts?.couponCode) ? String(appliedCouponCode || amounts?.couponCode).trim().toUpperCase() : null,
           notes: customerDetails.notes || 'Order placed via Online Checkout',
         },
         { transaction }
@@ -523,8 +589,9 @@ export const orderController = {
       );
 
       // 5. Update Coupon Usage Count if coupon used
-      if (appliedCouponCode) {
-        const cleanCouponCode = String(appliedCouponCode).trim().toUpperCase();
+      const finalCodeToIncrement = appliedCouponCode || amounts?.couponCode;
+      if (finalCodeToIncrement) {
+        const cleanCouponCode = String(finalCodeToIncrement).trim().toUpperCase();
         await Coupon.increment('usedCount', {
           by: 1,
           where: {

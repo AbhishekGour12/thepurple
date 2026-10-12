@@ -9,11 +9,11 @@ const router = Router();
 router.all('/webhook/tracking', webhookController.handleShiprocketWebhook);
 router.all('/webhook/shiprocket', webhookController.handleShiprocketWebhook);
 
-// 1. Dynamic Shipping Calculation (Public)
-router.post('/calculate-shipping', orderController.calculateShipping);
+// 1. Dynamic Shipping Calculation (Optional auth, guest supported)
+router.post('/calculate-shipping', authenticateOptionalUser, orderController.calculateShipping);
 
-// 2. Create Razorpay Payment Intent (Public / Guest / Auth)
-router.post('/create-payment-intent', orderController.createPaymentIntent);
+// 2. Create Razorpay Payment Intent (Optional auth, guest supported)
+router.post('/create-payment-intent', authenticateOptionalUser, orderController.createPaymentIntent);
 
 // 3. Verify Payment & Create Order (Optional auth, guest supported)
 router.post(

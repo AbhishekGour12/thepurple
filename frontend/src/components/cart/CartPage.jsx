@@ -46,6 +46,7 @@ import {
 } from '@/store/slices/cartSlice';
 import { optimisticToggle, toggleWishlistProduct } from '@/store/slices/wishlistSlice';
 import { cartApi } from '@/lib/api/cart';
+import { getStoredCustomerUser } from '@/lib/auth/session';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import MainHeader from '@/components/layout/MainHeader';
 import Footer from '@/components/layout/Footer';
@@ -271,8 +272,13 @@ export default function CartPage() {
     if (couponError) {
       if (couponInput) rejectedCouponsRef.current.add(couponInput.trim().toUpperCase());
       if (appliedCoupon?.code) rejectedCouponsRef.current.add(appliedCoupon.code.trim().toUpperCase());
+      availableCoupons.forEach((c) => {
+        if (couponError.toLowerCase().includes(c.code.toLowerCase()) || couponError.includes('already redeemed')) {
+          rejectedCouponsRef.current.add(c.code.trim().toUpperCase());
+        }
+      });
     }
-  }, [couponError, couponInput, appliedCoupon]);
+  }, [couponError, couponInput, appliedCoupon, availableCoupons]);
 
   // Auto-apply eligible coupons (e.g. Free shipping or auto-apply promo when subtotal matches criteria)
   useEffect(() => {
@@ -284,7 +290,10 @@ export default function CartPage() {
 
       if (autoCoupon && (!appliedCoupon || appliedCoupon.isAutoApplied)) {
         if (!appliedCoupon || appliedCoupon.code !== autoCoupon.code) {
-          dispatch(syncApplyCoupon({ code: autoCoupon.code, subtotal }));
+          const user = getStoredCustomerUser();
+          const email = user?.email || (typeof window !== 'undefined' ? localStorage.getItem('thepurple_customer_email') : '') || undefined;
+          const mobile = user?.mobile || (typeof window !== 'undefined' ? localStorage.getItem('thepurple_customer_mobile') : '') || undefined;
+          dispatch(syncApplyCoupon({ code: autoCoupon.code, subtotal, email, mobile }));
         }
       }
     }
