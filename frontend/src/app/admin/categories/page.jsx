@@ -27,7 +27,7 @@ import { BusyOverlay, BusyButtonLabel } from '@/components/admin/BusyUI';
 
 export default function CategoryManagementPage() {
   const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
-  const canManage = !currentAdmin?.role || ['SUPER_ADMIN', 'MANAGER', 'ADMIN', 'EXECUTIVE'].includes(currentAdmin?.role);
+  const canManage = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'EXECUTIVE' || currentAdmin?.role === 'WORKER';
 
   const [categories, setCategories] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);

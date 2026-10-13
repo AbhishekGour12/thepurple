@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSelector } from 'react-redux';
 import {
   ShoppingBag,
   Search,
@@ -33,6 +34,9 @@ const STATUS_TABS = [
 ];
 
 export default function AdminOrdersPage() {
+  const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
+  const canManageOrders = currentAdmin?.role === 'SUPER_ADMIN';
+
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -213,29 +217,31 @@ export default function AdminOrdersPage() {
             Webhook & Cron Active
           </span>
 
-          <button
-            type="button"
-            onClick={handleBatchSyncShiprocket}
-            disabled={batchSyncing}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '9px 16px',
-              borderRadius: '8px',
-              backgroundColor: '#4338CA',
-              border: '1px solid #3730A3',
-              color: '#FFFFFF',
-              fontSize: '13px',
-              fontWeight: 700,
-              cursor: batchSyncing ? 'not-allowed' : 'pointer',
-              opacity: batchSyncing ? 0.7 : 1,
-              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-            }}
-          >
-            <Truck size={14} className={batchSyncing ? 'animate-spin' : ''} />
-            <span>{batchSyncing ? 'Syncing Active...' : 'Sync All Shiprocket'}</span>
-          </button>
+          {canManageOrders && (
+            <button
+              type="button"
+              onClick={handleBatchSyncShiprocket}
+              disabled={batchSyncing}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '9px 16px',
+                borderRadius: '8px',
+                backgroundColor: '#4338CA',
+                border: '1px solid #3730A3',
+                color: '#FFFFFF',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: batchSyncing ? 'not-allowed' : 'pointer',
+                opacity: batchSyncing ? 0.7 : 1,
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              }}
+            >
+              <Truck size={14} className={batchSyncing ? 'animate-spin' : ''} />
+              <span>{batchSyncing ? 'Syncing Active...' : 'Sync All Shiprocket'}</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -570,7 +576,7 @@ export default function AdminOrdersPage() {
                             </button>
                           )}
 
-                          {!order.isLabelGenerated && order.status !== 'CANCELLED' && (
+                          {canManageOrders && !order.isLabelGenerated && order.status !== 'CANCELLED' && (
                             <button
                               type="button"
                               onClick={() => handleQuickLabelGenerate(order.id)}
@@ -639,7 +645,7 @@ export default function AdminOrdersPage() {
                             <span>View</span>
                           </Link>
 
-                          {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && (
+                          {canManageOrders && order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && (
                             <button
                               type="button"
                               onClick={() => handleAdminCancelOrder(order)}

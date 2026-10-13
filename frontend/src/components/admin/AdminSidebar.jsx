@@ -46,9 +46,11 @@ export default function AdminSidebar({ role = 'EXECUTIVE', mustChangePassword = 
   }, []);
 
   // Role Permission Matrix for Sidebar Navigation
-  // Super Admin: Dashboard, Products, Categories, Bulk, Orders, Payments, Banners, Users, Admin Management, Settings
-  // Manager: Dashboard, Products, Categories, Bulk, Orders, Payments, Banners, Users (NO Admin Management, NO Settings)
-  // Executive: Dashboard, Products, Categories (view), Orders, Users (NO Payments, NO Banners, NO Admin Management, NO Settings)
+  // Super Admin: All modules
+  // Manager: Dashboard, All Products (view), Categories (view), Orders (view), Payments (view), Users (view), Contact Queries (reply)
+  //          (HIDDEN: Add Product, Bulk Upload, Banners, Coupons, Manage Admins, Settings)
+  // Executive: Dashboard, All Products, Add Product, Bulk Upload, Categories (full taxonomy), Orders (view), Payments (view)
+  //          (HIDDEN: Users, Banners, Contact Queries, Coupons, Manage Admins, Settings)
 
   const navItems = [
     {
@@ -76,13 +78,13 @@ export default function AdminSidebar({ role = 'EXECUTIVE', mustChangePassword = 
           label: 'Add Product',
           href: '/admin/products/new',
           icon: Sparkles,
-          roles: ['SUPER_ADMIN', 'MANAGER', 'EXECUTIVE', 'WORKER'],
+          roles: ['SUPER_ADMIN', 'EXECUTIVE', 'WORKER'], // Manager CANNOT add products
         },
         {
           label: 'Bulk Upload',
           href: '/admin/products/bulk',
           icon: Upload,
-          roles: ['SUPER_ADMIN', 'MANAGER', 'EXECUTIVE', 'WORKER'],
+          roles: ['SUPER_ADMIN', 'EXECUTIVE', 'WORKER'], // Manager CANNOT bulk upload products
         },
         {
           label: 'Categories',
@@ -106,31 +108,31 @@ export default function AdminSidebar({ role = 'EXECUTIVE', mustChangePassword = 
           label: 'Payments',
           href: '/admin/payments',
           icon: CreditCard,
-          roles: ['SUPER_ADMIN', 'MANAGER', 'EXECUTIVE'],
+          roles: ['SUPER_ADMIN', 'MANAGER', 'EXECUTIVE', 'WORKER'],
         },
         {
           label: 'Customers / Users',
           href: '/admin/users',
           icon: Users,
-          roles: ['SUPER_ADMIN', 'MANAGER', 'EXECUTIVE', 'WORKER'],
+          roles: ['SUPER_ADMIN', 'MANAGER'], // Executive has NO ACCESS to Users
         },
         {
           label: 'Banners',
           href: '/admin/banners',
           icon: ImageIcon,
-          roles: ['SUPER_ADMIN', 'MANAGER'], // Executive has NO ACCESS to Banners
+          roles: ['SUPER_ADMIN'], // Manager & Executive CANNOT make banners
         },
         {
           label: 'Contact Queries',
           href: '/admin/contacts',
           icon: MessageSquare,
-          roles: ['SUPER_ADMIN', 'MANAGER', 'EXECUTIVE', 'WORKER'],
+          roles: ['SUPER_ADMIN', 'MANAGER'], // Executive has NO ACCESS to Contact Queries
         },
         {
           label: 'Coupons & Offers',
           href: '/admin/coupons',
           icon: Tag,
-          roles: ['SUPER_ADMIN', 'MANAGER', 'EXECUTIVE'],
+          roles: ['SUPER_ADMIN'], // Manager & Executive CANNOT make coupons
         },
       ],
     },

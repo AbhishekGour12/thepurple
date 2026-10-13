@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { useSelector } from 'react-redux';
 import {
   ArrowLeft,
   Truck,
@@ -26,6 +27,8 @@ export default function AdminOrderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const orderId = params?.id;
+  const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
+  const canManageOrders = currentAdmin?.role === 'SUPER_ADMIN';
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -447,8 +450,14 @@ export default function AdminOrderDetailPage() {
 
             {/* Action Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {!canManageOrders && (
+                <div style={{ padding: '10px 12px', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '8px', color: '#1E40AF', fontSize: '12px', fontWeight: 600 }}>
+                  👁️ View-Only Mode: Order actions and modifications are reserved for Super Admins.
+                </div>
+              )}
+
               {/* 1. Assign Courier & Generate AWB / Label */}
-              {order.status !== 'CANCELLED' && (
+              {canManageOrders && order.status !== 'CANCELLED' && (
                 <button
                   type="button"
                   onClick={handleGenerateLabel}
@@ -476,7 +485,7 @@ export default function AdminOrderDetailPage() {
               )}
 
               {/* 2. Schedule Courier Pickup */}
-              {order.awbCode && order.status !== 'CANCELLED' && (
+              {canManageOrders && order.awbCode && order.status !== 'CANCELLED' && (
                 <button
                   type="button"
                   onClick={handleSchedulePickup}
@@ -503,7 +512,7 @@ export default function AdminOrderDetailPage() {
               )}
 
               {/* 3. Official Tax Invoice Download */}
-              {order.shiprocketOrderId && (
+              {(order.invoiceUrl || (canManageOrders && order.shiprocketOrderId)) && (
                 <button
                   type="button"
                   onClick={handleGenerateInvoice}
@@ -558,78 +567,80 @@ export default function AdminOrderDetailPage() {
           </div>
 
           {/* Update Order Status Card */}
-          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', border: '1px solid #E5E7EB', padding: '22px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1E1B4B', margin: '0 0 14px' }}>
-              Update Order Status
-            </h3>
+          {canManageOrders && (
+            <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', border: '1px solid #E5E7EB', padding: '22px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1E1B4B', margin: '0 0 14px' }}>
+                Update Order Status
+              </h3>
 
-            <form onSubmit={handleUpdateStatus} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>
-                  Select Status
-                </label>
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
+              <form onSubmit={handleUpdateStatus} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>
+                    Select Status
+                  </label>
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      borderRadius: '8px',
+                      border: '1px solid #E5E7EB',
+                      fontSize: '13px',
+                      outline: 'none',
+                      backgroundColor: '#FAF8FC',
+                    }}
+                  >
+                    <option value="PAYMENT_RECEIVED">PAYMENT_RECEIVED (Confirmed)</option>
+                    <option value="PACKING">PACKING (In Warehouse)</option>
+                    <option value="SHIPROCKET_PICKUP">SHIPROCKET_PICKUP (Handed to Courier)</option>
+                    <option value="IN_TRANSIT">IN_TRANSIT (On the Way)</option>
+                    <option value="DELIVERED">DELIVERED (Completed)</option>
+                    <option value="CANCELLED">CANCELLED (Void)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>
+                    Admin Status Note (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Package packed and sealed"
+                    value={statusNote}
+                    onChange={(e) => setStatusNote(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #E5E7EB',
+                      fontSize: '12.5px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={updating}
                   style={{
-                    width: '100%',
                     padding: '10px',
                     borderRadius: '8px',
-                    border: '1px solid #E5E7EB',
+                    backgroundColor: '#1E1B4B',
+                    color: '#FFFFFF',
                     fontSize: '13px',
-                    outline: 'none',
-                    backgroundColor: '#FAF8FC',
+                    fontWeight: 800,
+                    border: 'none',
+                    cursor: updating ? 'wait' : 'pointer',
+                    marginTop: '4px',
                   }}
                 >
-                  <option value="PAYMENT_RECEIVED">PAYMENT_RECEIVED (Confirmed)</option>
-                  <option value="PACKING">PACKING (In Warehouse)</option>
-                  <option value="SHIPROCKET_PICKUP">SHIPROCKET_PICKUP (Handed to Courier)</option>
-                  <option value="IN_TRANSIT">IN_TRANSIT (On the Way)</option>
-                  <option value="DELIVERED">DELIVERED (Completed)</option>
-                  <option value="CANCELLED">CANCELLED (Void)</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>
-                  Admin Status Note (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Package packed and sealed"
-                  value={statusNote}
-                  onChange={(e) => setStatusNote(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #E5E7EB',
-                    fontSize: '12.5px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={updating}
-                style={{
-                  padding: '10px',
-                  borderRadius: '8px',
-                  backgroundColor: '#1E1B4B',
-                  color: '#FFFFFF',
-                  fontSize: '13px',
-                  fontWeight: 800,
-                  border: 'none',
-                  cursor: updating ? 'wait' : 'pointer',
-                  marginTop: '4px',
-                }}
-              >
-                {updating ? 'Updating...' : 'Save Status'}
-              </button>
-            </form>
-          </div>
+                  {updating ? 'Updating...' : 'Save Status'}
+                </button>
+              </form>
+            </div>
+          )}
 
           {/* Refund Manager Card (If Cancelled or Refund Requested) */}
           {(order.status === 'CANCELLED' || order.refundStatus === 'REQUESTED') && (
@@ -647,56 +658,58 @@ export default function AdminOrderDetailPage() {
                 <div><strong>Current Status:</strong> <span style={{ fontWeight: 800, textTransform: 'uppercase' }}>{order.refundStatus}</span></div>
               </div>
 
-              <form onSubmit={handleProcessRefund} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <select
-                  value={refundStatusChoice}
-                  onChange={(e) => setRefundStatusChoice(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: '8px',
-                    border: '1px solid #FCD34D',
-                    fontSize: '12.5px',
-                    backgroundColor: '#FFFFFF',
-                  }}
-                >
-                  <option value="PROCESSED">PROCESSED (Refund Issued)</option>
-                  <option value="APPROVED">APPROVED (Queued for Processing)</option>
-                  <option value="REJECTED">REJECTED (Declined)</option>
-                </select>
+              {canManageOrders && (
+                <form onSubmit={handleProcessRefund} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <select
+                    value={refundStatusChoice}
+                    onChange={(e) => setRefundStatusChoice(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #FCD34D',
+                      fontSize: '12.5px',
+                      backgroundColor: '#FFFFFF',
+                    }}
+                  >
+                    <option value="PROCESSED">PROCESSED (Refund Issued)</option>
+                    <option value="APPROVED">APPROVED (Queued for Processing)</option>
+                    <option value="REJECTED">REJECTED (Declined)</option>
+                  </select>
 
-                <input
-                  type="text"
-                  placeholder="Refund Transaction Ref / Note"
-                  value={refundNote}
-                  onChange={(e) => setRefundNote(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: '8px',
-                    border: '1px solid #E5E7EB',
-                    fontSize: '12px',
-                    boxSizing: 'border-box',
-                  }}
-                />
+                  <input
+                    type="text"
+                    placeholder="Refund Transaction Ref / Note"
+                    value={refundNote}
+                    onChange={(e) => setRefundNote(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #E5E7EB',
+                      fontSize: '12px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
 
-                <button
-                  type="submit"
-                  disabled={updating}
-                  style={{
-                    padding: '9px',
-                    borderRadius: '8px',
-                    backgroundColor: '#D97706',
-                    color: '#FFFFFF',
-                    fontSize: '12.5px',
-                    fontWeight: 800,
-                    border: 'none',
-                    cursor: updating ? 'wait' : 'pointer',
-                  }}
-                >
-                  Update Refund Status
-                </button>
-              </form>
+                  <button
+                    type="submit"
+                    disabled={updating}
+                    style={{
+                      padding: '9px',
+                      borderRadius: '8px',
+                      backgroundColor: '#D97706',
+                      color: '#FFFFFF',
+                      fontSize: '12.5px',
+                      fontWeight: 800,
+                      border: 'none',
+                      cursor: updating ? 'wait' : 'pointer',
+                    }}
+                  >
+                    Update Refund Status
+                  </button>
+                </form>
+              )}
             </div>
           )}
         </div>

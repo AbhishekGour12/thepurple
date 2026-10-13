@@ -62,58 +62,53 @@ export const ROLE_PERMISSIONS = {
 
   [ADMIN_ROLES.MANAGER]: [
     PERMISSIONS.DASHBOARD_VIEW,
-    // Products full
+    // Products view only (cannot add, edit, delete, publish, or bulk upload)
     PERMISSIONS.PRODUCT_VIEW,
-    PERMISSIONS.PRODUCT_CREATE,
-    PERMISSIONS.PRODUCT_EDIT,
-    PERMISSIONS.PRODUCT_DELETE,
-    PERMISSIONS.PRODUCT_PUBLISH,
-    PERMISSIONS.PRODUCT_BULK_UPLOAD,
-    // Categories full
+    // Categories view only (cannot create, edit, or delete categories/subcategories/attributes)
     PERMISSIONS.CATEGORY_VIEW,
-    PERMISSIONS.CATEGORY_MANAGE,
-    // Orders full
+    // Orders view only (cannot cancel or change order status)
     PERMISSIONS.ORDER_VIEW,
-    PERMISSIONS.ORDER_UPDATE,
-    // Payments full
+    // Payments view only (can see payments received or status)
     PERMISSIONS.PAYMENT_VIEW,
-    PERMISSIONS.PAYMENT_EXPORT,
-    // Users full
+    // Users view only (can view customer accounts)
     PERMISSIONS.USER_VIEW,
-    PERMISSIONS.USER_MANAGE,
-    // Banners full
-    PERMISSIONS.BANNER_VIEW,
-    PERMISSIONS.BANNER_MANAGE,
-    // Contact Queries full
+    // Customer Inquiries / Contact (can view and reply)
     PERMISSIONS.CONTACT_VIEW,
     PERMISSIONS.CONTACT_REPLY,
-    PERMISSIONS.CONTACT_MANAGE,
-    // Coupons full
-    PERMISSIONS.COUPON_VIEW,
-    PERMISSIONS.COUPON_MANAGE,
-    // NO SETTINGS, NO ADMIN MANAGEMENT
+    // NO PRODUCT_CREATE, NO PRODUCT_EDIT, NO PRODUCT_DELETE, NO PRODUCT_PUBLISH, NO PRODUCT_BULK_UPLOAD
+    // NO CATEGORY_MANAGE
+    // NO ORDER_UPDATE
+    // NO PAYMENT_EXPORT
+    // NO USER_MANAGE
+    // NO BANNER_VIEW, NO BANNER_MANAGE
+    // NO COUPON_VIEW, NO COUPON_MANAGE
+    // NO SETTINGS_VIEW, NO SETTINGS_MANAGE
+    // NO ADMIN_*
   ],
 
   [ADMIN_ROLES.EXECUTIVE]: [
     PERMISSIONS.DASHBOARD_VIEW,
-    // Products: Upload / Edit / View only
+    // Products: Add, View, Edit, Bulk Upload, Publish (CANNOT DELETE)
     PERMISSIONS.PRODUCT_VIEW,
     PERMISSIONS.PRODUCT_CREATE,
     PERMISSIONS.PRODUCT_EDIT,
+    PERMISSIONS.PRODUCT_PUBLISH,
     PERMISSIONS.PRODUCT_BULK_UPLOAD,
-    // Categories view only
+    // Categories, Subcategories, Colors, Sizes & Attributes: Full CRUD (Add, Edit, Delete)
     PERMISSIONS.CATEGORY_VIEW,
-    // Coupons view only
-    PERMISSIONS.COUPON_VIEW,
-    // Orders view only
+    PERMISSIONS.CATEGORY_MANAGE,
+    // Orders: View only (CANNOT cancel, update status, or generate invoice)
     PERMISSIONS.ORDER_VIEW,
-    // Users view only
-    PERMISSIONS.USER_VIEW,
-    // Contact view & reply
-    PERMISSIONS.CONTACT_VIEW,
-    PERMISSIONS.CONTACT_REPLY,
-    // NO PRODUCT_DELETE, NO PRODUCT_PUBLISH
-    // NO PAYMENTS, NO BANNERS, NO SETTINGS, NO ADMIN MANAGEMENT
+    // Payments: View only
+    PERMISSIONS.PAYMENT_VIEW,
+    // NO PRODUCT_DELETE
+    // NO ORDER_UPDATE
+    // NO USERS (NO USER_VIEW, NO USER_MANAGE)
+    // NO BANNERS (NO BANNER_VIEW, NO BANNER_MANAGE)
+    // NO CONTACT QUERIES (NO CONTACT_VIEW, NO CONTACT_REPLY, NO CONTACT_MANAGE)
+    // NO COUPONS (NO COUPON_VIEW, NO COUPON_MANAGE)
+    // NO SETTINGS
+    // NO ADMIN MANAGEMENT
   ],
 
   // Backward compatibility alias
@@ -122,12 +117,12 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.PRODUCT_VIEW,
     PERMISSIONS.PRODUCT_CREATE,
     PERMISSIONS.PRODUCT_EDIT,
+    PERMISSIONS.PRODUCT_PUBLISH,
     PERMISSIONS.PRODUCT_BULK_UPLOAD,
     PERMISSIONS.CATEGORY_VIEW,
+    PERMISSIONS.CATEGORY_MANAGE,
     PERMISSIONS.ORDER_VIEW,
-    PERMISSIONS.USER_VIEW,
-    PERMISSIONS.CONTACT_VIEW,
-    PERMISSIONS.CONTACT_REPLY,
+    PERMISSIONS.PAYMENT_VIEW,
   ],
 };
 

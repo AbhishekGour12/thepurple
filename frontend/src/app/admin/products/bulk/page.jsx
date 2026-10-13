@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useSelector } from 'react-redux';
 import {
   Upload,
   Download,
@@ -26,6 +28,15 @@ import { adminBulkApi } from '@/lib/api/admin/bulk';
 import { adminProductApi } from '@/lib/api/admin/products';
 
 export default function BulkProductUploadPage() {
+  const router = useRouter();
+  const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
+
+  useEffect(() => {
+    if (currentAdmin?.role === 'MANAGER') {
+      router.replace('/admin/products');
+    }
+  }, [currentAdmin, router]);
+
   const [activeTab, setActiveTab] = useState('upload'); // upload | images | history
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedImages, setSelectedImages] = useState([]);

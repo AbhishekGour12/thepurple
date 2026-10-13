@@ -82,8 +82,11 @@ const INITIAL_FILTERS = {
 function ProductListPageContent() {
   const searchParams = useSearchParams();
   const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
-  const canDelete = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'MANAGER';
-  const canPublish = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'MANAGER';
+  const canDelete = currentAdmin?.role === 'SUPER_ADMIN';
+  const canAdd = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'EXECUTIVE' || currentAdmin?.role === 'WORKER';
+  const canEdit = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'EXECUTIVE' || currentAdmin?.role === 'WORKER';
+  const canPublish = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'EXECUTIVE' || currentAdmin?.role === 'WORKER';
+  const canManageTaxonomy = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'EXECUTIVE' || currentAdmin?.role === 'WORKER';
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -412,58 +415,66 @@ function ProductListPageContent() {
             <span>Categories</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setColorModalOpen(true)}
-            style={topToolBtnStyle}
-          >
-            <Palette size={14} />
-            <span>Colors</span>
-          </button>
+          {canManageTaxonomy && (
+            <>
+              <button
+                type="button"
+                onClick={() => setColorModalOpen(true)}
+                style={topToolBtnStyle}
+              >
+                <Palette size={14} />
+                <span>Colors</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setSizeModalOpen(true)}
-            style={topToolBtnStyle}
-          >
-            <Ruler size={14} />
-            <span>Sizes</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => setSizeModalOpen(true)}
+                style={topToolBtnStyle}
+              >
+                <Ruler size={14} />
+                <span>Sizes</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setAttributeModalOpen(true)}
-            style={topToolBtnStyle}
-          >
-            <Sliders size={14} />
-            <span>Attributes</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => setAttributeModalOpen(true)}
+                style={topToolBtnStyle}
+              >
+                <Sliders size={14} />
+                <span>Attributes</span>
+              </button>
+            </>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setBulkGridOpen(true)}
-            style={{
-              ...topToolBtnStyle,
-              border: '1px solid #C084FC',
-              fontWeight: 700,
-            }}
-          >
-            <Zap size={14} color="#D97706" />
-            <span>⚡ Bulk Grid</span>
-          </button>
+          {canAdd && (
+            <>
+              <button
+                type="button"
+                onClick={() => setBulkGridOpen(true)}
+                style={{
+                  ...topToolBtnStyle,
+                  border: '1px solid #C084FC',
+                  fontWeight: 700,
+                }}
+              >
+                <Zap size={14} color="#D97706" />
+                <span>⚡ Bulk Grid</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setExcelImportOpen(true)}
-            style={{
-              ...topToolBtnStyle,
-              border: '1px solid #C084FC',
-              fontWeight: 700,
-            }}
-          >
-            <Upload size={14} color="#059669" />
-            <span>📥 Excel Import</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => setExcelImportOpen(true)}
+                style={{
+                  ...topToolBtnStyle,
+                  border: '1px solid #C084FC',
+                  fontWeight: 700,
+                }}
+              >
+                <Upload size={14} color="#059669" />
+                <span>📥 Excel Import</span>
+              </button>
+            </>
+          )}
 
           <button
             type="button"
@@ -513,25 +524,27 @@ function ProductListPageContent() {
             <span>Export to Excel</span>
           </button>
 
-          <Link
-            href="/admin/products/new"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '9px 18px',
-              borderRadius: '9px',
-              backgroundColor: '#7E22CE',
-              color: '#ffffff',
-              fontSize: '13px',
-              fontWeight: 700,
-              textDecoration: 'none',
-              boxShadow: '0 4px 12px rgba(126, 34, 206, 0.25)',
-            }}
-          >
-            <Plus size={15} />
-            <span>+ Create Product</span>
-          </Link>
+          {canAdd && (
+            <Link
+              href="/admin/products/new"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '9px 18px',
+                borderRadius: '9px',
+                backgroundColor: '#7E22CE',
+                color: '#ffffff',
+                fontSize: '13px',
+                fontWeight: 700,
+                textDecoration: 'none',
+                boxShadow: '0 4px 12px rgba(126, 34, 206, 0.25)',
+              }}
+            >
+              <Plus size={15} />
+              <span>+ Create Product</span>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -1424,15 +1437,17 @@ function ProductListPageContent() {
                       <td style={{ padding: '14px 16px' }}>
                         <button
                           type="button"
-                          disabled={isToggling}
+                          disabled={isToggling || !canPublish}
                           onClick={() => handleTogglePublish(product)}
+                          title={!canPublish ? 'Status changes restricted' : (product.status === 'PUBLISHED' ? 'Click to make Draft' : 'Click to Publish')}
                           style={{
                             padding: '4px 10px',
                             borderRadius: '12px',
                             border: 'none',
                             fontSize: '11px',
                             fontWeight: 700,
-                            cursor: isToggling ? 'not-allowed' : 'pointer',
+                            cursor: isToggling ? 'not-allowed' : (!canPublish ? 'default' : 'pointer'),
+                            opacity: !canPublish ? 0.8 : 1,
                             backgroundColor:
                               product.status === 'PUBLISHED' ? '#ECFDF5' : '#FEF2F2',
                             color: product.status === 'PUBLISHED' ? '#047857' : '#DC2626',
@@ -1454,16 +1469,17 @@ function ProductListPageContent() {
                       <td style={{ padding: '14px 16px' }}>
                         <button
                           type="button"
-                          disabled={togglingFeaturedId === product.id}
+                          disabled={togglingFeaturedId === product.id || !canEdit}
                           onClick={() => handleToggleFeatured(product)}
-                          title={product.isFeatured ? 'Remove from Homepage Product Showcase' : 'Feature in Homepage Product Showcase'}
+                          title={!canEdit ? 'Featured editing restricted' : (product.isFeatured ? 'Remove from Homepage Product Showcase' : 'Feature in Homepage Product Showcase')}
                           style={{
                             padding: '5px 11px',
                             borderRadius: '20px',
                             border: product.isFeatured ? '1.5px solid #C084FC' : '1px solid #E5E7EB',
                             fontSize: '11px',
                             fontWeight: 700,
-                            cursor: togglingFeaturedId === product.id ? 'not-allowed' : 'pointer',
+                            cursor: (togglingFeaturedId === product.id || !canEdit) ? 'default' : 'pointer',
+                            opacity: !canEdit ? 0.8 : 1,
                             backgroundColor: product.isFeatured ? '#FAF5FF' : '#F9FAFB',
                             color: product.isFeatured ? '#7E22CE' : '#6B7280',
                             transition: 'all 0.15s ease',
@@ -1501,9 +1517,9 @@ function ProductListPageContent() {
                               alignItems: 'center',
                               textDecoration: 'none',
                             }}
-                            title="Edit Product"
+                            title={canEdit ? "Edit Product" : "View Product Details"}
                           >
-                            <Edit2 size={13} />
+                            {canEdit ? <Edit2 size={13} /> : <Eye size={13} />}
                           </Link>
 
                           {canDelete && (

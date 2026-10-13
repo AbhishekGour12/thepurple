@@ -27,7 +27,7 @@ import { couponsApi } from '@/lib/api/admin/coupons';
 
 export default function AdminCouponsPage() {
   const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
-  const canManage = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'MANAGER';
+  const canManage = currentAdmin?.role === 'SUPER_ADMIN';
 
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);

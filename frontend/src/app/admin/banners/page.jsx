@@ -224,7 +224,7 @@ function RouteHelperSelector({ categories = [], products = [], onSelect }) {
 
 export default function BannerManagementPage() {
   const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
-  const canManage = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'MANAGER';
+  const canManage = currentAdmin?.role === 'SUPER_ADMIN';
 
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);

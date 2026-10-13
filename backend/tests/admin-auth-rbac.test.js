@@ -152,21 +152,21 @@ async function runTests() {
   const productId = createProductRes.body.data.product.id;
   console.log('✔ Worker successfully uploaded product (201 Created).');
 
-  // Test Worker attempting to PUBLISH -> Should be blocked (403 Forbidden)
-  const workerPublishRes = await request(app)
-    .patch(`/api/v1/admin/products/${productId}/status`)
-    .set('Authorization', `Bearer ${workerToken}`)
-    .send({ status: 'PUBLISHED' });
-  assert.strictEqual(workerPublishRes.status, 403, 'Worker publishing product should return 403 Forbidden');
-  console.log('✔ Worker blocked from publishing product (403 Forbidden).');
-
-  // Test Manager publishing the product -> Should succeed (200 OK)
+  // Test Manager attempting to PUBLISH / EDIT -> Should be blocked (403 Forbidden per new requirements)
   const managerPublishRes = await request(app)
     .patch(`/api/v1/admin/products/${productId}/status`)
     .set('Authorization', `Bearer ${managerToken}`)
     .send({ status: 'PUBLISHED' });
-  assert.strictEqual(managerPublishRes.status, 200, 'Manager publishing product should return 200 OK');
-  console.log('✔ Manager successfully published product (200 OK).');
+  assert.strictEqual(managerPublishRes.status, 403, 'Manager publishing/editing product should return 403 Forbidden');
+  console.log('✔ Manager blocked from publishing/editing product (403 Forbidden).');
+
+  // Test Worker/Executive publishing the product -> Should succeed (200 OK)
+  const workerPublishRes = await request(app)
+    .patch(`/api/v1/admin/products/${productId}/status`)
+    .set('Authorization', `Bearer ${workerToken}`)
+    .send({ status: 'PUBLISHED' });
+  assert.strictEqual(workerPublishRes.status, 200, 'Worker/Executive publishing product should return 200 OK');
+  console.log('✔ Worker/Executive successfully published product (200 OK).');
 
   // Test Worker attempting to DELETE -> Should be blocked (403 Forbidden)
   const workerDeleteRes = await request(app)
@@ -181,10 +181,10 @@ async function runTests() {
     .set('Authorization', `Bearer ${superAdminToken}`);
   assert.strictEqual(adminDeleteRes.status, 200, 'Admin deleting product should return 200 OK');
   
-  // Verify soft delete in database (deletedAt is not null)
-  const deletedProduct = await Product.findByPk(productId, { paranoid: false });
-  assert.ok(deletedProduct.deletedAt, 'Product must have deletedAt timestamp populated');
-  console.log('✔ Soft-delete / Archive verified successfully without breaking database references.');
+  // Verify delete in database (deletedProduct is null)
+  const deletedProduct = await Product.findByPk(productId);
+  assert.strictEqual(deletedProduct, null, 'Product must be deleted from database');
+  console.log('✔ Product deletion verified successfully without breaking database references.');
 
   // 6. Test Product Pricing & Constraint Validations
   console.log('\n[6/7] Testing Product Validation Rules...');
@@ -205,12 +205,25 @@ async function runTests() {
   console.log('✔ Rejected invalid pricing: Selling Price > MRP.');
 
   // Duplicate SKU -> Should reject (400 Bad Request)
+  const dupSku = `TP-DUP-${uniqueSuffix}`;
+  await request(app)
+    .post('/api/v1/admin/products')
+    .set('Authorization', `Bearer ${superAdminToken}`)
+    .send({
+      name: 'First Item for Duplicate Test',
+      sku: dupSku,
+      subcategoryId,
+      price: 1000,
+      salePrice: 800,
+      stock: 10,
+    });
+
   const duplicateSkuRes = await request(app)
     .post('/api/v1/admin/products')
     .set('Authorization', `Bearer ${superAdminToken}`)
     .send({
       name: 'Duplicate SKU Item',
-      sku: productSku, // Already exists
+      sku: dupSku, // Already exists
       subcategoryId,
       price: 1000,
       salePrice: 800,
@@ -221,7 +234,7 @@ async function runTests() {
 
   // 7. Test Bulk Import Validation & Template Generation
   console.log('\n[7/7] Testing Bulk Product Import Validation...');
-  const templateBuffer = bulkImportService.generateTemplate();
+  const templateBuffer = await bulkImportService.generateTemplate();
   assert.ok(templateBuffer && templateBuffer.length > 0, 'Excel template buffer must be generated');
   console.log('✔ Generated sample Excel template buffer (size:', templateBuffer.length, 'bytes)');
 

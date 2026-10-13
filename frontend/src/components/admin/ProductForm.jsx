@@ -203,7 +203,7 @@ const createInitialProduct = (template = null, isEditData = null) => {
   };
 };
 
-export default function ProductForm({ initialData = null, isEdit = false }) {
+export default function ProductForm({ initialData = null, isEdit = false, readOnly = false }) {
   const router = useRouter();
 
   // Products array for Multi-Product creation
@@ -912,9 +912,24 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#2E1065', margin: 0 }}>
-                {isEdit ? 'Edit Product' : 'Add New Products'}
+                {readOnly ? 'View Product Details' : (isEdit ? 'Edit Product' : 'Add New Products')}
               </h1>
-              {!isEdit && (
+              {readOnly && (
+                <span
+                  style={{
+                    backgroundColor: '#EFF6FF',
+                    color: '#2563EB',
+                    padding: '3px 10px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    border: '1px solid #BFDBFE',
+                  }}
+                >
+                  Read-Only Mode
+                </span>
+              )}
+              {!isEdit && !readOnly && (
                 <span
                   style={{
                     backgroundColor: '#F3E8FF',
@@ -931,9 +946,11 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
               )}
             </div>
             <p style={{ fontSize: '13px', color: '#6B7280', margin: '3px 0 0' }}>
-              {!isEdit
-                ? 'Fill details and click "+ Add More Product (Copy Details)" to easily clone & batch create multiple products.'
-                : 'Update product information, images, pricing, and variants.'}
+              {readOnly
+                ? 'Review product specifications, images, pricing, and variant inventory.'
+                : (!isEdit
+                  ? 'Fill details and click "+ Add More Product (Copy Details)" to easily clone & batch create multiple products.'
+                  : 'Update product information, images, pricing, and variants.')}
             </p>
           </div>
         </div>
@@ -1002,35 +1019,60 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
             </button>
           )}
 
-          <button
-            onClick={handleSubmitAll}
-            disabled={submitting}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 24px',
-              borderRadius: '10px',
-              backgroundColor: '#7E22CE',
-              color: '#ffffff',
-              fontSize: '13.5px',
-              fontWeight: 700,
-              border: 'none',
-              cursor: submitting ? 'not-allowed' : 'pointer',
-              boxShadow: '0 4px 12px rgba(126, 34, 206, 0.28)',
-            }}
-          >
-            {submitting ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
-            <span>
-              {isEdit
-                ? 'Update Product'
-                : products.length > 1
-                ? `Save & Publish All (${products.length}) Products`
-                : 'Save & Publish Product'}
-            </span>
-          </button>
+          {!readOnly && (
+            <button
+              onClick={handleSubmitAll}
+              disabled={submitting}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 24px',
+                borderRadius: '10px',
+                backgroundColor: '#7E22CE',
+                color: '#ffffff',
+                fontSize: '13.5px',
+                fontWeight: 700,
+                border: 'none',
+                cursor: submitting ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 12px rgba(126, 34, 206, 0.28)',
+              }}
+            >
+              {submitting ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
+              <span>
+                {isEdit
+                  ? 'Update Product'
+                  : products.length > 1
+                  ? `Save & Publish All (${products.length}) Products`
+                  : 'Save & Publish Product'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
+
+      {readOnly && (
+        <div
+          style={{
+            padding: '14px 20px',
+            backgroundColor: '#EFF6FF',
+            border: '1.5px solid #BFDBFE',
+            borderRadius: '12px',
+            color: '#1E40AF',
+            fontSize: '13.5px',
+            fontWeight: 600,
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}
+        >
+          <ShieldCheck size={20} color="#2563EB" />
+          <span>
+            <strong>View-Only Mode:</strong> As a Manager, you can inspect all product specifications, pricing, and variant stock. Modifying and deleting products are restricted to Super Admins and Executives.
+          </span>
+        </div>
+      )}
 
       {/* Global Error Notice */}
       {globalError && (
@@ -3435,34 +3477,36 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
             </>
           )}
 
-          <button
-            type="button"
-            onClick={handleSubmitAll}
-            disabled={submitting}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '11px 28px',
-              borderRadius: '10px',
-              backgroundColor: '#7E22CE',
-              color: '#ffffff',
-              fontSize: '14px',
-              fontWeight: 800,
-              border: 'none',
-              cursor: submitting ? 'not-allowed' : 'pointer',
-              boxShadow: '0 4px 14px rgba(126, 34, 206, 0.3)',
-            }}
-          >
-            {submitting ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
-            <span>
-              {isEdit
-                ? 'Update Product'
-                : products.length > 1
-                ? `Save & Publish All (${products.length}) Products`
-                : 'Save & Publish Product'}
-            </span>
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={handleSubmitAll}
+              disabled={submitting}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '11px 28px',
+                borderRadius: '10px',
+                backgroundColor: '#7E22CE',
+                color: '#ffffff',
+                fontSize: '14px',
+                fontWeight: 800,
+                border: 'none',
+                cursor: submitting ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 14px rgba(126, 34, 206, 0.3)',
+              }}
+            >
+              {submitting ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
+              <span>
+                {isEdit
+                  ? 'Update Product'
+                  : products.length > 1
+                  ? `Save & Publish All (${products.length}) Products`
+                  : 'Save & Publish Product'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 

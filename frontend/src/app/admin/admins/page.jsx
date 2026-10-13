@@ -658,8 +658,8 @@ export default function AdminManagementPage() {
                     color: '#1E1B4B',
                   }}
                 >
-                  <option value="MANAGER">Manager (Catalog, Orders, Payments, Banners, Customers)</option>
-                  <option value="EXECUTIVE">Executive (Upload & Edit Products, View Catalog & Orders)</option>
+                  <option value="MANAGER">Manager (Read-Only Products & Categories, View Orders & Payments, Reply Queries)</option>
+                  <option value="EXECUTIVE">Executive (Add/Edit Products, Full Categories & Attributes, View Orders & Payments)</option>
                 </select>
                 <p style={{ fontSize: '12px', color: '#6B7280', margin: '6px 0 0 0' }}>
                   Note: A secure random temporary password will be auto-generated and emailed.

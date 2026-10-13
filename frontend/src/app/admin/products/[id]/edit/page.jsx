@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useSelector } from 'react-redux';
 import ProductForm from '@/components/admin/ProductForm';
 import { adminProductApi } from '@/lib/api/admin/products';
 
 export default function EditProductPage() {
   const { id } = useParams();
+  const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
+  const isReadOnly = currentAdmin?.role === 'MANAGER';
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -50,5 +53,5 @@ export default function EditProductPage() {
     );
   }
 
-  return <ProductForm initialData={product} isEdit={true} />;
+  return <ProductForm initialData={product} isEdit={true} readOnly={isReadOnly} />;
 }

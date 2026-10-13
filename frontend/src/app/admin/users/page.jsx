@@ -34,7 +34,7 @@ const formatINR = (val) =>
 
 export default function AdminUsersManagementPage() {
   const currentAdmin = useSelector((state) => state.auth?.admin?.profile);
-  const canManage = currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.role === 'MANAGER';
+  const canManage = currentAdmin?.role === 'SUPER_ADMIN';
 
   const [users, setUsers] = useState([]);
   const [summary, setSummary] = useState({ total: 0, active: 0, googleAuth: 0, blocked: 0 });
