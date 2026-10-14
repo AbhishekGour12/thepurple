@@ -27,6 +27,7 @@ import {
   Check,
   ShoppingBag,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 import {
   updateQuantity,
