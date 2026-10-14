@@ -4,6 +4,7 @@ import razorpayService from '../services/razorpayService.js';
 import shiprocketService from '../services/shiprocketService.js';
 import mailService from '../services/mailService.js';
 import productService from '../admin/services/productService.js';
+import settingService from '../services/settingService.js';
 import ApiResponse from '../utils/apiResponse.js';
 import AppError from '../utils/customError.js';
 
@@ -209,10 +210,8 @@ export const orderController = {
         return ApiResponse.error(res, 'Please provide a valid 6-digit Pincode', 400);
       }
 
-      // 3. Calculate Subtotal, Validate Stock Availability & Check Min Cart Value
+      // 3. Calculate Subtotal, Validate Stock Availability & Check Global Min Cart Value
       let subtotal = 0;
-      let maxRequiredMinCart = 0;
-      let minCartProduct = null;
 
       for (const item of items) {
         const itemPrice = parseFloat(item.price || 0);
@@ -234,26 +233,23 @@ export const orderController = {
               400
             );
           }
-          if (product.minCartValue && parseFloat(product.minCartValue) > 0) {
-            const reqMin = parseFloat(product.minCartValue);
-            if (reqMin > maxRequiredMinCart) {
-              maxRequiredMinCart = reqMin;
-              minCartProduct = product;
-            }
-          }
         }
 
         subtotal += itemPrice * itemQty;
       }
 
-      // Check if Minimum Cart Value requirement is satisfied
-      if (maxRequiredMinCart > 0 && subtotal < maxRequiredMinCart) {
-        const remaining = (maxRequiredMinCart - subtotal).toFixed(2);
-        return ApiResponse.error(
-          res,
-          `"${minCartProduct?.name || 'A product in your cart'}" requires a minimum cart total of ₹${maxRequiredMinCart.toLocaleString('en-IN')}. Your current cart total is ₹${subtotal.toLocaleString('en-IN')}. Please add items worth ₹${remaining} more to checkout.`,
-          400
-        );
+      // Check Global Minimum Cart Value Requirement
+      const minCartConfig = await settingService.getMinCartSetting();
+      if (minCartConfig.enabled && parseFloat(minCartConfig.minCartValue) > 0) {
+        const globalMinCart = parseFloat(minCartConfig.minCartValue);
+        if (subtotal < globalMinCart) {
+          const remaining = (globalMinCart - subtotal).toFixed(2);
+          return ApiResponse.error(
+            res,
+            `Minimum cart order amount is ₹${globalMinCart.toLocaleString('en-IN')}. Your current cart total is ₹${subtotal.toLocaleString('en-IN')}. Please add items worth ₹${remaining} more to checkout.`,
+            400
+          );
+        }
       }
 
       // 4. Calculate Coupon Discount if applied

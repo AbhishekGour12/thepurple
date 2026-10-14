@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import { Cart, CartItem, Product, ProductImage, ProductVariant, Color, Size, Coupon, Order } from '../models/index.js';
 import logger from '../config/logger.js';
+import settingService from '../services/settingService.js';
 
 // Helper: Get or create active cart for User or Guest Session
 const getOrCreateCart = async (userId, sessionId) => {
@@ -117,15 +118,11 @@ const formatCartResponse = async (cart) => {
     };
   });
 
-  // Calculate highest minCartValue requirement among items in cart
-  let requiredMinCartValue = 0;
-  let minCartProduct = null;
-  for (const it of formattedItems) {
-    if (it.minCartValue && it.minCartValue > requiredMinCartValue) {
-      requiredMinCartValue = it.minCartValue;
-      minCartProduct = it;
-    }
-  }
+  // Global Minimum Cart Value Requirement from Admin Settings
+  const minCartConfig = await settingService.getMinCartSetting();
+  const requiredMinCartValue = (minCartConfig.enabled && parseFloat(minCartConfig.minCartValue) > 0)
+    ? parseFloat(minCartConfig.minCartValue)
+    : 0;
 
   const minCartSatisfied = requiredMinCartValue <= 0 || subtotal >= requiredMinCartValue;
   const minCartDeficit = !minCartSatisfied ? Math.max(0, requiredMinCartValue - subtotal) : 0;
@@ -146,7 +143,9 @@ const formatCartResponse = async (cart) => {
     requiredMinCartValue,
     minCartSatisfied,
     minCartDeficit,
-    minCartProductName: minCartProduct?.productName || null,
+    minCartEnabled: minCartConfig.enabled,
+    minCartMessage: minCartConfig.message,
+    minCartProductName: null,
   };
 };
 

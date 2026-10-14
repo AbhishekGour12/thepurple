@@ -199,4 +199,18 @@ export const cartApi = {
     if (!json.success) throw new Error(json.message || 'Failed to merge cart');
     return json.data;
   },
+
+  getMinCartSetting: async () => {
+    try {
+      const res = await fetch(`${API_URL}/cart/min-cart`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const json = await res.json();
+      if (!json.success) return { enabled: true, minCartValue: 500, presets: [500, 1000, 1500, 2000, 2500] };
+      return json.data;
+    } catch {
+      return { enabled: true, minCartValue: 500, presets: [500, 1000, 1500, 2000, 2500] };
+    }
+  },
 };

@@ -155,9 +155,29 @@ export default function CartPage() {
   const [mounted, setMounted] = useState(false);
   const [couponInput, setCouponInput] = useState('');
   const [noticeMessage, setNoticeMessage] = useState(null);
+  const [minCartConfig, setMinCartConfig] = useState({ enabled: true, minCartValue: 500 });
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Fetch Global Min Cart Value Setting
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMinCartSetting() {
+      try {
+        const config = await cartApi.getMinCartSetting();
+        if (config && isMounted) {
+          setMinCartConfig(config);
+        }
+      } catch (err) {
+        console.warn('Could not load min cart setting:', err);
+      }
+    }
+    loadMinCartSetting();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Fetch Available Coupons from Backend
@@ -266,26 +286,21 @@ export default function CartPage() {
     [selectedItems]
   );
 
-  // Minimum Cart Value Check across selected items
+  // Global Minimum Cart Value Requirement
   const minCartRequirement = useMemo(() => {
-    let maxMinCart = 0;
-    let requiringItem = null;
-    selectedItems.forEach((it) => {
-      const itMin = parseFloat(it.minCartValue || it.product?.minCartValue || 0);
-      if (itMin > maxMinCart) {
-        maxMinCart = itMin;
-        requiringItem = it;
-      }
-    });
-    const isSatisfied = maxMinCart <= 0 || subtotal >= maxMinCart;
-    const deficit = !isSatisfied ? maxMinCart - subtotal : 0;
+    const isEnabled = minCartConfig?.enabled !== false;
+    const requiredAmount = isEnabled ? Math.max(0, parseFloat(minCartConfig?.minCartValue) || 0) : 0;
+    const isSatisfied = requiredAmount <= 0 || subtotal >= requiredAmount;
+    const deficit = !isSatisfied ? requiredAmount - subtotal : 0;
+    const progress = requiredAmount > 0 ? Math.min(100, Math.round((subtotal / requiredAmount) * 100)) : 100;
     return {
-      required: maxMinCart,
+      required: requiredAmount,
       isSatisfied,
       deficit,
-      productName: requiringItem?.productName || requiringItem?.name || 'Item',
+      progress,
+      enabled: isEnabled,
     };
-  }, [selectedItems, subtotal]);
+  }, [minCartConfig, subtotal]);
 
   // Track coupons rejected by server (e.g. per-user redemption limit reached)
   const rejectedCouponsRef = useRef(new Set());
@@ -941,26 +956,6 @@ export default function CartPage() {
                             </div>
                           )}
 
-                          {item.minCartValue && parseFloat(item.minCartValue) > 0 && (
-                            <div
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                fontSize: '11px',
-                                fontWeight: 800,
-                                color: '#92400E',
-                                backgroundColor: '#FEF3C7',
-                                padding: '2px 8px',
-                                borderRadius: '6px',
-                                border: '1px solid #FCD34D',
-                                marginBottom: '6px',
-                              }}
-                            >
-                              <span>⚡ Min Basket Required: ₹{parseFloat(item.minCartValue).toLocaleString('en-IN')}</span>
-                            </div>
-                          )}
-
                           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                             <button
                               type="button"
@@ -1260,42 +1255,64 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                {/* Minimum Cart Value Requirement Banner */}
-                {!minCartRequirement.isSatisfied && (
+                {/* Minimum Cart Value Requirement Progress & Banner */}
+                {minCartRequirement.required > 0 && (
                   <div
                     style={{
                       marginTop: '16px',
                       padding: '14px',
                       borderRadius: '12px',
-                      backgroundColor: '#FFFBEB',
-                      border: '1.5px solid #FCD34D',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '10px',
+                      backgroundColor: !minCartRequirement.isSatisfied ? '#FFFBEB' : '#F0FDF4',
+                      border: !minCartRequirement.isSatisfied ? '1.5px solid #FCD34D' : '1.5px solid #BBF7D0',
                     }}
                   >
-                    <AlertCircle size={20} color="#D97706" style={{ flexShrink: 0, marginTop: '2px' }} />
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: 800, color: '#92400E' }}>
-                        Minimum Cart Value Requirement: ₹{minCartRequirement.required.toLocaleString('en-IN')}
+                    {!minCartRequirement.isSatisfied ? (
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                        <AlertCircle size={20} color="#D97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <div style={{ width: '100%' }}>
+                          <div style={{ fontSize: '13px', fontWeight: 800, color: '#92400E' }}>
+                            Minimum Order Required: ₹{minCartRequirement.required.toLocaleString('en-IN')}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#B45309', marginTop: '3px', lineHeight: 1.45 }}>
+                            Your cart is ₹{subtotal.toLocaleString('en-IN')}. Please add items worth <strong>₹{Math.ceil(minCartRequirement.deficit).toLocaleString('en-IN')}</strong> more to checkout.
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div style={{ marginTop: '8px', width: '100%', height: '6px', backgroundColor: '#FDE68A', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div
+                              style={{
+                                width: `${minCartRequirement.progress}%`,
+                                height: '100%',
+                                backgroundColor: '#D97706',
+                                borderRadius: '4px',
+                                transition: 'width 0.2s ease',
+                              }}
+                            />
+                          </div>
+
+                          <Link
+                            href="/products"
+                            style={{
+                              display: 'inline-block',
+                              marginTop: '8px',
+                              fontSize: '11.5px',
+                              fontWeight: 800,
+                              color: '#7E22CE',
+                              textDecoration: 'underline',
+                            }}
+                          >
+                            + Browse and add more items
+                          </Link>
+                        </div>
                       </div>
-                      <div style={{ fontSize: '12px', color: '#B45309', marginTop: '3px', lineHeight: 1.45 }}>
-                        <strong>"{minCartRequirement.productName}"</strong> requires a minimum cart total of ₹{minCartRequirement.required.toLocaleString('en-IN')}. Please add items worth <strong>₹{Math.ceil(minCartRequirement.deficit).toLocaleString('en-IN')}</strong> more to checkout.
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CheckCircle2 size={18} color="#16A34A" />
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: '#166534' }}>
+                          ✓ Minimum cart total reached! (₹{minCartRequirement.required.toLocaleString('en-IN')})
+                        </span>
                       </div>
-                      <Link
-                        href="/products"
-                        style={{
-                          display: 'inline-block',
-                          marginTop: '6px',
-                          fontSize: '11.5px',
-                          fontWeight: 800,
-                          color: '#7E22CE',
-                          textDecoration: 'underline',
-                        }}
-                      >
-                        + Browse and add more items
-                      </Link>
-                    </div>
+                    )}
                   </div>
                 )}
 
@@ -1305,7 +1322,7 @@ export default function CartPage() {
                   onClick={() => {
                     if (!minCartRequirement.isSatisfied) {
                       showNotice(
-                        `Minimum cart value of ₹${minCartRequirement.required.toLocaleString('en-IN')} required for "${minCartRequirement.productName}". Please add ₹${Math.ceil(minCartRequirement.deficit).toLocaleString('en-IN')} more to proceed.`
+                        `Minimum order amount of ₹${minCartRequirement.required.toLocaleString('en-IN')} is required to place an order. Please add ₹${Math.ceil(minCartRequirement.deficit).toLocaleString('en-IN')} more to proceed.`
                       );
                       return;
                     }

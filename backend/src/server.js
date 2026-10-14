@@ -10,6 +10,7 @@ import { redisService } from './services/redisService.js';
 import { shiprocketCronService } from './services/shiprocketCronService.js';
 import bootstrapSuperAdmin from './seeders/bootstrapAdmin.js';
 import { syncProductDiscounts } from './utils/syncProductDiscounts.js';
+import settingService from './services/settingService.js';
 import { ProductInterest, ContactQuery } from './models/index.js';
 import './models/index.js'; // Register models & associations
 
@@ -166,6 +167,7 @@ const startServer = async () => {
       logger.info('Database schema synchronized successfully.');
       await bootstrapSuperAdmin();
       await syncProductDiscounts();
+      await settingService.getMinCartSetting();
     } catch (bootErr) {
       logger.warn(`Super Admin bootstrap / sync notice: ${bootErr.message}`);
     }

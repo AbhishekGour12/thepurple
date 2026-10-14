@@ -19,6 +19,7 @@ import contactController from '../controller/contactController.js';
 import couponController from '../controller/couponController.js';
 import adminOrderController from '../controller/adminOrderController.js';
 import paymentController from '../controller/paymentController.js';
+import settingController from '../controller/settingController.js';
 
 const router = Router();
 
@@ -549,6 +550,38 @@ router.get(
   authenticateAdmin,
   authorize(PERMISSIONS.PAYMENT_VIEW),
   paymentController.getPaymentDetails
+);
+
+// ─── 16. Global Store Settings (Min Cart Value, Presets) ─────────────
+router.get(
+  '/settings/min-cart',
+  authenticateAdmin,
+  authorize([PERMISSIONS.SETTINGS_VIEW, PERMISSIONS.SETTINGS_MANAGE], false),
+  settingController.getMinCartSetting
+);
+router.put(
+  '/settings/min-cart',
+  authenticateAdmin,
+  authorize(PERMISSIONS.SETTINGS_MANAGE),
+  settingController.updateMinCartSetting
+);
+router.delete(
+  '/settings/min-cart',
+  authenticateAdmin,
+  authorize(PERMISSIONS.SETTINGS_MANAGE),
+  settingController.deleteMinCartSetting
+);
+router.post(
+  '/settings/min-cart/presets',
+  authenticateAdmin,
+  authorize(PERMISSIONS.SETTINGS_MANAGE),
+  settingController.addPreset
+);
+router.delete(
+  '/settings/min-cart/presets/:amount',
+  authenticateAdmin,
+  authorize(PERMISSIONS.SETTINGS_MANAGE),
+  settingController.removePreset
 );
 
 export default router;

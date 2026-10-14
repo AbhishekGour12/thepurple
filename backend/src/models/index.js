@@ -26,6 +26,7 @@ import ProductVariant from './ProductVariant.js';
 import ProductInterest from './ProductInterest.js';
 import ContactQuery from './ContactQuery.js';
 import Review from './Review.js';
+import Setting from './Setting.js';
 
 // Setup Category & Subcategory associations
 Category.hasMany(Subcategory, {
@@ -339,6 +340,7 @@ export const models = {
   AdminPasswordReset,
   AuditLog,
   BulkImport,
+  Setting,
 };
 
 export {
@@ -370,6 +372,7 @@ export {
   AdminPasswordReset,
   AuditLog,
   BulkImport,
+  Setting,
 };
 
 export default models;

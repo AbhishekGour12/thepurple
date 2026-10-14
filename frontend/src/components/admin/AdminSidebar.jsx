@@ -16,8 +16,8 @@ import {
   Settings,
   Sparkles,
   Palette,
-  MessageSquare,
   Tag,
+  ShoppingCart,
 } from 'lucide-react';
 import { orderApi } from '@/lib/api/orders';
 
@@ -140,6 +140,12 @@ export default function AdminSidebar({ role = 'EXECUTIVE', mustChangePassword = 
       title: 'ADMINISTRATION',
       items: [
         {
+          label: 'Min Cart Value',
+          href: '/admin/min-cart',
+          icon: ShoppingCart,
+          roles: ['SUPER_ADMIN', 'MANAGER'],
+        },
+        {
           label: 'Manage Admins',
           href: '/admin/admins',
           icon: ShieldCheck,
@@ -149,7 +155,7 @@ export default function AdminSidebar({ role = 'EXECUTIVE', mustChangePassword = 
           label: 'Settings',
           href: '/admin/settings',
           icon: Settings,
-          roles: ['SUPER_ADMIN'], // Super Admin ONLY
+          roles: ['SUPER_ADMIN', 'MANAGER'],
         },
       ],
     },

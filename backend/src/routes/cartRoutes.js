@@ -10,8 +10,12 @@ import {
   mergeCart,
 } from '../controllers/cartController.js';
 import { authenticateOptionalUser } from '../user/middlewares/authenticateUser.js';
+import publicSettingController from '../controllers/settingController.js';
 
 const router = Router();
+
+// Public min-cart setting
+router.get('/min-cart', publicSettingController.getMinCartSetting);
 
 // Optional authentication: extracts req.user if customer token is provided
 router.use(authenticateOptionalUser);

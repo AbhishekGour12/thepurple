@@ -71,7 +71,6 @@ const createInitialProduct = (template = null, isEditData = null) => {
       isBestSeller: Boolean(isEditData.isBestSeller),
       isBulk: Boolean(isEditData.isBulk),
       minOrderQuantity: isEditData.minOrderQuantity || 30,
-      minCartValue: isEditData.minCartValue !== undefined && isEditData.minCartValue !== null ? isEditData.minCartValue : '',
       selectedAttrValIds: isEditData.attributeValues?.map((av) => av.id) || [],
       newValInputs: {},
       weightGrams: isEditData.weightGrams || '',
@@ -143,7 +142,6 @@ const createInitialProduct = (template = null, isEditData = null) => {
       isBestSeller: Boolean(template.isBestSeller),
       isBulk: Boolean(template.isBulk),
       minOrderQuantity: template.minOrderQuantity || 30,
-      minCartValue: template.minCartValue || '',
       selectedAttrValIds: [...(template.selectedAttrValIds || [])],
       newValInputs: {},
       weightGrams: template.weightGrams || '',
@@ -189,7 +187,6 @@ const createInitialProduct = (template = null, isEditData = null) => {
     isBestSeller: false,
     isBulk: false,
     minOrderQuantity: 30,
-    minCartValue: '',
     selectedAttrValIds: [],
     newValInputs: {},
     weightGrams: '',
@@ -662,7 +659,6 @@ export default function ProductForm({ initialData = null, isEdit = false, readOn
           isBestSeller: Boolean(p.isBestSeller) || p.badge?.toUpperCase() === 'BESTSELLER',
           isBulk: Boolean(p.isBulk),
           minOrderQuantity: Boolean(p.isBulk) ? Math.max(1, parseInt(p.minOrderQuantity, 10) || 1) : 1,
-          minCartValue: p.minCartValue !== undefined && p.minCartValue !== '' && !isNaN(parseFloat(p.minCartValue)) ? parseFloat(p.minCartValue) : undefined,
           shortDescription: p.shortDescription.trim() || undefined,
           description: p.description.trim() || undefined,
           specifications: p.specifications.trim() || undefined,
@@ -787,7 +783,6 @@ export default function ProductForm({ initialData = null, isEdit = false, readOn
         isBestSeller: Boolean(p.isBestSeller) || p.badge?.toUpperCase() === 'BESTSELLER',
         isBulk: Boolean(p.isBulk),
         minOrderQuantity: Boolean(p.isBulk) ? Math.max(1, parseInt(p.minOrderQuantity, 10) || 1) : 1,
-        minCartValue: p.minCartValue !== undefined && p.minCartValue !== '' && !isNaN(parseFloat(p.minCartValue)) ? parseFloat(p.minCartValue) : undefined,
         shortDescription: p.shortDescription.trim() || undefined,
         description: p.description.trim() || undefined,
         specifications: p.specifications.trim() || undefined,
@@ -1235,21 +1230,6 @@ export default function ProductForm({ initialData = null, isEdit = false, readOn
                       >
                         {prod.status}
                       </span>
-                      {prod.minCartValue && parseFloat(prod.minCartValue) > 0 && (
-                        <span
-                          style={{
-                            fontSize: '10.5px',
-                            fontWeight: 800,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: '#FEF3C7',
-                            color: '#92400E',
-                            border: '1px solid #FCD34D',
-                          }}
-                        >
-                          Min Basket: ₹{parseFloat(prod.minCartValue).toLocaleString('en-IN')}
-                        </span>
-                      )}
                     </div>
                     <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#6B7280' }}>
                       {prod.images.length} images • {prod.variants.length} variants •{' '}
@@ -2179,110 +2159,6 @@ export default function ProductForm({ initialData = null, isEdit = false, readOn
                       </div>
                     )}
 
-                    {/* Minimum Cart Value Requirement for this product */}
-                    <div
-                      style={{
-                        marginTop: '14px',
-                        padding: '16px',
-                        backgroundColor: '#FFFBEB',
-                        border: '1.5px solid #FCD34D',
-                        borderRadius: '12px',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: '8px',
-                          flexWrap: 'wrap',
-                          gap: '8px',
-                        }}
-                      >
-                        <label
-                          style={{
-                            fontSize: '13px',
-                            fontWeight: 800,
-                            color: '#92400E',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                          }}
-                        >
-                          <Zap size={15} color="#D97706" />
-                          <span>Minimum Cart Value Requirement (₹)</span>
-                        </label>
-                        {prod.minCartValue && parseFloat(prod.minCartValue) > 0 && (
-                          <span
-                            style={{
-                              fontSize: '11px',
-                              fontWeight: 800,
-                              padding: '3px 8px',
-                              borderRadius: '12px',
-                              backgroundColor: '#FEF3C7',
-                              color: '#B45309',
-                              border: '1px solid #FCD34D',
-                            }}
-                          >
-                            ⚡ Min Basket ₹{parseFloat(prod.minCartValue).toLocaleString('en-IN')} Active
-                          </span>
-                        )}
-                      </div>
-                      <p style={{ fontSize: '12px', color: '#78350F', margin: '0 0 10px', lineHeight: 1.5 }}>
-                        Agar is product ko single nahi bechna (jaise ₹10-₹50 items), to yahan Minimum Cart Value (e.g. ₹200) daalein. Customer is product ko cart mein daalne ke baad cart total kam se kam ₹{prod.minCartValue || '200'} poora hone par hi checkout / buy kar payega. (Khaali chhodne par koi restriction nahi hogi).
-                      </p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '320px' }}>
-                        <div style={{ position: 'relative', width: '100%' }}>
-                          <span
-                            style={{
-                              position: 'absolute',
-                              left: '12px',
-                              top: '50%',
-                              transform: 'translateY(-50%)',
-                              fontWeight: 800,
-                              color: '#D97706',
-                              fontSize: '14px',
-                            }}
-                          >
-                            ₹
-                          </span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={prod.minCartValue || ''}
-                            onChange={(e) => updateProduct(pIdx, { minCartValue: e.target.value })}
-                            placeholder="e.g. 200 (Optional)"
-                            style={{
-                              ...inputStyle,
-                              paddingLeft: '28px',
-                              backgroundColor: '#FFFFFF',
-                              fontWeight: 800,
-                              color: '#92400E',
-                              borderColor: '#FCD34D',
-                            }}
-                          />
-                        </div>
-                        {prod.minCartValue && (
-                          <button
-                            type="button"
-                            onClick={() => updateProduct(pIdx, { minCartValue: '' })}
-                            style={{
-                              fontSize: '12px',
-                              fontWeight: 700,
-                              color: '#DC2626',
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '4px',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            Clear Rule
-                          </button>
-                        )}
-                      </div>
-                    </div>
                   </div>
 
                   {/* Section 6: Product Images (Clean upload/add, empty on copied form) */}

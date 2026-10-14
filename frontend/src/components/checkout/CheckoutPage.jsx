@@ -20,6 +20,7 @@ import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import MainHeader from '@/components/layout/MainHeader';
 import Footer from '@/components/layout/Footer';
 import { orderApi } from '@/lib/api/orders';
+import { cartApi } from '@/lib/api/cart';
 import { syncClearCart, clearCart } from '@/store/slices/cartSlice';
 
 const INDIAN_STATES = [
@@ -82,6 +83,26 @@ export default function CheckoutPage() {
   const [shippingInfo, setShippingInfo] = useState(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
+  const [minCartConfig, setMinCartConfig] = useState({ enabled: true, minCartValue: 500 });
+
+  // Fetch Global Min Cart Value Setting
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMinCartSetting() {
+      try {
+        const config = await cartApi.getMinCartSetting();
+        if (config && isMounted) {
+          setMinCartConfig(config);
+        }
+      } catch (err) {
+        console.warn('Could not load min cart setting:', err);
+      }
+    }
+    loadMinCartSetting();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Prefill Customer User profile and saved address on mount
   useEffect(() => {
@@ -121,25 +142,19 @@ export default function CheckoutPage() {
     }, 0);
   }, [checkoutItems]);
 
+  // Global Minimum Cart Value Requirement
   const minCartRequirement = useMemo(() => {
-    let maxMinCart = 0;
-    let requiringItem = null;
-    checkoutItems.forEach((it) => {
-      const itMin = parseFloat(it.minCartValue || it.product?.minCartValue || 0);
-      if (itMin > maxMinCart) {
-        maxMinCart = itMin;
-        requiringItem = it;
-      }
-    });
-    const isSatisfied = maxMinCart <= 0 || subtotal >= maxMinCart;
-    const deficit = !isSatisfied ? maxMinCart - subtotal : 0;
+    const isEnabled = minCartConfig?.enabled !== false;
+    const requiredAmount = isEnabled ? Math.max(0, parseFloat(minCartConfig?.minCartValue) || 0) : 0;
+    const isSatisfied = requiredAmount <= 0 || subtotal >= requiredAmount;
+    const deficit = !isSatisfied ? requiredAmount - subtotal : 0;
     return {
-      required: maxMinCart,
+      required: requiredAmount,
       isSatisfied,
       deficit,
-      productName: requiringItem?.productName || requiringItem?.name || 'Item',
+      enabled: isEnabled,
     };
-  }, [checkoutItems, subtotal]);
+  }, [minCartConfig, subtotal]);
 
   const discountAmount = useMemo(() => {
     if (!appliedCoupon || subtotal === 0) return 0;
@@ -280,7 +295,7 @@ export default function CheckoutPage() {
 
     if (!minCartRequirement.isSatisfied) {
       setPaymentError(
-        `"${minCartRequirement.productName}" requires a minimum cart total of ₹${minCartRequirement.required.toLocaleString('en-IN')}. Your current cart subtotal is ₹${subtotal.toLocaleString('en-IN')}. Please add items worth ₹${Math.ceil(minCartRequirement.deficit).toLocaleString('en-IN')} more to proceed.`
+        `Minimum order total of ₹${minCartRequirement.required.toLocaleString('en-IN')} is required to place an order. Your current cart subtotal is ₹${subtotal.toLocaleString('en-IN')}. Please add items worth ₹${Math.ceil(minCartRequirement.deficit).toLocaleString('en-IN')} more to proceed.`
       );
       window.scrollTo({ top: 100, behavior: 'smooth' });
       return;
@@ -557,6 +572,51 @@ export default function CheckoutPage() {
           <div style={{ marginBottom: '20px', padding: '12px 16px', backgroundColor: '#FEF2F2', border: '1.5px solid #F87171', borderRadius: '12px', color: '#B91C1C', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 600 }}>
             <AlertCircle size={18} flexShrink={0} />
             <span>{paymentError}</span>
+          </div>
+        )}
+
+        {/* Global Minimum Order Value Alert Banner */}
+        {!minCartRequirement.isSatisfied && (
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '16px 20px',
+              borderRadius: '12px',
+              backgroundColor: '#FFFBEB',
+              border: '1.5px solid #FCD34D',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <AlertCircle size={22} color="#D97706" style={{ flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#92400E' }}>
+                  Minimum Order Value Requirement: ₹{minCartRequirement.required.toLocaleString('en-IN')}
+                </div>
+                <div style={{ fontSize: '12.5px', color: '#B45309', marginTop: '2px' }}>
+                  Your current cart subtotal is ₹{subtotal.toLocaleString('en-IN')}. Please add items worth <strong>₹{Math.ceil(minCartRequirement.deficit).toLocaleString('en-IN')}</strong> more to complete your order.
+                </div>
+              </div>
+            </div>
+
+            <Link
+              href="/products"
+              style={{
+                padding: '8px 16px',
+                borderRadius: '8px',
+                backgroundColor: '#7E22CE',
+                color: '#FFFFFF',
+                fontSize: '12px',
+                fontWeight: 800,
+                textDecoration: 'none',
+              }}
+            >
+              + Add More Products
+            </Link>
           </div>
         )}
 
@@ -921,19 +981,21 @@ export default function CheckoutPage() {
                 {/* Pay & Place Order CTA */}
                 <button
                   type="submit"
-                  disabled={isProcessingPayment}
+                  disabled={isProcessingPayment || !minCartRequirement.isSatisfied}
                   style={{
                     marginTop: '20px',
                     width: '100%',
                     padding: '16px',
                     borderRadius: '12px',
-                    backgroundColor: isProcessingPayment ? '#A855F7' : '#7E22CE',
+                    backgroundColor: !minCartRequirement.isSatisfied ? '#D97706' : isProcessingPayment ? '#A855F7' : '#7E22CE',
                     color: '#FFFFFF',
                     fontSize: '15px',
                     fontWeight: 800,
                     border: 'none',
-                    cursor: isProcessingPayment ? 'wait' : 'pointer',
-                    boxShadow: '0 4px 16px rgba(126, 34, 206, 0.35)',
+                    cursor: !minCartRequirement.isSatisfied ? 'not-allowed' : isProcessingPayment ? 'wait' : 'pointer',
+                    boxShadow: !minCartRequirement.isSatisfied
+                      ? '0 4px 14px rgba(217, 119, 6, 0.25)'
+                      : '0 4px 16px rgba(126, 34, 206, 0.35)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -945,6 +1007,11 @@ export default function CheckoutPage() {
                     <>
                       <div style={{ width: '16px', height: '16px', border: '2px solid #FFFFFF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                       <span>Opening Secure Razorpay Gateway...</span>
+                    </>
+                  ) : !minCartRequirement.isSatisfied ? (
+                    <>
+                      <AlertCircle size={16} />
+                      <span>Add ₹{Math.ceil(minCartRequirement.deficit).toLocaleString('en-IN')} More to Place Order</span>
                     </>
                   ) : (
                     <>
