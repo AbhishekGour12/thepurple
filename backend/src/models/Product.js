@@ -180,6 +180,12 @@ export const Product = sequelize.define(
       defaultValue: 1,
       validate: { min: 1 },
     },
+    minCartValue: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      defaultValue: null,
+      validate: { min: 0 },
+    },
   },
   {
     tableName: 'products',

@@ -19,7 +19,7 @@ export const ProductImage = sequelize.define(
       onDelete: 'CASCADE',
     },
     imageUrl: {
-      type: DataTypes.STRING(500),
+      type: DataTypes.TEXT,
       allowNull: false,
     },
     r2Key: {

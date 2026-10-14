@@ -35,11 +35,22 @@ export const errorHandler = (err, req, res, next) => {
   if (err.name === 'SequelizeValidationError' || err.name === 'SequelizeUniqueConstraintError') {
     statusCode = 400;
     errorCode = 'DATABASE_VALIDATION_ERROR';
-    message = 'Validation error occurred';
-    errors = err.errors.map((e) => ({
-      field: e.path,
-      message: e.message,
-    }));
+    const detailList = Array.isArray(err.errors)
+      ? err.errors.map((e) => {
+          const field = e.path || 'Field';
+          if (e.validatorKey === 'not_unique' || e.type === 'unique violation') {
+            return `${field} "${e.value || ''}" already exists (must be unique)`;
+          }
+          return `${field}: ${e.message}`;
+        })
+      : [];
+    message = detailList.length > 0 ? `Validation error: ${detailList.join(', ')}` : 'Validation error occurred';
+    errors = Array.isArray(err.errors)
+      ? err.errors.map((e) => ({
+          field: e.path,
+          message: e.message,
+        }))
+      : null;
   }
 
   // Handle Zod validation errors

@@ -265,6 +265,27 @@ export default function CartPage() {
     [selectedItems]
   );
 
+  // Minimum Cart Value Check across selected items
+  const minCartRequirement = useMemo(() => {
+    let maxMinCart = 0;
+    let requiringItem = null;
+    selectedItems.forEach((it) => {
+      const itMin = parseFloat(it.minCartValue || it.product?.minCartValue || 0);
+      if (itMin > maxMinCart) {
+        maxMinCart = itMin;
+        requiringItem = it;
+      }
+    });
+    const isSatisfied = maxMinCart <= 0 || subtotal >= maxMinCart;
+    const deficit = !isSatisfied ? maxMinCart - subtotal : 0;
+    return {
+      required: maxMinCart,
+      isSatisfied,
+      deficit,
+      productName: requiringItem?.productName || requiringItem?.name || 'Item',
+    };
+  }, [selectedItems, subtotal]);
+
   // Track coupons rejected by server (e.g. per-user redemption limit reached)
   const rejectedCouponsRef = useRef(new Set());
 
@@ -919,6 +940,26 @@ export default function CartPage() {
                             </div>
                           )}
 
+                          {item.minCartValue && parseFloat(item.minCartValue) > 0 && (
+                            <div
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                color: '#92400E',
+                                backgroundColor: '#FEF3C7',
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                border: '1px solid #FCD34D',
+                                marginBottom: '6px',
+                              }}
+                            >
+                              <span>⚡ Min Basket Required: ₹{parseFloat(item.minCartValue).toLocaleString('en-IN')}</span>
+                            </div>
+                          )}
+
                           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                             <button
                               type="button"
@@ -1218,10 +1259,55 @@ export default function CartPage() {
                   </div>
                 </div>
 
+                {/* Minimum Cart Value Requirement Banner */}
+                {!minCartRequirement.isSatisfied && (
+                  <div
+                    style={{
+                      marginTop: '16px',
+                      padding: '14px',
+                      borderRadius: '12px',
+                      backgroundColor: '#FFFBEB',
+                      border: '1.5px solid #FCD34D',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '10px',
+                    }}
+                  >
+                    <AlertCircle size={20} color="#D97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: '#92400E' }}>
+                        Minimum Cart Value Requirement: ₹{minCartRequirement.required.toLocaleString('en-IN')}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#B45309', marginTop: '3px', lineHeight: 1.45 }}>
+                        <strong>"{minCartRequirement.productName}"</strong> requires a minimum cart total of ₹{minCartRequirement.required.toLocaleString('en-IN')}. Please add items worth <strong>₹{Math.ceil(minCartRequirement.deficit).toLocaleString('en-IN')}</strong> more to checkout.
+                      </div>
+                      <Link
+                        href="/products"
+                        style={{
+                          display: 'inline-block',
+                          marginTop: '6px',
+                          fontSize: '11.5px',
+                          fontWeight: 800,
+                          color: '#7E22CE',
+                          textDecoration: 'underline',
+                        }}
+                      >
+                        + Browse and add more items
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
                 {/* Proceed to Checkout CTA */}
                 <button
                   type="button"
                   onClick={() => {
+                    if (!minCartRequirement.isSatisfied) {
+                      showNotice(
+                        `Minimum cart value of ₹${minCartRequirement.required.toLocaleString('en-IN')} required for "${minCartRequirement.productName}". Please add ₹${Math.ceil(minCartRequirement.deficit).toLocaleString('en-IN')} more to proceed.`
+                      );
+                      return;
+                    }
                     if (!customerUser) {
                       router.push('/login?redirect=/checkout');
                     } else {
@@ -1237,17 +1323,23 @@ export default function CartPage() {
                     width: '100%',
                     padding: '14px',
                     borderRadius: '10px',
-                    backgroundColor: '#7E22CE',
+                    backgroundColor: !minCartRequirement.isSatisfied ? '#D97706' : '#7E22CE',
                     color: '#FFFFFF',
                     fontSize: '14px',
                     fontWeight: 800,
                     border: 'none',
                     cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(126, 34, 206, 0.3)',
+                    boxShadow: !minCartRequirement.isSatisfied
+                      ? '0 4px 14px rgba(217, 119, 6, 0.25)'
+                      : '0 4px 14px rgba(126, 34, 206, 0.3)',
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  <span>Proceed to Checkout</span>
+                  <span>
+                    {!minCartRequirement.isSatisfied
+                      ? `Add ₹${Math.ceil(minCartRequirement.deficit).toLocaleString('en-IN')} More to Checkout`
+                      : 'Proceed to Checkout'}
+                  </span>
                   <ArrowRight size={16} />
                 </button>
               </div>

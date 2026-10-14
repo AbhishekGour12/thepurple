@@ -108,6 +108,7 @@ const formatCartResponse = async (cart) => {
       mrp: originalPrice,
       discountPercent: discount,
       quantity: item.quantity,
+      minCartValue: item.product?.minCartValue ? parseFloat(item.product.minCartValue) : null,
       stock,
       lineTotal,
       inStock: stock > 0,
@@ -115,6 +116,19 @@ const formatCartResponse = async (cart) => {
       createdAt: item.createdAt,
     };
   });
+
+  // Calculate highest minCartValue requirement among items in cart
+  let requiredMinCartValue = 0;
+  let minCartProduct = null;
+  for (const it of formattedItems) {
+    if (it.minCartValue && it.minCartValue > requiredMinCartValue) {
+      requiredMinCartValue = it.minCartValue;
+      minCartProduct = it;
+    }
+  }
+
+  const minCartSatisfied = requiredMinCartValue <= 0 || subtotal >= requiredMinCartValue;
+  const minCartDeficit = !minCartSatisfied ? Math.max(0, requiredMinCartValue - subtotal) : 0;
 
   const shipping = 0; // Calculated dynamically at checkout based on pincode
   const discount = 0;
@@ -129,6 +143,10 @@ const formatCartResponse = async (cart) => {
     shipping,
     total,
     itemCount,
+    requiredMinCartValue,
+    minCartSatisfied,
+    minCartDeficit,
+    minCartProductName: minCartProduct?.productName || null,
   };
 };
 

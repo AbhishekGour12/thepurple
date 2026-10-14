@@ -210,6 +210,7 @@ export const productService = {
         'isBestSeller',
         'isBulk',
         'minOrderQuantity',
+        'minCartValue',
         'tags',
         'createdAt',
       ],
@@ -333,6 +334,7 @@ export const productService = {
     isBestSeller = false,
     isBulk = false,
     minOrderQuantity = 1,
+    minCartValue = null,
     images = [],
     variants = [],
     attributeValueIds = [],
@@ -380,6 +382,12 @@ export const productService = {
 
     const calculatedDiscount = numPrice > 0 ? Math.round(((numPrice - numSalePrice) / numPrice) * 100) : 0;
     const finalStock = stockQuantity !== undefined ? parseInt(stockQuantity, 10) || 0 : parseInt(stock, 10) || 0;
+    const finalMinCartValue = minCartValue !== undefined && minCartValue !== null && minCartValue !== '' && !isNaN(parseFloat(minCartValue)) && parseFloat(minCartValue) > 0
+      ? parseFloat(minCartValue)
+      : null;
+
+    // Helper to validate UUID strings so invalid formats never crash Sequelize / Postgres
+    const isUuid = (val) => Boolean(val && typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val.trim()));
 
     // Verify subcategory exists
     const subcategory = await Subcategory.findByPk(resolvedSubcategoryId, {
@@ -436,10 +444,10 @@ export const productService = {
           seoTitle: seoTitle || finalName,
           seoDescription: seoDescription || shortDescription || null,
           seoKeywords: seoKeywords || null,
-          weightGrams: weightGrams ? parseFloat(weightGrams) : null,
-          lengthCm: lengthCm ? parseFloat(lengthCm) : null,
-          widthCm: widthCm ? parseFloat(widthCm) : null,
-          heightCm: heightCm ? parseFloat(heightCm) : null,
+          weightGrams: weightGrams && !isNaN(parseFloat(weightGrams)) ? parseFloat(weightGrams) : null,
+          lengthCm: lengthCm && !isNaN(parseFloat(lengthCm)) ? parseFloat(lengthCm) : null,
+          widthCm: widthCm && !isNaN(parseFloat(widthCm)) ? parseFloat(widthCm) : null,
+          heightCm: heightCm && !isNaN(parseFloat(heightCm)) ? parseFloat(heightCm) : null,
           tags: Array.isArray(tags) ? tags : [],
           colorIds: Array.isArray(colorIds) ? colorIds : [],
           sizeIds: Array.isArray(sizeIds) ? sizeIds : [],
@@ -448,6 +456,7 @@ export const productService = {
           isBestSeller: Boolean(isBestSeller),
           isBulk: Boolean(isBulk),
           minOrderQuantity: Boolean(isBulk) ? Math.max(1, parseInt(minOrderQuantity, 10) || 1) : 1,
+          minCartValue: finalMinCartValue,
           isActive: status === PRODUCT_STATUS.PUBLISHED,
         },
         { transaction }
@@ -458,16 +467,17 @@ export const productService = {
         for (let i = 0; i < images.length; i++) {
           const img = images[i];
           const imgUrl = typeof img === 'string' ? img : img.imageUrl;
-          if (imgUrl) {
+          if (imgUrl && typeof imgUrl === 'string' && imgUrl.trim()) {
+            const imgColor = typeof img === 'object' && img.colorId && isUuid(img.colorId) ? img.colorId.trim() : null;
             await ProductImage.create(
               {
                 productId: product.id,
-                imageUrl: imgUrl,
+                imageUrl: imgUrl.trim(),
                 r2Key: typeof img === 'object' ? img.r2Key || null : null,
                 altText: typeof img === 'object' ? img.altText || product.name : product.name,
                 displayOrder: typeof img === 'object' && img.displayOrder !== undefined ? img.displayOrder : i,
                 isPrimary: typeof img === 'object' && img.isPrimary !== undefined ? img.isPrimary : i === 0,
-                colorId: typeof img === 'object' && img.colorId ? img.colorId : null,
+                colorId: imgColor,
               },
               { transaction }
             );
@@ -475,29 +485,47 @@ export const productService = {
         }
       }
 
-      // Create Variants
+      // Create Variants (Deduplicated, sanitized numbers and UUIDs)
       if (Array.isArray(variants) && variants.length > 0) {
+        const seenSkus = new Set();
         for (let i = 0; i < variants.length; i++) {
           const v = variants[i];
-          const variantSku = (v.sku && v.sku.trim().toUpperCase()) || `${(product.sku || 'SKU').trim().toUpperCase()}-V${i + 1}`;
-          if (variantSku && (v.colorId || v.sizeId || v.sku)) {
-            await ProductVariant.create(
-              {
-                productId: product.id,
-                sku: variantSku,
-                colorId: v.colorId || null,
-                sizeId: v.sizeId || null,
-                name: v.name || null,
-                mrp: v.mrp ? parseFloat(v.mrp) : numPrice,
-                salePrice: v.salePrice ? parseFloat(v.salePrice) : numSalePrice,
-                stock: v.stock !== undefined ? parseInt(v.stock, 10) : 0,
-                imageUrl: v.imageUrl || null,
-                isActive: v.isActive !== undefined ? Boolean(v.isActive) : true,
-                displayOrder: i,
-              },
-              { transaction }
-            );
+          if (!v) continue;
+
+          let variantSku = (v.sku && String(v.sku).trim().toUpperCase()) || `${product.sku}-V${i + 1}`;
+          if (seenSkus.has(variantSku)) {
+            variantSku = `${product.sku}-V${i + 1}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
           }
+          seenSkus.add(variantSku);
+
+          // Check against existing variants in DB to prevent unique constraint crashes
+          const collision = await ProductVariant.findOne({ where: { sku: variantSku } });
+          if (collision) {
+            variantSku = `${variantSku}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+          }
+
+          const vMrp = v.mrp !== undefined && v.mrp !== '' && !isNaN(parseFloat(v.mrp)) ? parseFloat(v.mrp) : numPrice;
+          const vSale = v.salePrice !== undefined && v.salePrice !== '' && !isNaN(parseFloat(v.salePrice)) ? parseFloat(v.salePrice) : numSalePrice;
+          const vStock = v.stock !== undefined && v.stock !== '' && !isNaN(parseInt(v.stock, 10)) ? Math.max(0, parseInt(v.stock, 10)) : 0;
+          const vColor = isUuid(v.colorId) ? v.colorId.trim() : null;
+          const vSize = isUuid(v.sizeId) ? v.sizeId.trim() : null;
+
+          await ProductVariant.create(
+            {
+              productId: product.id,
+              sku: variantSku,
+              colorId: vColor,
+              sizeId: vSize,
+              name: v.name ? String(v.name).trim() : null,
+              mrp: vMrp,
+              salePrice: vSale,
+              stock: vStock,
+              imageUrl: v.imageUrl || null,
+              isActive: v.isActive !== undefined ? Boolean(v.isActive) : true,
+              displayOrder: i,
+            },
+            { transaction }
+          );
         }
       }
 
@@ -574,6 +602,7 @@ export const productService = {
       isBestSeller,
       isBulk,
       minOrderQuantity,
+      minCartValue,
       images,
       variants,
       attributeValueIds,
@@ -666,8 +695,15 @@ export const productService = {
     if (isBestSeller !== undefined) updates.isBestSeller = Boolean(isBestSeller);
     if (isBulk !== undefined) updates.isBulk = Boolean(isBulk);
     if (minOrderQuantity !== undefined) updates.minOrderQuantity = Math.max(1, parseInt(minOrderQuantity, 10) || 1);
+    if (minCartValue !== undefined) {
+      updates.minCartValue = minCartValue !== null && minCartValue !== '' && !isNaN(parseFloat(minCartValue)) && parseFloat(minCartValue) > 0
+        ? parseFloat(minCartValue)
+        : null;
+    }
     if (colorIds !== undefined) updates.colorIds = Array.isArray(colorIds) ? colorIds : [];
     if (sizeIds !== undefined) updates.sizeIds = Array.isArray(sizeIds) ? sizeIds : [];
+
+    const isUuid = (val) => Boolean(val && typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val.trim()));
 
     const transaction = await sequelize.transaction();
 
@@ -695,16 +731,17 @@ export const productService = {
         for (let i = 0; i < images.length; i++) {
           const img = images[i];
           const imgUrl = typeof img === 'string' ? img : img.imageUrl;
-          if (imgUrl) {
+          if (imgUrl && typeof imgUrl === 'string' && imgUrl.trim()) {
+            const imgColor = typeof img === 'object' && img.colorId && isUuid(img.colorId) ? img.colorId.trim() : null;
             await ProductImage.create(
               {
                 productId: id,
-                imageUrl: imgUrl,
+                imageUrl: imgUrl.trim(),
                 r2Key: typeof img === 'object' ? img.r2Key || null : null,
                 altText: typeof img === 'object' ? img.altText || product.name : product.name,
                 displayOrder: typeof img === 'object' && img.displayOrder !== undefined ? img.displayOrder : i,
                 isPrimary: typeof img === 'object' && img.isPrimary !== undefined ? img.isPrimary : i === 0,
-                colorId: typeof img === 'object' && img.colorId ? img.colorId : null,
+                colorId: imgColor,
               },
               { transaction }
             );
@@ -712,30 +749,48 @@ export const productService = {
         }
       }
 
-      // Update Variants if provided
+      // Update Variants if provided (Deduplicated, sanitized numbers and UUIDs)
       if (Array.isArray(variants)) {
         await ProductVariant.destroy({ where: { productId: id }, transaction });
+        const seenSkus = new Set();
         for (let i = 0; i < variants.length; i++) {
           const v = variants[i];
-          const variantSku = (v.sku && v.sku.trim().toUpperCase()) || `${(product.sku || 'SKU').trim().toUpperCase()}-V${i + 1}`;
-          if (variantSku && (v.colorId || v.sizeId || v.sku)) {
-            await ProductVariant.create(
-              {
-                productId: id,
-                sku: variantSku,
-                colorId: v.colorId || null,
-                sizeId: v.sizeId || null,
-                name: v.name || null,
-                mrp: v.mrp ? parseFloat(v.mrp) : currentPrice,
-                salePrice: v.salePrice ? parseFloat(v.salePrice) : currentSalePrice,
-                stock: v.stock !== undefined ? parseInt(v.stock, 10) : 0,
-                imageUrl: v.imageUrl || null,
-                isActive: v.isActive !== undefined ? Boolean(v.isActive) : true,
-                displayOrder: i,
-              },
-              { transaction }
-            );
+          if (!v) continue;
+
+          let variantSku = (v.sku && String(v.sku).trim().toUpperCase()) || `${(product.sku || 'SKU').trim().toUpperCase()}-V${i + 1}`;
+          if (seenSkus.has(variantSku)) {
+            variantSku = `${product.sku || 'SKU'}-V${i + 1}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
           }
+          seenSkus.add(variantSku);
+
+          // Check against existing variants in DB (from other products)
+          const collision = await ProductVariant.findOne({ where: { sku: variantSku, productId: { [Op.ne]: id } } });
+          if (collision) {
+            variantSku = `${variantSku}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+          }
+
+          const vMrp = v.mrp !== undefined && v.mrp !== '' && !isNaN(parseFloat(v.mrp)) ? parseFloat(v.mrp) : currentPrice;
+          const vSale = v.salePrice !== undefined && v.salePrice !== '' && !isNaN(parseFloat(v.salePrice)) ? parseFloat(v.salePrice) : currentSalePrice;
+          const vStock = v.stock !== undefined && v.stock !== '' && !isNaN(parseInt(v.stock, 10)) ? Math.max(0, parseInt(v.stock, 10)) : 0;
+          const vColor = isUuid(v.colorId) ? v.colorId.trim() : null;
+          const vSize = isUuid(v.sizeId) ? v.sizeId.trim() : null;
+
+          await ProductVariant.create(
+            {
+              productId: id,
+              sku: variantSku,
+              colorId: vColor,
+              sizeId: vSize,
+              name: v.name ? String(v.name).trim() : null,
+              mrp: vMrp,
+              salePrice: vSale,
+              stock: vStock,
+              imageUrl: v.imageUrl || null,
+              isActive: v.isActive !== undefined ? Boolean(v.isActive) : true,
+              displayOrder: i,
+            },
+            { transaction }
+          );
         }
       }
 

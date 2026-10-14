@@ -42,7 +42,15 @@ export async function request(path, { method = 'GET', body, formData, token, sil
   if (response.headers.get('content-type')?.includes('application/json')) {
     const payload = await response.json();
     if (!response.ok || !payload.success) {
-      const message = payload.message || 'Request failed';
+      let message = payload.message || 'Request failed';
+      if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+        const errorDetails = payload.errors
+          .map((e) => (typeof e === 'object' ? `${e.field ? e.field + ': ' : ''}${e.message || JSON.stringify(e)}` : String(e)))
+          .join(', ');
+        if (!message.toLowerCase().includes(errorDetails.toLowerCase())) {
+          message = `${message} (${errorDetails})`;
+        }
+      }
       if (!shouldBeSilent) notify.error(message);
       throw new ApiError(message, response.status, payload.errors || []);
     }

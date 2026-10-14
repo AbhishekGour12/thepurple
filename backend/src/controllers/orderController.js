@@ -209,8 +209,11 @@ export const orderController = {
         return ApiResponse.error(res, 'Please provide a valid 6-digit Pincode', 400);
       }
 
-      // 3. Calculate Subtotal & Validate Product Stock Availability
+      // 3. Calculate Subtotal, Validate Stock Availability & Check Min Cart Value
       let subtotal = 0;
+      let maxRequiredMinCart = 0;
+      let minCartProduct = null;
+
       for (const item of items) {
         const itemPrice = parseFloat(item.price || 0);
         const itemQty = parseInt(item.quantity || 1, 10);
@@ -231,9 +234,26 @@ export const orderController = {
               400
             );
           }
+          if (product.minCartValue && parseFloat(product.minCartValue) > 0) {
+            const reqMin = parseFloat(product.minCartValue);
+            if (reqMin > maxRequiredMinCart) {
+              maxRequiredMinCart = reqMin;
+              minCartProduct = product;
+            }
+          }
         }
 
         subtotal += itemPrice * itemQty;
+      }
+
+      // Check if Minimum Cart Value requirement is satisfied
+      if (maxRequiredMinCart > 0 && subtotal < maxRequiredMinCart) {
+        const remaining = (maxRequiredMinCart - subtotal).toFixed(2);
+        return ApiResponse.error(
+          res,
+          `"${minCartProduct?.name || 'A product in your cart'}" requires a minimum cart total of ₹${maxRequiredMinCart.toLocaleString('en-IN')}. Your current cart total is ₹${subtotal.toLocaleString('en-IN')}. Please add items worth ₹${remaining} more to checkout.`,
+          400
+        );
       }
 
       // 4. Calculate Coupon Discount if applied

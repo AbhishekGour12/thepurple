@@ -706,6 +706,7 @@ export default function ProductDetailPage({ slug }) {
         quantity: quantity,
         stock: currentStock,
         inStock: currentStock > 0,
+        minCartValue: product.minCartValue ? parseFloat(product.minCartValue) : null,
       })
     );
 
@@ -732,13 +733,21 @@ export default function ProductDetailPage({ slug }) {
     }, 200);
   };
 
-  // Buy Now (Requires Login)
+  // Buy Now (Requires Login & checks minCartValue)
   const handleBuyNow = () => {
+    handleAddToCart();
+    if (product?.minCartValue && parseFloat(product.minCartValue) > 0) {
+      const minReq = parseFloat(product.minCartValue);
+      const currentTotal = currentSalePrice * quantity;
+      if (currentTotal < minReq) {
+        router.push('/cart');
+        return;
+      }
+    }
     if (!customerUser) {
       router.push(`/login?redirect=/checkout`);
       return;
     }
-    handleAddToCart();
     router.push('/checkout');
   };
 
@@ -1483,6 +1492,33 @@ export default function ProductDetailPage({ slug }) {
                 Inclusive of all taxes
               </div>
             </div>
+
+            {/* Minimum Cart Value Requirement Alert Banner */}
+            {product.minCartValue && parseFloat(product.minCartValue) > 0 && (
+              <div
+                style={{
+                  padding: '12px 14px',
+                  backgroundColor: '#FFFBEB',
+                  border: '1.5px solid #FCD34D',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                }}
+              >
+                <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: '#D97706', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Zap size={15} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#92400E' }}>
+                    Minimum Basket Requirement: ₹{parseFloat(product.minCartValue).toLocaleString('en-IN')}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: '#B45309', marginTop: '2px', lineHeight: 1.4 }}>
+                    To purchase this item, your total cart must be at least <strong>₹{parseFloat(product.minCartValue).toLocaleString('en-IN')}</strong>. You can add other products to reach the minimum basket value.
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Dynamic Special Offer Box (Rendered only when a coupon has showOnProductPage enabled) */}
             {pdpOfferCoupon && (

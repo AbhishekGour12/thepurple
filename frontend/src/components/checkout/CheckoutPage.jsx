@@ -121,6 +121,26 @@ export default function CheckoutPage() {
     }, 0);
   }, [checkoutItems]);
 
+  const minCartRequirement = useMemo(() => {
+    let maxMinCart = 0;
+    let requiringItem = null;
+    checkoutItems.forEach((it) => {
+      const itMin = parseFloat(it.minCartValue || it.product?.minCartValue || 0);
+      if (itMin > maxMinCart) {
+        maxMinCart = itMin;
+        requiringItem = it;
+      }
+    });
+    const isSatisfied = maxMinCart <= 0 || subtotal >= maxMinCart;
+    const deficit = !isSatisfied ? maxMinCart - subtotal : 0;
+    return {
+      required: maxMinCart,
+      isSatisfied,
+      deficit,
+      productName: requiringItem?.productName || requiringItem?.name || 'Item',
+    };
+  }, [checkoutItems, subtotal]);
+
   const discountAmount = useMemo(() => {
     if (!appliedCoupon || subtotal === 0) return 0;
     if (appliedCoupon.discountType === 'PERCENTAGE' || (appliedCoupon.discountPercent > 0 && !appliedCoupon.discountType)) {
@@ -255,6 +275,14 @@ export default function CheckoutPage() {
 
     if (checkoutItems.length === 0) {
       setPaymentError('Your cart is empty. Please add items to proceed.');
+      return;
+    }
+
+    if (!minCartRequirement.isSatisfied) {
+      setPaymentError(
+        `"${minCartRequirement.productName}" requires a minimum cart total of ₹${minCartRequirement.required.toLocaleString('en-IN')}. Your current cart subtotal is ₹${subtotal.toLocaleString('en-IN')}. Please add items worth ₹${Math.ceil(minCartRequirement.deficit).toLocaleString('en-IN')} more to proceed.`
+      );
+      window.scrollTo({ top: 100, behavior: 'smooth' });
       return;
     }
 
