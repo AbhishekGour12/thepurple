@@ -37,11 +37,6 @@ export default function OrderDetailsPage() {
   const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState(null);
 
-  // Cancellation Modal
-  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
-  const [cancelLoading, setCancelLoading] = useState(false);
-
   useEffect(() => {
     if (orderId) {
       loadOrderDetails();
@@ -77,21 +72,6 @@ export default function OrderDetailsPage() {
       alert(err.message || 'Could not sync live tracking');
     } finally {
       setSyncing(false);
-    }
-  };
-
-  const handleCancelOrder = async () => {
-    if (!order?.id) return;
-    try {
-      setCancelLoading(true);
-      await orderApi.cancelOrder(order.id, cancelReason || 'Cancelled by customer');
-      setNotice('Order cancelled successfully. Refund request created.');
-      setIsCancelModalOpen(false);
-      await loadOrderDetails();
-    } catch (err) {
-      alert(err.message || 'Could not cancel order');
-    } finally {
-      setCancelLoading(false);
     }
   };
 
@@ -417,32 +397,6 @@ export default function OrderDetailsPage() {
                   <span>{syncing ? 'Syncing...' : 'Sync Live'}</span>
                 </button>
               </div>
-
-              {/* Order Cancellation Option */}
-              {order.canCancel && (
-                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #F3F4F6', textAlign: 'center' }}>
-                  <button
-                    type="button"
-                    onClick={() => setIsCancelModalOpen(true)}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      backgroundColor: '#FEF2F2',
-                      border: '1px solid #FECACA',
-                      color: '#DC2626',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <XCircle size={14} />
-                    <span>Cancel This Order</span>
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Payment & Charges Summary */}
@@ -497,59 +451,6 @@ export default function OrderDetailsPage() {
           </div>
         </div>
 
-        {/* Cancellation Modal */}
-        {isCancelModalOpen && (
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              backgroundColor: 'rgba(15, 23, 42, 0.65)',
-              backdropFilter: 'blur(4px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 99999,
-              padding: '20px',
-            }}
-          >
-            <div style={{ backgroundColor: '#FFFFFF', borderRadius: '20px', padding: '28px', maxWidth: '460px', width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1E1B4B', margin: '0 0 8px' }}>
-                Cancel Order #{order.orderNumber}?
-              </h3>
-              <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 16px', lineHeight: 1.5 }}>
-                Cancellation is eligible since your order has not been dispatched yet. A refund of <strong>₹{parseFloat(order.totalAmount || 0).toLocaleString('en-IN')}</strong> will be initiated.
-              </p>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>
-                Reason for cancellation:
-              </label>
-              <textarea
-                rows={3}
-                placeholder="e.g. Changed mind / Need to update address"
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '13px', boxSizing: 'border-box', marginBottom: '20px', outline: 'none' }}
-              />
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsCancelModalOpen(false)}
-                  disabled={cancelLoading}
-                  style={{ padding: '9px 16px', borderRadius: '8px', border: '1px solid #E5E7EB', backgroundColor: '#FFFFFF', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
-                >
-                  Keep Order
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancelOrder}
-                  disabled={cancelLoading}
-                  style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', backgroundColor: '#DC2626', color: '#FFFFFF', fontSize: '13px', fontWeight: 800, cursor: cancelLoading ? 'wait' : 'pointer' }}
-                >
-                  {cancelLoading ? 'Cancelling...' : 'Confirm Cancellation'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
 
       <Footer />

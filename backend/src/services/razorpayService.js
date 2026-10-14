@@ -99,6 +99,72 @@ class RazorpayService {
       return null;
     }
   }
+
+  /**
+   * Issue a refund for a payment via Razorpay API
+   * Automatically credits back to customer's original payment method (card, UPI, bank)
+   * @param {Object} params
+   * @param {string} params.paymentId - Razorpay Payment ID (e.g., pay_xxx)
+   * @param {number} [params.amount] - Amount in INR (converted to paise). If omitted, full refund.
+   * @param {Object} [params.notes={}] - Key-value metadata notes
+   * @param {string} [params.speed='optimum'] - 'normal' or 'optimum'
+   * @param {string} [params.receipt] - Unique receipt ID
+   */
+  async refundPayment({ paymentId, amount, notes = {}, speed = 'optimum', receipt }) {
+    try {
+      if (!paymentId) {
+        throw new Error('Razorpay Payment ID is required to process refund');
+      }
+
+      const options = {
+        notes,
+        speed,
+      };
+
+      if (receipt) {
+        options.receipt = receipt;
+      }
+
+      if (amount && parseFloat(amount) > 0) {
+        options.amount = Math.round(parseFloat(amount) * 100); // Convert INR to paise
+      }
+
+      const refund = await this.instance.payments.refund(paymentId, options);
+      return {
+        success: true,
+        refundId: refund.id,
+        paymentId: refund.payment_id,
+        amount: refund.amount ? refund.amount / 100 : amount,
+        currency: refund.currency || 'INR',
+        status: refund.status || 'processed',
+        speedProcessed: refund.speed_processed || speed,
+        acquirerData: refund.acquirer_data || null,
+        createdAt: refund.created_at,
+        raw: refund,
+      };
+    } catch (error) {
+      console.error('[Razorpay Refund Error]:', error);
+      const errorMsg =
+        error.error?.description ||
+        error.error?.message ||
+        error.message ||
+        'Failed to process refund on Razorpay';
+      throw new Error(errorMsg);
+    }
+  }
+
+  /**
+   * Fetch specific refund details from Razorpay
+   */
+  async fetchRefund(paymentId, refundId) {
+    try {
+      if (!paymentId || !refundId) return null;
+      return await this.instance.payments.fetchRefund(paymentId, refundId);
+    } catch (error) {
+      console.error('Razorpay Fetch Refund Error:', error);
+      return null;
+    }
+  }
 }
 
 export const razorpayService = new RazorpayService();

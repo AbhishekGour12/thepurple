@@ -2,6 +2,7 @@ import { Order, OrderItem, Payment, Shipment, Product, ProductImage, User, seque
 import shiprocketService from '../../services/shiprocketService.js';
 import shiprocketCronService from '../../services/shiprocketCronService.js';
 import mailService from '../../services/mailService.js';
+import razorpayService from '../../services/razorpayService.js';
 import productService from '../services/productService.js';
 import ApiResponse from '../../utils/apiResponse.js';
 
@@ -279,13 +280,14 @@ export const adminOrderController = {
   async cancelOrder(req, res, next) {
     try {
       const { id } = req.params;
-      const { reason = 'Cancelled by administrator' } = req.body;
+      const { reason = 'Cancelled by administrator', autoRefund = false } = req.body;
 
       const order = await Order.findOne({
         where: getOrderWhereClause(id),
         include: [
           { model: Shipment, as: 'shipment' },
           { model: OrderItem, as: 'items' },
+          { model: Payment, as: 'payment' },
         ],
       });
 
@@ -298,16 +300,79 @@ export const adminOrderController = {
       }
 
       const isPrepaid = order.paymentMethod === 'RAZORPAY' && order.paymentStatus === 'PAID';
+      let rzpRefundResult = null;
+      let refundStatus = 'NONE';
+      let paymentStatus = order.paymentStatus;
+      let refundAmount = 0;
+
+      if (isPrepaid) {
+        refundAmount = parseFloat(order.totalAmount || 0);
+
+        // Check if Admin requested automatic refund on cancel
+        if (autoRefund) {
+          let payment = order.payment;
+          if (!payment) {
+            payment = await Payment.findOne({
+              where: { orderId: order.id },
+              order: [['createdAt', 'DESC']],
+            });
+          }
+
+          const gatewayPaymentId = payment?.gatewayPaymentId;
+          if (gatewayPaymentId) {
+            try {
+              console.log(`[Admin Cancel Order] Issuing instant Razorpay refund for #${order.orderNumber} (PayID: ${gatewayPaymentId}, Amount: ₹${refundAmount})`);
+              rzpRefundResult = await razorpayService.refundPayment({
+                paymentId: gatewayPaymentId,
+                amount: refundAmount,
+                notes: {
+                  orderNumber: order.orderNumber,
+                  adminNote: `Cancelled by admin: ${reason}`,
+                },
+                receipt: `rfnd_${order.orderNumber}_${Date.now()}`.substring(0, 40),
+              });
+
+              refundStatus = 'PROCESSED';
+              paymentStatus = 'REFUNDED';
+
+              if (payment) {
+                await payment.update({
+                  status: 'REFUNDED',
+                  gatewayResponse: {
+                    ...(payment.gatewayResponse || {}),
+                    refund: rzpRefundResult,
+                  },
+                });
+              }
+            } catch (err) {
+              console.warn('[Admin Cancel Order] Auto Razorpay refund notice:', err.message);
+              refundStatus = 'REQUESTED';
+            }
+          } else {
+            refundStatus = 'REQUESTED';
+          }
+        } else {
+          refundStatus = order.refundStatus === 'PROCESSED' ? 'PROCESSED' : 'REQUESTED';
+        }
+      }
 
       // 1. Update Order Status to CANCELLED
-      await order.update({
+      const orderUpdates = {
         status: 'CANCELLED',
         cancelledAt: new Date(),
         cancellationReason: reason,
-        refundStatus: isPrepaid ? (order.refundStatus === 'PROCESSED' ? 'PROCESSED' : 'REQUESTED') : 'NONE',
+        refundStatus,
+        paymentStatus,
         refundReason: isPrepaid ? `Admin cancelled: ${reason}` : null,
-        refundAmount: isPrepaid ? order.totalAmount : 0,
-      });
+        refundAmount,
+        refundProcessedAt: refundStatus === 'PROCESSED' ? new Date() : null,
+      };
+
+      if (rzpRefundResult) {
+        orderUpdates.notes = `${order.notes || ''}\n[Razorpay Refund Issued on Cancel]: Refund ID: ${rzpRefundResult.refundId}, Amount: ₹${refundAmount}`.trim();
+      }
+
+      await order.update(orderUpdates);
 
       // 2. Update Shipment Record
       if (order.shipment) {
@@ -346,16 +411,30 @@ export const adminOrderController = {
         }
       }
 
-      // Send Order Cancellation Email via ZeptoMail
+      // Send Order Cancellation / Refund Confirmation Email via ZeptoMail
       if (order.customerEmail) {
-        mailService
-          .sendOrderCancellationEmail({
-            order,
-            customerEmail: order.customerEmail,
-            customerName: order.customerName,
-            reason,
-          })
-          .catch((mErr) => console.warn(`[Mail] Admin cancel email failed for #${order.orderNumber}:`, mErr.message));
+        if (rzpRefundResult) {
+          mailService
+            .sendRefundConfirmationEmail({
+              order,
+              customerEmail: order.customerEmail,
+              customerName: order.customerName,
+              refundAmount,
+              refundId: rzpRefundResult.refundId,
+              gateway: 'Razorpay',
+              notes: `Order cancelled by store: ${reason}`,
+            })
+            .catch((mErr) => console.warn(`[Mail] Refund confirmation email failed:`, mErr.message));
+        } else {
+          mailService
+            .sendOrderCancellationEmail({
+              order,
+              customerEmail: order.customerEmail,
+              customerName: order.customerName,
+              reason,
+            })
+            .catch((mErr) => console.warn(`[Mail] Admin cancel email failed for #${order.orderNumber}:`, mErr.message));
+        }
       }
 
       return ApiResponse.success(
@@ -366,11 +445,12 @@ export const adminOrderController = {
           status: 'CANCELLED',
           refundStatus: order.refundStatus,
           refundAmount: order.refundAmount,
+          razorpayRefund: rzpRefundResult,
           shiprocketCancellation: shiprocketCancelResult,
         },
         `Order #${order.orderNumber} has been cancelled successfully${
-          shiprocketCancelResult?.success ? ' and cancelled in Shiprocket' : ''
-        }`
+          rzpRefundResult ? ` and ₹${refundAmount} refunded via Razorpay (Refund ID: ${rzpRefundResult.refundId})` : ''
+        }${shiprocketCancelResult?.success ? ' and voided in Shiprocket' : ''}`
       );
     } catch (error) {
       next(error);
@@ -734,29 +814,134 @@ export const adminOrderController = {
   },
 
   /**
-   * 5. Process Refund Request for Cancelled Order
+   * 5. Process Refund Request for Order (Integrated with Razorpay Refund API)
    */
   async processRefund(req, res, next) {
     try {
       const { id } = req.params;
-      const { refundStatus = 'PROCESSED', refundAmount, notes } = req.body;
+      const {
+        refundStatus = 'PROCESSED',
+        refundAmount,
+        notes,
+        autoRazorpayRefund = true,
+      } = req.body;
 
-      const order = await Order.findOne({ where: getOrderWhereClause(id) });
+      const order = await Order.findOne({
+        where: getOrderWhereClause(id),
+        include: [
+          { model: Payment, as: 'payment' },
+          { model: OrderItem, as: 'items' },
+          { model: Shipment, as: 'shipment' },
+        ],
+      });
+
       if (!order) {
         return ApiResponse.error(res, 'Order not found', 404);
       }
 
+      const effectiveRefundAmount =
+        refundAmount !== undefined && refundAmount !== null && parseFloat(refundAmount) > 0
+          ? parseFloat(refundAmount)
+          : parseFloat(order.refundAmount || order.totalAmount || 0);
+
       const updates = {
         refundStatus,
-        refundProcessedAt: refundStatus === 'PROCESSED' ? new Date() : null,
+        refundAmount: effectiveRefundAmount,
       };
 
-      if (refundAmount) {
-        updates.refundAmount = parseFloat(refundAmount);
-      }
+      let razorpayRefundResult = null;
 
-      if (notes) {
-        updates.notes = `${order.notes || ''}\n[Admin Refund Note]: ${notes}`.trim();
+      if (refundStatus === 'PROCESSED') {
+        updates.refundProcessedAt = new Date();
+
+        // If paid via RAZORPAY and autoRazorpayRefund is true
+        if (order.paymentMethod === 'RAZORPAY' && autoRazorpayRefund) {
+          let payment = order.payment;
+          if (!payment) {
+            payment = await Payment.findOne({
+              where: { orderId: order.id },
+              order: [['createdAt', 'DESC']],
+            });
+          }
+
+          const gatewayPaymentId = payment?.gatewayPaymentId;
+          if (gatewayPaymentId) {
+            try {
+              console.log(
+                `[Admin Refund] Executing Razorpay refund API for #${order.orderNumber} (PaymentID: ${gatewayPaymentId}, Amount: ₹${effectiveRefundAmount})`
+              );
+              razorpayRefundResult = await razorpayService.refundPayment({
+                paymentId: gatewayPaymentId,
+                amount: effectiveRefundAmount,
+                notes: {
+                  orderNumber: order.orderNumber,
+                  adminNote: notes || 'Admin initiated refund',
+                },
+                receipt: `rfnd_${order.orderNumber}_${Date.now()}`.substring(0, 40),
+              });
+
+              console.log(
+                `[Admin Refund] Razorpay refund successful for #${order.orderNumber}:`,
+                razorpayRefundResult.refundId
+              );
+
+              // Update Payment record
+              if (payment) {
+                const prevResponses = payment.gatewayResponse || {};
+                await payment.update({
+                  status: 'REFUNDED',
+                  gatewayResponse: {
+                    ...prevResponses,
+                    refund: razorpayRefundResult,
+                  },
+                });
+              }
+
+              updates.paymentStatus = 'REFUNDED';
+              updates.notes = `${order.notes || ''}\n[Razorpay Refund Processed]: Refund ID: ${razorpayRefundResult.refundId}, Amount: ₹${effectiveRefundAmount}, Status: ${razorpayRefundResult.status}`.trim();
+            } catch (rzpErr) {
+              console.error(`[Admin Refund] Razorpay refund API failed for #${order.orderNumber}:`, rzpErr.message);
+              return ApiResponse.error(
+                res,
+                `Razorpay Refund API Error: ${rzpErr.message}. The refund could not be processed automatically.`,
+                400
+              );
+            }
+          } else {
+            console.warn(
+              `[Admin Refund] No gatewayPaymentId linked to order #${order.orderNumber}. Processing refund record only.`
+            );
+            updates.paymentStatus = 'REFUNDED';
+            updates.notes = `${order.notes || ''}\n[Manual Refund Recorded]: Amount: ₹${effectiveRefundAmount} (No Razorpay gatewayPaymentId linked)`.trim();
+          }
+        } else {
+          // COD or manual transfer
+          updates.paymentStatus = 'REFUNDED';
+          if (notes) {
+            updates.notes = `${order.notes || ''}\n[Refund Note]: ${notes}`.trim();
+          }
+        }
+
+        // Send Refund Confirmation Email via ZeptoMail
+        if (order.customerEmail) {
+          mailService
+            .sendRefundConfirmationEmail({
+              order,
+              customerEmail: order.customerEmail,
+              customerName: order.customerName,
+              refundAmount: effectiveRefundAmount,
+              refundId: razorpayRefundResult?.refundId || null,
+              gateway: order.paymentMethod === 'RAZORPAY' ? 'Razorpay' : 'Direct Account Transfer',
+              notes: notes || 'Refund processed by store administration.',
+            })
+            .catch((mErr) =>
+              console.warn(`[Mail] Refund confirmation email notice for #${order.orderNumber}:`, mErr.message)
+            );
+        }
+      } else {
+        if (notes) {
+          updates.notes = `${order.notes || ''}\n[Refund Status Update]: ${refundStatus} - ${notes}`.trim();
+        }
       }
 
       await order.update(updates);
@@ -767,10 +952,14 @@ export const adminOrderController = {
           orderId: order.id,
           orderNumber: order.orderNumber,
           refundStatus: order.refundStatus,
+          paymentStatus: order.paymentStatus,
           refundAmount: order.refundAmount,
           refundProcessedAt: order.refundProcessedAt,
+          razorpayRefund: razorpayRefundResult,
         },
-        `Refund request has been updated to "${refundStatus}"`
+        razorpayRefundResult
+          ? `Refund of ₹${effectiveRefundAmount} issued successfully via Razorpay (Refund ID: ${razorpayRefundResult.refundId})! Amount will automatically credit to customer's account.`
+          : `Refund status updated to "${refundStatus}"`
       );
     } catch (error) {
       next(error);

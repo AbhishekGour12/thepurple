@@ -222,13 +222,13 @@ export const orderApi = {
   },
 
   /**
-   * Admin: Cancel Order & Void in Shiprocket
+   * Admin: Cancel Order & Void in Shiprocket (Optionally auto-refund prepaid via Razorpay)
    */
-  async adminCancelOrder(id, reason) {
+  async adminCancelOrder(id, reason, autoRefund = false) {
     const res = await fetch(`${API_BASE_URL}/admin/orders/${id}/cancel`, {
       method: 'POST',
       headers: getAdminAuthHeaders(),
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify({ reason, autoRefund }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || 'Failed to cancel order');
@@ -316,13 +316,13 @@ export const orderApi = {
   },
 
   /**
-   * Admin: Process Refund
+   * Admin: Process Refund (Direct Razorpay API refund back to user account)
    */
-  async adminProcessRefund(id, { refundStatus, refundAmount, notes }) {
+  async adminProcessRefund(id, { refundStatus = 'PROCESSED', refundAmount, notes, autoRazorpayRefund = true }) {
     const res = await fetch(`${API_BASE_URL}/admin/orders/${id}/process-refund`, {
       method: 'POST',
       headers: getAdminAuthHeaders(),
-      body: JSON.stringify({ refundStatus, refundAmount, notes }),
+      body: JSON.stringify({ refundStatus, refundAmount, notes, autoRazorpayRefund }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || 'Failed to process refund');

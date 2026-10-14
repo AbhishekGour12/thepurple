@@ -395,6 +395,50 @@ export const mailService = {
       html,
     });
   },
+
+  /**
+   * Send Refund Confirmation Email (Razorpay Auto Refund)
+   */
+  async sendRefundConfirmationEmail({ order, customerEmail, customerName, refundAmount, refundId, gateway = 'Razorpay', notes }) {
+    if (!customerEmail || !order) return { sent: false };
+
+    const emailSubject = `Refund Processed: #${order.orderNumber} (₹${parseFloat(refundAmount || 0).toLocaleString('en-IN')}) — ThePurple`;
+    const formattedAmount = `₹${parseFloat(refundAmount || order.refundAmount || order.totalAmount || 0).toLocaleString('en-IN')}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #BBF7D0; border-radius: 12px; background-color: #F0FDF4;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h1 style="color: #166534; margin: 0; font-size: 24px;">ThePurple</h1>
+          <p style="color: #15803D; margin: 4px 0 0; font-size: 13px; font-weight: bold; text-transform: uppercase;">Refund Confirmation</p>
+        </div>
+        <div style="background-color: #ffffff; padding: 24px; border-radius: 8px; border: 1px solid #BBF7D0;">
+          <h2 style="color: #166534; font-size: 18px; margin-top: 0;">Refund of ${formattedAmount} Processed Successfully</h2>
+          <p style="color: #374151; line-height: 1.5;">Hello ${customerName || 'Valued Customer'},</p>
+          <p style="color: #374151; line-height: 1.5;">A refund has been issued for your order <strong>#${order.orderNumber}</strong>. The money has been transferred back to your original payment method via <strong>${gateway}</strong>.</p>
+          
+          <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 16px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 0 0 8px 0; color: #1E293B;"><strong>Refund Amount:</strong> ${formattedAmount}</p>
+            ${refundId ? `<p style="margin: 0 0 8px 0; color: #475569; font-family: monospace;"><strong>Refund Reference ID:</strong> ${refundId}</p>` : ''}
+            <p style="margin: 0 0 8px 0; color: #475569;"><strong>Payment Method:</strong> ${order.paymentMethod || 'Online Payment'}</p>
+            ${notes ? `<p style="margin: 0; color: #64748B;"><strong>Note:</strong> ${notes}</p>` : ''}
+          </div>
+
+          <p style="color: #6B7280; font-size: 12.5px; line-height: 1.5;">
+            *Note: Depending on your bank or card issuer, it typically takes 5–7 business days (or instant for UPI) for the credit to reflect in your statement.
+          </p>
+        </div>
+        <div style="text-align: center; margin-top: 20px; color: #9CA3AF; font-size: 12px;">
+          &copy; ${new Date().getFullYear()} ThePurple. All rights reserved.
+        </div>
+      </div>
+    `;
+
+    return sendMail({
+      to: customerEmail,
+      toName: customerName,
+      subject: emailSubject,
+      html,
+    });
+  },
 };
 
 export default mailService;

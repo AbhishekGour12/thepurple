@@ -745,18 +745,12 @@ export const orderController = {
         order: [['createdAt', 'DESC']],
       });
 
-      // Augment each order with cancellation eligibility
+      // Augment each order - Customer self-service cancellation is disabled per policy
       const formatted = orders.map((o) => {
         const json = o.toJSON();
-        // User can cancel ONLY when in ORDER_CREATED / PAYMENT_RECEIVED / PACKING AND label is NOT generated
-        const canCancel =
-          ['ORDER_CREATED', 'PAYMENT_RECEIVED', 'PACKING'].includes(o.status) &&
-          !o.isLabelGenerated &&
-          !o.awbCode;
-
         return {
           ...json,
-          canCancel,
+          canCancel: false,
         };
       });
 
@@ -829,177 +823,32 @@ export const orderController = {
         return ApiResponse.error(res, 'Order not found', 404);
       }
 
-      const canCancel =
-        ['ORDER_CREATED', 'PAYMENT_RECEIVED', 'PACKING'].includes(order.status) &&
-        !order.isLabelGenerated &&
-        !order.awbCode;
-
-      return ApiResponse.success(res, { ...order.toJSON(), canCancel }, 'Order details retrieved');
+      return ApiResponse.success(res, { ...order.toJSON(), canCancel: false }, 'Order details retrieved');
     } catch (error) {
       next(error);
     }
   },
 
   /**
-   * 6. Cancel Order (Customer Cancellation Request)
-   * Rule: User can cancel ONLY before label/AWB generation, pickup, or dispatch.
-   * Cancels order in local DB, cancels in Shiprocket API automatically, restocks inventory, and initiates refund if prepaid.
+   * 6. Cancel Order (Customer Cancellation Request - Disabled per policy)
    */
   async cancelOrder(req, res, next) {
-    try {
-      const { id } = req.params;
-      const { reason = 'Cancelled by customer' } = req.body;
-
-      const order = await Order.findOne({
-        where: getOrderWhereClause(id),
-        include: [
-          { model: Shipment, as: 'shipment' },
-          { model: OrderItem, as: 'items' },
-        ],
-      });
-
-      if (!order) {
-        return ApiResponse.error(res, 'Order not found', 404);
-      }
-
-      // Check Cancellation Eligibility
-      if (order.status === 'CANCELLED') {
-        return ApiResponse.error(res, 'This order is already cancelled', 400);
-      }
-
-      if (
-        order.isLabelGenerated ||
-        order.awbCode ||
-        ['SHIPROCKET_PICKUP', 'IN_TRANSIT', 'DELIVERED', 'RETURNED'].includes(order.status)
-      ) {
-        return ApiResponse.error(
-          res,
-          'Cannot cancel order. The shipping label has already been generated or courier pickup has been scheduled/dispatched. Please contact support.',
-          400
-        );
-      }
-
-      const isPrepaidPaid = order.paymentMethod === 'RAZORPAY' && order.paymentStatus === 'PAID';
-
-      // 1. Update Order Status to CANCELLED
-      await order.update({
-        status: 'CANCELLED',
-        cancelledAt: new Date(),
-        cancellationReason: reason,
-        refundStatus: isPrepaidPaid ? 'REQUESTED' : 'NONE',
-        refundReason: isPrepaidPaid ? `Order cancelled by customer: ${reason}` : null,
-        refundAmount: isPrepaidPaid ? order.totalAmount : 0,
-      });
-
-      // 2. Update Shipment Record if present
-      if (order.shipment) {
-        await order.shipment.update({
-          status: 'CANCELLED',
-        });
-      }
-
-      // 3. Trigger Shiprocket order cancellation automatically
-      let shiprocketCancelResult = null;
-      try {
-        shiprocketCancelResult = await shiprocketService.cancelOrder({
-          shiprocketOrderId: order.shiprocketOrderId,
-          awbCode: order.awbCode,
-          shipmentId: order.shiprocketShipmentId || order.shipment?.shiprocketShipmentId,
-          orderNumber: order.orderNumber,
-        });
-        console.log(`[Customer Cancel Order] Shiprocket cancellation result for #${order.orderNumber}:`, shiprocketCancelResult);
-      } catch (srErr) {
-        console.warn(`[Customer Cancel Order] Shiprocket order cancellation API notice for #${order.orderNumber}:`, srErr.message);
-        shiprocketCancelResult = { success: false, message: srErr.message };
-      }
-
-      // 4. Restock inventory automatically
-      if (order.items && order.items.length > 0) {
-        for (const item of order.items) {
-          if (item.productId && item.quantity > 0) {
-            try {
-              await Product.increment('stock', {
-                by: item.quantity,
-                where: { id: item.productId },
-              });
-              productService.syncProductToMeilisearch(item.productId).catch(() => {});
-            } catch (stockErr) {
-              console.warn(`Failed to restock product ${item.productId}:`, stockErr.message);
-            }
-          }
-        }
-      }
-
-      // Send Order Cancellation Email via ZeptoMail
-      if (order.customerEmail) {
-        mailService
-          .sendOrderCancellationEmail({
-            order,
-            customerEmail: order.customerEmail,
-            customerName: order.customerName,
-            reason,
-          })
-          .catch((mErr) => console.warn(`[Mail] Cancellation email failed for #${order.orderNumber}:`, mErr.message));
-      }
-
-      return ApiResponse.success(
-        res,
-        {
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          status: 'CANCELLED',
-          refundStatus: isPrepaidPaid ? 'REQUESTED' : 'NONE',
-          refundAmount: isPrepaidPaid ? order.totalAmount : 0,
-          shiprocketCancellation: shiprocketCancelResult,
-        },
-        isPrepaidPaid
-          ? 'Order has been cancelled successfully. Your refund request has been initiated.'
-          : 'Order has been cancelled successfully.'
-      );
-    } catch (error) {
-      next(error);
-    }
+    return ApiResponse.error(
+      res,
+      'Self-service order cancellation is disabled. Please contact customer support for cancellations and refunds.',
+      403
+    );
   },
 
   /**
-   * 7. Customer: Request Refund for Cancelled Order
+   * 7. Customer: Request Refund (Disabled per policy)
    */
   async requestRefund(req, res, next) {
-    try {
-      const { id } = req.params;
-      const { reason } = req.body;
-
-      const order = await Order.findOne({
-        where: getOrderWhereClause(id),
-      });
-
-      if (!order) {
-        return ApiResponse.error(res, 'Order not found', 404);
-      }
-
-      if (order.status !== 'CANCELLED') {
-        return ApiResponse.error(res, 'Refund can only be requested for cancelled orders', 400);
-      }
-
-      await order.update({
-        refundStatus: 'REQUESTED',
-        refundReason: reason || order.cancellationReason || 'Customer requested refund',
-        refundAmount: order.totalAmount,
-      });
-
-      return ApiResponse.success(
-        res,
-        {
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          refundStatus: 'REQUESTED',
-          refundAmount: order.totalAmount,
-        },
-        'Refund request submitted successfully. Our team will process it shortly.'
-      );
-    } catch (error) {
-      next(error);
-    }
+    return ApiResponse.error(
+      res,
+      'Self-service refund requests are disabled. Please contact customer support for assistance.',
+      403
+    );
   },
 
   /**

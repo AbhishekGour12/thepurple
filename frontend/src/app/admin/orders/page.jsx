@@ -18,6 +18,8 @@ import {
   XCircle,
   Download,
   ExternalLink,
+  Zap,
+  ShieldCheck,
 } from 'lucide-react';
 import { orderApi } from '@/lib/api/orders';
 import { exportToCSV } from '@/lib/utils/exportToExcel';
@@ -49,6 +51,19 @@ export default function AdminOrdersPage() {
   const [trackingModalOrder, setTrackingModalOrder] = useState(null);
   const [trackingData, setTrackingData] = useState(null);
   const [trackingLoading, setTrackingLoading] = useState(false);
+
+  // Refund Modal State
+  const [refundModalOrder, setRefundModalOrder] = useState(null);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundNotes, setRefundNotes] = useState('');
+  const [autoRazorpayRefund, setAutoRazorpayRefund] = useState(true);
+  const [refundProcessing, setRefundProcessing] = useState(false);
+
+  // Cancel Modal State
+  const [cancelModalOrder, setCancelModalOrder] = useState(null);
+  const [cancelReasonInput, setCancelReasonInput] = useState('Cancelled by Administrator');
+  const [cancelAutoRefund, setCancelAutoRefund] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     loadData(true);
@@ -158,22 +173,68 @@ export default function AdminOrdersPage() {
     }
   };
 
-  const handleAdminCancelOrder = async (order) => {
-    const reason = window.prompt(
-      `Cancel Order #${order.orderNumber}?\nThis will automatically cancel the order and any AWB shipment on Shiprocket.\n\nEnter cancellation reason:`,
-      'Cancelled by Administrator'
-    );
-    if (reason === null) return;
+  const handleOpenCancelModal = (order) => {
+    setCancelModalOrder(order);
+    setCancelReasonInput('Cancelled by Administrator');
+    setCancelAutoRefund(order.paymentMethod === 'RAZORPAY' && order.paymentStatus === 'PAID');
+  };
 
+  const handleConfirmCancelOrder = async (e) => {
+    if (e) e.preventDefault();
+    if (!cancelModalOrder) return;
     try {
-      setActionNotice(`Cancelling Order #${order.orderNumber} on Shiprocket...`);
-      const res = await orderApi.adminCancelOrder(order.id, reason || 'Cancelled by Administrator');
-      const srNotice = res?.shiprocketCancellation?.success ? ' and cancelled in Shiprocket' : '';
-      setActionNotice(`Order #${order.orderNumber} cancelled successfully${srNotice}!`);
-      loadData(false);
+      setCancelling(true);
+      setActionNotice(`Cancelling Order #${cancelModalOrder.orderNumber} on Shiprocket...`);
+      const res = await orderApi.adminCancelOrder(
+        cancelModalOrder.id,
+        cancelReasonInput || 'Cancelled by Administrator',
+        cancelAutoRefund
+      );
+      const rzpNotice = res?.razorpayRefund?.refundId
+        ? ` & ₹${res.refundAmount} refunded directly via Razorpay (Refund ID: ${res.razorpayRefund.refundId})`
+        : '';
+      const srNotice = res?.shiprocketCancellation?.success ? ' and voided in Shiprocket' : '';
+      setActionNotice(`Order #${cancelModalOrder.orderNumber} cancelled successfully${rzpNotice}${srNotice}!`);
+      setCancelModalOrder(null);
+      await loadData(false);
     } catch (err) {
       alert(err.message || 'Could not cancel order');
       setActionNotice(null);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleOpenRefundModal = (order) => {
+    setRefundModalOrder(order);
+    setRefundAmount(String(order.refundAmount || order.totalAmount || ''));
+    setRefundNotes(order.refundReason || order.cancellationReason || 'Admin processed refund');
+    setAutoRazorpayRefund(order.paymentMethod === 'RAZORPAY');
+  };
+
+  const handleExecuteRefund = async (e) => {
+    if (e) e.preventDefault();
+    if (!refundModalOrder) return;
+    try {
+      setRefundProcessing(true);
+      const res = await orderApi.adminProcessRefund(refundModalOrder.id, {
+        refundStatus: 'PROCESSED',
+        refundAmount: parseFloat(refundAmount || refundModalOrder.totalAmount || 0),
+        notes: refundNotes,
+        autoRazorpayRefund,
+      });
+
+      const rzpMsg = res?.razorpayRefund?.refundId
+        ? `Refund of ₹${res.refundAmount} successfully transferred via Razorpay (Refund ID: ${res.razorpayRefund.refundId}) directly to user's account!`
+        : `Refund marked as PROCESSED.`;
+
+      setActionNotice(rzpMsg);
+      setRefundModalOrder(null);
+      await loadData(false);
+    } catch (err) {
+      alert(err.message || 'Could not process refund via Razorpay');
+    } finally {
+      setRefundProcessing(false);
     }
   };
 
@@ -645,10 +706,10 @@ export default function AdminOrdersPage() {
                             <span>View</span>
                           </Link>
 
-                          {canManageOrders && order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && (
+                          {canManageOrders && order.status !== 'CANCELLED' && (
                             <button
                               type="button"
-                              onClick={() => handleAdminCancelOrder(order)}
+                              onClick={() => handleOpenCancelModal(order)}
                               title="Cancel Order & Void Shiprocket Shipment"
                               style={{
                                 padding: '5px 10px',
@@ -667,6 +728,53 @@ export default function AdminOrdersPage() {
                               <XCircle size={12} />
                               <span>Cancel</span>
                             </button>
+                          )}
+
+                          {/* Quick Refund Button */}
+                          {canManageOrders &&
+                            (order.paymentStatus === 'PAID' || order.refundStatus === 'REQUESTED') &&
+                            order.refundStatus !== 'PROCESSED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenRefundModal(order)}
+                                title="Issue Direct Razorpay Refund to User Account"
+                                style={{
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#FFFBEB',
+                                  border: '1px solid #FCD34D',
+                                  color: '#D97706',
+                                  fontSize: '11.5px',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                              >
+                                <Zap size={12} />
+                                <span>Refund</span>
+                              </button>
+                          )}
+
+                          {(order.refundStatus === 'PROCESSED' || order.paymentStatus === 'REFUNDED') && (
+                            <span
+                              style={{
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                backgroundColor: '#DCFCE7',
+                                border: '1px solid #BBF7D0',
+                                color: '#15803D',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                              }}
+                            >
+                              <ShieldCheck size={11} />
+                              <span>Refunded</span>
+                            </span>
                           )}
                         </div>
                       </td>
@@ -846,6 +954,293 @@ export default function AdminOrdersPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: DIRECT RAZORPAY REFUND (ADMIN TABLE ACTION) */}
+      {/* ========================================================================= */}
+      {refundModalOrder && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '20px',
+          }}
+          onClick={() => setRefundModalOrder(null)}
+        >
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '20px',
+              padding: '28px',
+              maxWidth: '500px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #FCD34D',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Zap size={22} color="#D97706" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#1E1B4B', margin: 0 }}>
+                  Issue Refund
+                </h3>
+                <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                  Order #{refundModalOrder.orderNumber} • {refundModalOrder.customerName}
+                </div>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#4B5563', margin: '0 0 18px', lineHeight: 1.5 }}>
+              Process refund for this order. When online prepaid via Razorpay, funds will automatically credit back to the user’s account.
+            </p>
+
+            <form onSubmit={handleExecuteRefund} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>
+                  Refund Amount (₹ INR)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  max={refundModalOrder.totalAmount}
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1.5px solid #E5E7EB',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: '#7E22CE',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                  required
+                />
+                <span style={{ fontSize: '11px', color: '#6B7280', marginTop: '2px', display: 'block' }}>
+                  Total collected amount: ₹{parseFloat(refundModalOrder.totalAmount || 0).toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              {refundModalOrder.payment?.gatewayPaymentId && (
+                <div style={{ padding: '10px 12px', backgroundColor: '#FAF8FC', borderRadius: '8px', border: '1px solid #E9D5FF', fontSize: '12px' }}>
+                  <div style={{ color: '#6B7280' }}>Razorpay Payment ID:</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 800, color: '#7E22CE', marginTop: '2px' }}>
+                    {refundModalOrder.payment.gatewayPaymentId}
+                  </div>
+                </div>
+              )}
+
+              {refundModalOrder.paymentMethod === 'RAZORPAY' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#1E1B4B', cursor: 'pointer', padding: '4px 0' }}>
+                  <input
+                    type="checkbox"
+                    checked={autoRazorpayRefund}
+                    onChange={(e) => setAutoRazorpayRefund(e.target.checked)}
+                    style={{ width: '16px', height: '16px', accentColor: '#D97706' }}
+                  />
+                  <span>
+                    <strong>Execute Live Razorpay API Refund</strong> (credits user account)
+                  </span>
+                </label>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>
+                  Refund Reason / Note
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Order cancelled or returned"
+                  value={refundNotes}
+                  onChange={(e) => setRefundNotes(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    fontSize: '12.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setRefundModalOrder(null)}
+                  disabled={refundProcessing}
+                  style={{
+                    padding: '10px 18px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    backgroundColor: '#FFFFFF',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={refundProcessing}
+                  style={{
+                    padding: '10px 22px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#D97706',
+                    color: '#FFFFFF',
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    cursor: refundProcessing ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Zap size={14} />
+                  <span>{refundProcessing ? 'Processing Refund...' : 'Confirm Refund'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADMIN CANCEL ORDER */}
+      {/* ========================================================================= */}
+      {cancelModalOrder && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '20px',
+          }}
+          onClick={() => setCancelModalOrder(null)}
+        >
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '20px',
+              padding: '28px',
+              maxWidth: '480px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #FECACA',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <XCircle size={22} color="#DC2626" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#1E1B4B', margin: 0 }}>
+                  Cancel Order #{cancelModalOrder.orderNumber}?
+                </h3>
+                <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                  This will cancel the order in database and void any Shiprocket shipment.
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmCancelOrder} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>
+                  Cancellation Reason
+                </label>
+                <textarea
+                  rows={2}
+                  value={cancelReasonInput}
+                  onChange={(e) => setCancelReasonInput(e.target.value)}
+                  placeholder="Reason for cancellation"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                  required
+                />
+              </div>
+
+              {cancelModalOrder.paymentMethod === 'RAZORPAY' && cancelModalOrder.paymentStatus === 'PAID' && (
+                <div style={{ padding: '12px 14px', backgroundColor: '#FFFDF5', borderRadius: '10px', border: '1px solid #FCD34D' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#92400E', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={cancelAutoRefund}
+                      onChange={(e) => setCancelAutoRefund(e.target.checked)}
+                      style={{ width: '16px', height: '16px', accentColor: '#D97706' }}
+                    />
+                    <span>
+                      <strong>⚡ Automatically refund ₹{parseFloat(cancelModalOrder.totalAmount || 0).toLocaleString('en-IN')} via Razorpay</strong> directly to customer account
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setCancelModalOrder(null)}
+                  disabled={cancelling}
+                  style={{
+                    padding: '10px 18px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    backgroundColor: '#FFFFFF',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Keep Order
+                </button>
+                <button
+                  type="submit"
+                  disabled={cancelling}
+                  style={{
+                    padding: '10px 22px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#DC2626',
+                    color: '#FFFFFF',
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    cursor: cancelling ? 'wait' : 'pointer',
+                  }}
+                >
+                  {cancelling ? 'Cancelling & Refunding...' : 'Confirm Cancellation'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
