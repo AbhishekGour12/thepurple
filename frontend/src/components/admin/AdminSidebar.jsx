@@ -16,6 +16,7 @@ import {
   Settings,
   Sparkles,
   Palette,
+  MessageSquare,
   Tag,
   ShoppingCart,
 } from 'lucide-react';
