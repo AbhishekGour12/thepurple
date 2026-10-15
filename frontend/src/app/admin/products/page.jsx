@@ -40,6 +40,7 @@ import {
 import { adminProductApi } from '@/lib/api/admin/products';
 import { adminCategoryApi } from '@/lib/api/admin/categories';
 import { exportToCSV } from '@/lib/utils/exportToExcel';
+import { notify } from '@/lib/notify';
 
 // Modals
 import CategoryManagerModal from '@/components/admin/products/CategoryManagerModal';
@@ -129,12 +130,33 @@ function ProductListPageContent() {
     }
   }, [searchParams]);
 
-  // Loading states for actions
+  // Loading & confirmation states for actions
   const [deletingId, setDeletingId] = useState(null);
   const [togglingStatusId, setTogglingStatusId] = useState(null);
   const [togglingFeaturedId, setTogglingFeaturedId] = useState(null);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [isExecutingDelete, setIsExecutingDelete] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    isOpen: false,
+    type: 'single', // 'single' | 'bulk' | 'all'
+    product: null,
+    ids: [],
+    count: 1,
+  });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    if (type === 'error') {
+      notify.error(message);
+    } else {
+      notify.success(message);
+    }
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  };
 
   // Debounce search input
   useEffect(() => {
@@ -279,57 +301,118 @@ function ProductListPageContent() {
     }
   };
 
-  // Delete handlers
-  const handleDeleteProduct = async (product) => {
-    if (!canDelete || deletingId === product.id) return;
-    setDeletingId(product.id);
-
-    setProducts((prev) => prev.filter((p) => p.id !== product.id));
-    setSelectedIds((prev) => prev.filter((id) => id !== product.id));
-    setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
-
-    try {
-      await adminProductApi.deleteProduct(product.id, true);
-    } catch {
-      fetchProducts(pagination.page);
-    } finally {
-      setDeletingId(null);
-    }
+  // ─── Delete Handlers & Confirmation ──────────────────────────────
+  const handleOpenDeleteSingle = (product) => {
+    if (!canDelete || isExecutingDelete || deletingId === product.id) return;
+    setDeleteConfirm({
+      isOpen: true,
+      type: 'single',
+      product,
+      ids: [product.id],
+      count: 1,
+    });
   };
 
-  const handleDeleteSelected = async () => {
-    if (!canDelete || selectedIds.length === 0 || isBulkDeleting) return;
-    const idsToDelete = [...selectedIds];
-    setIsBulkDeleting(true);
-
-    setProducts((prev) => prev.filter((p) => !idsToDelete.includes(p.id)));
-    setSelectedIds([]);
-    setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - idsToDelete.length) }));
-
-    try {
-      await adminProductApi.bulkDeleteProducts(idsToDelete, true);
-    } catch {
-      fetchProducts(pagination.page);
-    } finally {
-      setIsBulkDeleting(false);
-    }
+  const handleOpenDeleteSelected = () => {
+    if (!canDelete || selectedIds.length === 0 || isExecutingDelete || isBulkDeleting) return;
+    setDeleteConfirm({
+      isOpen: true,
+      type: 'bulk',
+      product: null,
+      ids: [...selectedIds],
+      count: selectedIds.length,
+    });
   };
 
-  const handleDeleteAll = async () => {
-    if (!canDelete || products.length === 0 || isDeletingAll) return;
-    if (!window.confirm('Are you sure you want to delete ALL products in your catalog? This cannot be undone.')) return;
-    setIsDeletingAll(true);
+  const handleOpenDeleteAll = () => {
+    if (!canDelete || products.length === 0 || isExecutingDelete || isDeletingAll) return;
+    setDeleteConfirm({
+      isOpen: true,
+      type: 'all',
+      product: null,
+      ids: [],
+      count: pagination.total || products.length,
+    });
+  };
 
-    setProducts([]);
-    setSelectedIds([]);
-    setPagination((prev) => ({ ...prev, total: 0, totalPages: 1 }));
+  const handleCloseDeleteConfirm = () => {
+    if (isExecutingDelete) return;
+    setDeleteConfirm({
+      isOpen: false,
+      type: 'single',
+      product: null,
+      ids: [],
+      count: 0,
+    });
+  };
 
-    try {
-      await adminProductApi.deleteAllProducts(true);
-    } catch {
-      fetchProducts(pagination.page);
-    } finally {
-      setIsDeletingAll(false);
+  const handleConfirmDelete = async () => {
+    if (!canDelete || isExecutingDelete) return;
+
+    if (deleteConfirm.type === 'single') {
+      const product = deleteConfirm.product;
+      if (!product) return;
+
+      setIsExecutingDelete(true);
+      setDeletingId(product.id);
+
+      // Optimistic instant UI update
+      setProducts((prev) => prev.filter((p) => p.id !== product.id));
+      setSelectedIds((prev) => prev.filter((id) => id !== product.id));
+      setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+
+      try {
+        await adminProductApi.deleteProduct(product.id, true);
+        showToast(`Product "${product.name || 'Selected product'}" deleted successfully!`);
+        setDeleteConfirm({ isOpen: false, type: 'single', product: null, ids: [], count: 0 });
+      } catch (err) {
+        showToast(err?.message || 'Failed to delete product', 'error');
+        fetchProducts(pagination.page);
+      } finally {
+        setIsExecutingDelete(false);
+        setDeletingId(null);
+      }
+    } else if (deleteConfirm.type === 'bulk') {
+      const idsToDelete = [...deleteConfirm.ids];
+      if (idsToDelete.length === 0) return;
+
+      setIsExecutingDelete(true);
+      setIsBulkDeleting(true);
+
+      setProducts((prev) => prev.filter((p) => !idsToDelete.includes(p.id)));
+      setSelectedIds([]);
+      setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - idsToDelete.length) }));
+
+      try {
+        await adminProductApi.bulkDeleteProducts(idsToDelete, true);
+        showToast(`${idsToDelete.length} products deleted successfully!`);
+        setDeleteConfirm({ isOpen: false, type: 'single', product: null, ids: [], count: 0 });
+      } catch (err) {
+        showToast(err?.message || 'Failed to delete selected products', 'error');
+        fetchProducts(pagination.page);
+      } finally {
+        setIsExecutingDelete(false);
+        setIsBulkDeleting(false);
+      }
+    } else if (deleteConfirm.type === 'all') {
+      setIsExecutingDelete(true);
+      setIsDeletingAll(true);
+
+      setProducts([]);
+      setSelectedIds([]);
+      setPagination((prev) => ({ ...prev, total: 0, totalPages: 1 }));
+
+      try {
+        await adminProductApi.deleteAllProducts(true);
+        showToast('All products deleted successfully from catalog!');
+        setDeleteConfirm({ isOpen: false, type: 'single', product: null, ids: [], count: 0 });
+      } catch (err) {
+        showToast(err?.message || 'Failed to delete all products', 'error');
+        fetchProducts(pagination.page);
+      } finally {
+        setIsExecutingDelete(false);
+        setIsDeletingAll(false);
+      }
     }
   };
 
@@ -369,6 +452,32 @@ function ProductListPageContent() {
 
   return (
     <div>
+      {/* Toast Alert Notification */}
+      {toast && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '24px',
+            right: '24px',
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '12px 20px',
+            borderRadius: '12px',
+            backgroundColor: toast.type === 'error' ? '#EF4444' : '#10B981',
+            color: '#FFFFFF',
+            fontWeight: 700,
+            fontSize: '13.5px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          {toast.type === 'error' ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
+          <span>{toast.message}</span>
+        </div>
+      )}
+
       {/* Top Header & Fast Action Buttons */}
       <div
         style={{
@@ -1008,20 +1117,20 @@ function ProductListPageContent() {
           {selectedIds.length > 0 && canDelete && (
             <button
               type="button"
-              disabled={isBulkDeleting}
-              onClick={handleDeleteSelected}
+              disabled={isBulkDeleting || isExecutingDelete}
+              onClick={handleOpenDeleteSelected}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
                 padding: '6px 14px',
                 borderRadius: '8px',
-                backgroundColor: isBulkDeleting ? '#9CA3AF' : '#DC2626',
+                backgroundColor: (isBulkDeleting || isExecutingDelete) ? '#9CA3AF' : '#DC2626',
                 color: '#ffffff',
                 fontSize: '12px',
                 fontWeight: 700,
                 border: 'none',
-                cursor: isBulkDeleting ? 'not-allowed' : 'pointer',
+                cursor: (isBulkDeleting || isExecutingDelete) ? 'not-allowed' : 'pointer',
                 boxShadow: '0 2px 6px rgba(220, 38, 38, 0.2)',
               }}
             >
@@ -1037,8 +1146,8 @@ function ProductListPageContent() {
           {canDelete && products.length > 0 && (
             <button
               type="button"
-              disabled={isDeletingAll}
-              onClick={handleDeleteAll}
+              disabled={isDeletingAll || isExecutingDelete}
+              onClick={handleOpenDeleteAll}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1046,11 +1155,11 @@ function ProductListPageContent() {
                 padding: '6px 12px',
                 borderRadius: '8px',
                 border: '1px solid #FECACA',
-                backgroundColor: isDeletingAll ? '#F3F4F6' : '#FEF2F2',
-                color: isDeletingAll ? '#9CA3AF' : '#DC2626',
+                backgroundColor: (isDeletingAll || isExecutingDelete) ? '#F3F4F6' : '#FEF2F2',
+                color: (isDeletingAll || isExecutingDelete) ? '#9CA3AF' : '#DC2626',
                 fontSize: '12px',
                 fontWeight: 600,
-                cursor: isDeletingAll ? 'not-allowed' : 'pointer',
+                cursor: (isDeletingAll || isExecutingDelete) ? 'not-allowed' : 'pointer',
               }}
             >
               {isDeletingAll ? (
@@ -1525,15 +1634,15 @@ function ProductListPageContent() {
                           {canDelete && (
                             <button
                               type="button"
-                              disabled={isDeleting}
-                              onClick={() => handleDeleteProduct(product)}
+                              disabled={isDeleting || isExecutingDelete}
+                              onClick={() => handleOpenDeleteSingle(product)}
                               style={{
                                 padding: '6px 10px',
                                 borderRadius: '6px',
                                 backgroundColor: isDeleting ? '#F3F4F6' : '#FEF2F2',
                                 border: '1px solid #FECACA',
                                 color: isDeleting ? '#9CA3AF' : '#DC2626',
-                                cursor: isDeleting ? 'not-allowed' : 'pointer',
+                                cursor: (isDeleting || isExecutingDelete) ? 'not-allowed' : 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                               }}
@@ -1704,6 +1813,243 @@ function ProductListPageContent() {
         subcategories={subcategories}
         onCategoryChange={loadSubcategories}
       />
+
+      {/* ========================================================================= */}
+      {/* MODAL: DELETE CONFIRMATION ALERT */}
+      {/* ========================================================================= */}
+      {deleteConfirm.isOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.2s ease',
+          }}
+          onClick={handleCloseDeleteConfirm}
+        >
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '20px',
+              maxWidth: '460px',
+              width: '100%',
+              padding: '28px',
+              textAlign: 'center',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #FEE2E2',
+              position: 'relative',
+              animation: 'scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Red Danger Icon Badge */}
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                backgroundColor: '#FEE2E2',
+                color: '#DC2626',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.15)',
+              }}
+            >
+              <Trash2 size={26} />
+            </div>
+
+            {/* Modal Heading */}
+            <h3
+              style={{
+                fontSize: '1.25rem',
+                fontWeight: 800,
+                color: '#111827',
+                margin: '0 0 10px',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              {deleteConfirm.type === 'single'
+                ? 'Delete Product?'
+                : deleteConfirm.type === 'bulk'
+                ? `Delete ${deleteConfirm.count} Products?`
+                : 'Delete All Products?'}
+            </h3>
+
+            {/* Single Product Highlight Preview Card */}
+            {deleteConfirm.type === 'single' && deleteConfirm.product && (
+              <div
+                style={{
+                  backgroundColor: '#F9FAFB',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '12px',
+                  padding: '12px 14px',
+                  margin: '0 0 16px',
+                  textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}
+              >
+                {(() => {
+                  const pImg =
+                    deleteConfirm.product.images?.find((img) => img.isPrimary)?.imageUrl ||
+                    deleteConfirm.product.images?.[0]?.imageUrl ||
+                    deleteConfirm.product.images?.[0]?.url ||
+                    deleteConfirm.product.thumbnail;
+                  return pImg ? (
+                    <img
+                      src={pImg}
+                      alt={deleteConfirm.product.name || 'Product'}
+                      style={{
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '8px',
+                        objectFit: 'cover',
+                        border: '1px solid #E5E7EB',
+                        flexShrink: 0,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '8px',
+                        backgroundColor: '#EDE9FE',
+                        color: '#7E22CE',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Package size={20} />
+                    </div>
+                  );
+                })()}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: '13.5px',
+                      fontWeight: 700,
+                      color: '#1F2937',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {deleteConfirm.product.name}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
+                    Price:{' '}
+                    <b style={{ color: '#047857' }}>
+                      {money(deleteConfirm.product.salePrice || deleteConfirm.product.price)}
+                    </b>
+                    {deleteConfirm.product.sku && <span> • SKU: {deleteConfirm.product.sku}</span>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Warning Message */}
+            <p
+              style={{
+                fontSize: '13.5px',
+                color: '#6B7280',
+                lineHeight: '1.5',
+                margin: '0 0 24px',
+              }}
+            >
+              {deleteConfirm.type === 'single' ? (
+                <>
+                  Are you sure you want to permanently delete this product? This action cannot be undone and will remove it from your store catalog.
+                </>
+              ) : deleteConfirm.type === 'bulk' ? (
+                <>
+                  Are you sure you want to permanently delete these <b>{deleteConfirm.count} selected products</b>? This action cannot be undone.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to permanently delete <b>ALL products</b> in your catalog? This will completely empty your inventory and cannot be undone.
+                </>
+              )}
+            </p>
+
+            {/* Action Buttons: Cancel and Confirm (OK / Delete) */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '12px',
+                justifyContent: 'center',
+              }}
+            >
+              <button
+                type="button"
+                disabled={isExecutingDelete}
+                onClick={handleCloseDeleteConfirm}
+                style={{
+                  flex: 1,
+                  padding: '11px 18px',
+                  borderRadius: '10px',
+                  border: '1px solid #D1D5DB',
+                  backgroundColor: '#FFFFFF',
+                  fontSize: '13.5px',
+                  fontWeight: 700,
+                  color: '#4B5563',
+                  cursor: isExecutingDelete ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isExecutingDelete}
+                onClick={handleConfirmDelete}
+                style={{
+                  flex: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '11px 18px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  backgroundColor: isExecutingDelete ? '#9CA3AF' : '#DC2626',
+                  color: '#FFFFFF',
+                  fontSize: '13.5px',
+                  fontWeight: 700,
+                  cursor: isExecutingDelete ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 12px rgba(220, 38, 38, 0.25)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {isExecutingDelete ? (
+                  <>
+                    <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={15} />
+                    <span>OK, Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Embedded Modals for Fast Popups */}
       <CategoryManagerModal
