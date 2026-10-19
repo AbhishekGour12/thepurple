@@ -9,13 +9,13 @@ async function updateAdmin() {
     await sequelize.authenticate();
     console.log('✅ Database connected.');
 
-    const newEmail = (env.ADMIN_INITIAL_EMAIL || 'nowthepurple25@gmail.com').toLowerCase().trim();
+    const newEmail = (env.ADMIN_INITIAL_EMAIL || 'nowthepurple26@gmail.com').toLowerCase().trim();
     const password = env.ADMIN_INITIAL_PASSWORD || '123456';
 
     const salt = await bcrypt.genSalt(12);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // 1. Check if nowthepurple25@gmail.com already exists in Admins table
+    // 1. Check if nowthepurple26@gmail.com already exists in Admins table
     let admin = await Admin.findOne({ where: { email: newEmail } });
     if (admin) {
       await admin.update({

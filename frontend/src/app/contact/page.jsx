@@ -131,7 +131,7 @@ export default function ContactPage() {
             name: 'ThePurple',
             image: '/images/contact/contact-hero-giftbox.jpg',
             telephone: '+918966080203',
-            email: 'nowthepurple25@gmail.com',
+            email: 'nowthepurple26@gmail.com',
             priceRange: '₹₹',
             address: {
               '@type': 'PostalAddress',
@@ -539,13 +539,13 @@ export default function ContactPage() {
                 Email Us
               </h3>
               <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#6D28D9', marginBottom: '4px', wordBreak: 'break-all' }}>
-                nowthepurple25@gmail.com
+                nowthepurple26@gmail.com
               </div>
               <div style={{ fontSize: '12px', color: '#8B8795', marginBottom: '18px' }}>
                 We usually reply within 24 hours.
               </div>
               <a
-                href="mailto:nowthepurple25@gmail.com"
+                href="mailto:nowthepurple26@gmail.com"
                 style={{
                   marginTop: 'auto',
                   width: '100%',
@@ -1472,8 +1472,8 @@ export default function ContactPage() {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <Mail size={16} color="#6D28D9" style={{ flexShrink: 0 }} />
-                    <a href="mailto:nowthepurple25@gmail.com" style={{ color: '#18181B', fontWeight: 600, textDecoration: 'none' }}>
-                      nowthepurple25@gmail.com
+                    <a href="mailto:nowthepurple26@gmail.com" style={{ color: '#18181B', fontWeight: 600, textDecoration: 'none' }}>
+                      nowthepurple26@gmail.com
                     </a>
                   </div>
 

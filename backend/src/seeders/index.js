@@ -29,7 +29,7 @@ export const runSeeds = async () => {
         {
           name: 'Super Admin',
           mobile: '8966080203',
-          email: 'nowthepurple25@gmail.com',
+          email: 'nowthepurple26@gmail.com',
           role: 'SUPER_ADMIN',
           status: 'ACTIVE',
         },

@@ -13,7 +13,7 @@ export default function RootLayout({ children }) {
     '@type': 'JewelryStore',
     name: 'ThePurple',
     telephone: '+918966080203',
-    email: 'nowthepurple25@gmail.com',
+    email: 'nowthepurple26@gmail.com',
     priceRange: '₹₹',
     address: {
       '@type': 'PostalAddress',

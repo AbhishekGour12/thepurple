@@ -293,7 +293,7 @@ export default function Footer() {
                   <Mail size={14} />
                 </div>
                 <a
-                  href="mailto:nowthepurple25@gmail.com"
+                  href="mailto:nowthepurple26@gmail.com"
                   style={{
                     color: '#18181B',
                     fontWeight: 600,
@@ -303,7 +303,7 @@ export default function Footer() {
                     minWidth: 0,
                   }}
                 >
-                  nowthepurple25@gmail.com
+                  nowthepurple26@gmail.com
                 </a>
               </div>
 

@@ -76,7 +76,7 @@ export default function PrivacyPage() {
                 4. Contact Us
               </h2>
               <p>
-                If you have questions regarding your data privacy, please contact our support team at nowthepurple25@gmail.com.
+                If you have questions regarding your data privacy, please contact our support team at nowthepurple26@gmail.com.
               </p>
             </section>
           </div>
