@@ -73,10 +73,10 @@ export default function TermsPage() {
 
             <section>
               <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#18181B', marginBottom: '6px' }}>
-                4. Shipping & Returns
+                4. Shipping &amp; Delivery
               </h2>
               <p>
-                Standard shipping timelines and return policies apply to all orders placed through ThePurple platform. Damaged or defective items must be reported within 48 hours of delivery.
+                Standard shipping timelines apply to all orders placed through ThePurple platform. Please note that all sales are final and we do not accept product returns or exchanges. Damaged or defective items incurred during transit must be reported within 48 hours of delivery for replacement support.
               </p>
             </section>
           </div>

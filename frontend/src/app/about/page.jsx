@@ -898,7 +898,7 @@ export default function AboutPage() {
                 {[
                   'Trendy & Timeless Collections',
                   'Gifting for Every Occasion',
-                  'Easy Returns & Secure Payments',
+                  'Fast Delivery & Secure Payments',
                   'A Supportive & Friendly Team',
                 ].map((item, idx) => (
                   <div

@@ -1942,7 +1942,7 @@ export default function ProductDetailPage({ slug }) {
             {[
               { id: 'details', label: 'Product Details' },
               { id: 'specifications', label: 'Specifications' },
-              { id: 'shipping', label: 'Shipping & Returns' },
+              { id: 'shipping', label: 'Shipping & Delivery' },
               { id: 'reviews', label: `Customer Reviews (${dynamicReviewCount !== null ? dynamicReviewCount : (product.reviewCount || 0)})` },
               { id: 'care', label: 'Care Guide' },
             ].map((tab) => (

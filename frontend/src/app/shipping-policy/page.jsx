@@ -78,6 +78,15 @@ export default function ShippingPolicyPage() {
                   As soon as your order is handed over to our courier partner (Bluedart, Delhivery), you will receive a tracking link via SMS, WhatsApp, and Email to monitor your parcel in real-time.
                 </p>
               </section>
+
+              <section>
+                <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#18181B', marginBottom: '6px' }}>
+                  4. Non-Returnable Policy
+                </h2>
+                <p>
+                  Please note that all orders placed through ThePurple are non-returnable. We do not accept returns or exchanges once an order has been successfully delivered. In the rare case of physical damage during transit, please notify our concierge support within 48 hours with unboxing photos or video for immediate assistance.
+                </p>
+              </section>
             </div>
           </div>
         </div>

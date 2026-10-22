@@ -53,9 +53,9 @@ const QUICK_REPLY_TEMPLATES = [
       `Hello ${name || 'there'},\n\nThank you for your interest in ThePurple jewelry collection. Regarding your customization inquiry, our artisans can certainly tailor this piece to your specific preferences.\n\n`,
   },
   {
-    label: '🔄 Return / Exchange Support',
+    label: '🛡️ Transit Damage / Support',
     text: (name) =>
-      `Hello ${name || 'there'},\n\nWe are sorry to hear that you need assistance with a return or exchange. We offer a 7-day hassle-free exchange policy. Please ensure the jewelry is in its original luxury box with all tags intact.\n\n`,
+      `Hello ${name || 'there'},\n\nThank you for reaching out to us. Please note that all orders are non-returnable and we do not accept standard returns or exchanges. If your item was damaged during transit, please share unboxing photos or video so our team can assist you with a replacement.\n\n`,
   },
   {
     label: '✅ Inquiry Resolved',

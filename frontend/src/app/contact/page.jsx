@@ -60,10 +60,6 @@ export default function ContactPage() {
       a: 'Once your parcel is dispatched, you will receive an automated SMS, WhatsApp and email notification with your live courier tracking ID and link. You can also visit our Track Order page at any time to check real-time shipment milestones.',
     },
     {
-      q: 'What is your return policy?',
-      a: 'We offer a 7-day hassle-free return and exchange policy for unworn items in their original brand packaging with all certificates and security tags intact. Custom personalized items are covered for transit replacements.',
-    },
-    {
       q: 'What payment methods do you accept?',
       a: 'We accept 100% secure online payments via UPI (Google Pay, PhonePe, Paytm), all major Credit/Debit Cards, Net Banking, and digital wallets powered by Razorpay with instant order confirmation.',
     },
@@ -72,8 +68,8 @@ export default function ContactPage() {
       a: 'Metro cities are delivered within 2 to 4 business days via express air shipping. Rest of India pin codes receive delivery within 4 to 7 business days.',
     },
     {
-      q: 'How can I cancel my order?',
-      a: 'Orders can be cancelled before dispatch directly from your Account Orders dashboard or by sending a quick message to our concierge support team.',
+      q: 'What if my order arrives damaged in transit?',
+      a: 'Every package is fully insured and packed in tamper-proof signature packaging. In the rare event of transit damage, please notify our concierge support within 48 hours with unboxing photos or video, and our team will promptly assist you with a replacement.',
     },
   ];
 
@@ -955,7 +951,7 @@ export default function ContactPage() {
                           <option value="General Inquiry">General Inquiry</option>
                           <option value="Order Tracking & Status">Order Tracking &amp; Status</option>
                           <option value="Product Details & Customization">Product Details &amp; Customization</option>
-                          <option value="Returns & Exchanges">Returns &amp; Exchanges</option>
+                          <option value="Damaged / Transit Issue">Damaged / Transit Issue</option>
                           <option value="Corporate & Bulk Gifting">Corporate &amp; Bulk Gifting</option>
                         </select>
                         <ChevronDown size={16} color="#6B7280" style={{ position: 'absolute', right: '12px', top: '14px', pointerEvents: 'none' }} />
@@ -1220,7 +1216,7 @@ export default function ContactPage() {
                       Already placed an order?
                     </h4>
                     <p style={{ fontSize: '12px', color: '#6B7280', margin: 0, lineHeight: 1.4 }}>
-                      Need help with delivery, tracking or returns?
+                      Need help with delivery or tracking?
                     </p>
                   </div>
                 </div>

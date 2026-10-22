@@ -165,7 +165,7 @@ export default function ProfileDropdown({ user, onLogout, onClose }) {
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={linkTitleStyle}>My Orders</div>
-                  <div style={linkSubStyle}>Track, return & review orders</div>
+                  <div style={linkSubStyle}>Track &amp; review orders</div>
                 </div>
                 <ChevronRight size={15} style={{ color: '#9CA3AF' }} />
               </Link>

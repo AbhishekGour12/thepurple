@@ -39,42 +39,35 @@ export default function ReturnPolicyPage() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-              <RefreshCw size={28} color="#7E22CE" />
+              <ShieldCheck size={28} color="#7E22CE" />
               <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#18181B', margin: 0 }}>
-                Return &amp; Exchange Policy
+                Return &amp; Cancellation Policy
               </h1>
             </div>
 
             <p style={{ color: '#71717A', fontSize: '13px', marginBottom: '24px' }}>
-              Last updated: September 2026
+              Last updated: October 2026
             </p>
 
             <div style={{ fontSize: '14.5px', lineHeight: '1.7', color: '#3F3F46', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <section>
                 <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#18181B', marginBottom: '6px' }}>
-                  1. Return &amp; Replacement Policy
+                  1. Non-Returnable &amp; Final Sale Policy
                 </h2>
                 <p>
-                  We strive for 100% customer satisfaction. In the rare event that an item arrives damaged, defective, or incorrect, our customer care team will promptly arrange a replacement or refund upon notification.
+                  Due to the handcrafted, artisanal nature of our fine jewellery and strict hygiene standards, <strong>all sales are final</strong>. We do not accept returns, refunds, or exchanges once an order has been successfully delivered, and our platform does not feature automated product return functionality.
                 </p>
               </section>
 
               <section>
                 <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#18181B', marginBottom: '6px' }}>
-                  2. Eligibility Conditions
+                  2. Damaged in Transit or Manufacturing Defect
                 </h2>
                 <p>
-                  - Items must be unused, unwashed, and in their original packaging with tags, certificates, and warranty cards intact.<br />
-                  - Custom engraved items or personalized bespoke pieces are eligible for exchange only in case of transit damage or defect.
+                  Every piece undergoes rigorous multi-tier quality checks and is sealed in tamper-evident, insured luxury packaging prior to dispatch. In the rare event that your package arrives physically damaged, tampered, or defective, please contact our concierge team at <a href="mailto:nowthepurple26@gmail.com" style={{ color: '#7E22CE', fontWeight: 700, textDecoration: 'none' }}>nowthepurple26@gmail.com</a> or via WhatsApp/Call at <strong>+91 89660 80203</strong> within <strong>48 hours</strong> of delivery.
                 </p>
-              </section>
-
-              <section>
-                <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#18181B', marginBottom: '6px' }}>
-                  3. Instant Refund Processing
-                </h2>
-                <p>
-                  Once our quality team inspects the returned piece at our fulfillment hub, refunds are credited directly to your original payment mode (or UPI/Bank) within 3-5 business days.
+                <p style={{ marginTop: '8px' }}>
+                  Please share clear unboxing photos or video evidence showing the parcel packaging and the damaged item. Upon verification by our quality control team, we will promptly arrange an exchange replacement.
                 </p>
               </section>
             </div>
